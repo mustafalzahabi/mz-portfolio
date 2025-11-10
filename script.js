@@ -310,6 +310,12 @@ function buildProjects(projects) {
       const tag = document.createElement('span');
       tag.className = 'tech-tag';
       tag.textContent = tech;
+      // Color tech tags by language if available; otherwise use CSS default
+      const color = GITHUB_LANGUAGE_COLORS[tech];
+      if (color) {
+        tag.style.backgroundColor = color;
+        tag.style.color = isLightColor(color) ? '#000' : '#fff';
+      }
       techDiv.appendChild(tag);
     });
     
@@ -317,7 +323,6 @@ function buildProjects(projects) {
       const stars = document.createElement('span');
       stars.className = 'project-stars';
       stars.textContent = `⭐ ${proj.stars}`;
-      stars.style.cssText = 'margin-left:8px;font-size:12px;color:light-dark(#666, #aaa)';
       techDiv.appendChild(stars);
     }
     
@@ -484,6 +489,7 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
           image: readmeData?.firstImage || null,
           allImages: readmeData?.allImages || [],
           readmeDescription: displayDescription,
+          fullReadme: readmeData?.fullText || '',
           live_link: repo.homepage || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
@@ -498,6 +504,31 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
     return manualProjects || [];
   }
 }
+
+// GitHub language color mapping (commonly used languages)
+const GITHUB_LANGUAGE_COLORS = {
+  'JavaScript': '#f1e05a',
+  'TypeScript': '#2b7489',
+  'Python': '#3572A5',
+  'Java': '#b07219',
+  'C++': '#f34b7d',
+  'C#': '#239120',
+  'Go': '#00ADD8',
+  'Rust': '#CE422B',
+  'PHP': '#777BB4',
+  'Ruby': '#CC342D',
+  'CSS': '#563d7c',
+  'HTML': '#e34c26',
+  'JSON': '#c1e26f',
+  'Markdown': '#083fa1',
+  'SQL': '#336791',
+  'Shell': '#89e051',
+  'YAML': '#cb171e',
+  'Dockerfile': '#384d54',
+  'React': '#61dafb',
+  'Vue': '#2c3e50',
+  'Angular': '#dd0031'
+};
 
 async function fetchRepoLanguages(username, repoName) {
   try {
@@ -521,11 +552,13 @@ async function fetchReadmeData(username, repoName, branch) {
     const text = await res.text();
     const images = extractImages(text, username, repoName, branch);
     const description = extractDescription(text);
+    const fullReadmeWithoutFirstPara = stripFirstParagraph(text);
     
     return {
       firstImage: images[0] || null,
       allImages: images,
-      description
+      description,
+      fullText: fullReadmeWithoutFirstPara
     };
   } catch (e) {
     return null;
@@ -557,6 +590,25 @@ function extractDescription(readme) {
     }
   }
   return '';
+}
+
+function stripFirstParagraph(readme) {
+  const lines = readme.split('\n');
+  let foundPara = false;
+  let result = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!foundPara && trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('!')) {
+      foundPara = true;
+      continue;
+    }
+    if (foundPara) {
+      result.push(line);
+    }
+  }
+  
+  return result.join('\n').trim();
 }
 
 // ============================================================================
@@ -593,28 +645,23 @@ function renderProjectDetail(project) {
   // Back button
   const backBtn = document.createElement('a');
   backBtn.href = '#';
-  backBtn.style.cssText = 'display:inline-block;margin-top:40px;margin-bottom:20px;color:light-dark(#0066cc, #4a9eff);text-decoration:none;font-size:16px;font-weight:600';
+  backBtn.className = 'project-detail-back';
   backBtn.textContent = '← Back to Projects';
   main.appendChild(backBtn);
   
-  const section = document.createElement('section');
-  section.className = 'section';
-  section.style.paddingTop = '0';
-  
-  // Title
+  // Title and links
   const h1 = document.createElement('h1');
-  h1.style.cssText = 'font-size:36px;font-weight:700;margin-bottom:16px;color:light-dark(#1a1a1a, #e0e0e0)';
+  h1.className = 'project-detail-title';
   h1.textContent = project.name;
+  main.appendChild(h1);
   
-  // Links
   const links = document.createElement('div');
-  links.style.cssText = 'display:flex;gap:16px;margin-bottom:32px';
+  links.className = 'project-links';
   
   if (project.live_link) {
     const a = document.createElement('a');
     a.href = project.live_link;
     a.target = '_blank';
-    a.style.cssText = 'color:light-dark(#0066cc, #4a9eff);text-decoration:none;font-weight:600';
     a.textContent = '🔗 Live Demo';
     links.appendChild(a);
   }
@@ -622,58 +669,86 @@ function renderProjectDetail(project) {
   const ghLink = document.createElement('a');
   ghLink.href = project.github_link;
   ghLink.target = '_blank';
-  ghLink.style.cssText = 'color:light-dark(#0066cc, #4a9eff);text-decoration:none;font-weight:600';
   ghLink.textContent = '🐙 GitHub';
   links.appendChild(ghLink);
+  main.appendChild(links);
   
-  section.append(h1, links);
+  // Flex container: slideshow left, about/tech right
+  const container = document.createElement('div');
+  container.className = 'project-detail-container';
   
-  // Slideshow
+  // Left: Slideshow (smaller)
+  const leftCol = document.createElement('div');
+  leftCol.className = 'project-detail-left';
+  
   if (project.allImages?.length > 0) {
-    section.appendChild(buildSlideshow(project.allImages));
+    leftCol.appendChild(buildSlideshow(project.allImages));
   }
   
-  // Description
+  // Right: About + Technologies
+  const rightCol = document.createElement('div');
+  rightCol.className = 'project-detail-right';
+  
   if (project.readmeDescription) {
     const desc = document.createElement('div');
-    desc.style.marginTop = '32px';
+    desc.className = 'project-detail-section';
     
     const h2 = document.createElement('h2');
-    h2.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:16px';
     h2.textContent = 'About';
     
     const p = document.createElement('p');
-    p.style.cssText = 'color:light-dark(#666, #aaa);line-height:1.8';
     p.textContent = project.readmeDescription;
     
     desc.append(h2, p);
-    section.appendChild(desc);
+    rightCol.appendChild(desc);
   }
   
-  // Technologies
   if (project.technologies?.length > 0) {
     const tech = document.createElement('div');
-    tech.style.marginTop = '32px';
+    tech.className = 'project-detail-section';
     
     const h2 = document.createElement('h2');
-    h2.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:16px';
     h2.textContent = 'Technologies';
     
     const tags = document.createElement('div');
-    tags.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    tags.className = 'project-detail-tech';
     
     project.technologies.forEach(t => {
       const tag = document.createElement('span');
       tag.className = 'tech-tag';
       tag.textContent = t;
+      // Color tech tags by language if available; otherwise use CSS default
+      const color = GITHUB_LANGUAGE_COLORS[t];
+      if (color) {
+        tag.style.backgroundColor = color;
+        tag.style.color = isLightColor(color) ? '#000' : '#fff';
+      }
       tags.appendChild(tag);
     });
     
     tech.append(h2, tags);
-    section.appendChild(tech);
+    rightCol.appendChild(tech);
   }
   
-  main.appendChild(section);
+  container.append(leftCol, rightCol);
+  main.appendChild(container);
+  
+  // Full-width README section below
+  if (project.fullReadme) {
+    const readmeSection = document.createElement('section');
+    readmeSection.className = 'project-detail-readme';
+    
+    const readmeTitle = document.createElement('h2');
+    readmeTitle.textContent = 'README';
+    
+    const readmeContent = document.createElement('div');
+    readmeContent.className = 'project-detail-readme-content';
+    readmeContent.textContent = project.fullReadme;
+    
+    readmeSection.append(readmeTitle, readmeContent);
+    main.appendChild(readmeSection);
+  }
+  
   frag.appendChild(main);
   frag.appendChild(buildFooter());
   
@@ -688,10 +763,10 @@ function renderProjectDetail(project) {
 
 function buildSlideshow(images) {
   const container = document.createElement('div');
-  container.style.marginTop = '32px';
+  container.className = 'slideshow-container';
   
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:relative;background-color:light-dark(#f2f2f2, #2a2a2a);border-radius:12px;overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center';
+  wrapper.className = 'slideshow-wrapper';
   
   let currentIndex = 0;
   
@@ -699,51 +774,81 @@ function buildSlideshow(images) {
   img.className = 'slideshow-img';
   img.src = images[0];
   img.alt = 'Project screenshot';
-  img.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:1';
   img.onerror = () => img.style.display = 'none';
   
   const counter = document.createElement('div');
-  counter.style.cssText = 'position:absolute;bottom:16px;right:16px;background:rgba(0,0,0,0.6);color:#fff;padding:8px 12px;border-radius:6px;font-size:14px;font-weight:600';
+  counter.className = 'slideshow-counter';
   counter.textContent = `${currentIndex + 1}/${images.length}`;
   
   wrapper.append(img, counter);
   
   if (images.length > 1) {
-    const createBtn = (text, onClick) => {
-      const btn = document.createElement('button');
-      btn.textContent = text;
-      btn.style.cssText = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);color:#fff;border:none;padding:12px 16px;border-radius:6px;cursor:pointer;font-size:18px;font-weight:700;transition:background 0.2s';
-      btn.onmouseover = () => btn.style.background = 'rgba(0,0,0,0.8)';
-      btn.onmouseout = () => btn.style.background = 'rgba(0,0,0,0.6)';
-      btn.onclick = () => {
+    const animateSlide = (direction, onClick) => {
+      // Slide out in direction, swap image, slide back in
+      const translateDistance = direction === 'next' ? 100 : -100;
+      img.style.transform = `translateX(${translateDistance}%)`;
+      img.style.opacity = '0';
+      
+      setTimeout(() => {
+        onClick();
+        img.src = images[currentIndex];
+        counter.textContent = `${currentIndex + 1}/${images.length}`;
+        // Reset to opposite position and slide back in
+        img.style.transform = `translateX(${-translateDistance}%)`;
         img.style.opacity = '0';
-        setTimeout(() => {
-          onClick();
-          img.style.opacity = '1';
-        }, 150);
-      };
+        
+        // Trigger reflow to restart animation
+        void img.offsetWidth;
+        
+        img.style.transform = 'translateX(0)';
+        img.style.opacity = '1';
+      }, 200);
+    };
+    
+    const createBtn = (text, direction, onClick) => {
+      const btn = document.createElement('button');
+      btn.className = 'slideshow-btn';
+      btn.textContent = text;
+      btn.onmouseover = () => btn.style.background = 'rgba(0,0,0,0.7)';
+      btn.onmouseout = () => btn.style.background = 'rgba(0,0,0,0.5)';
+      btn.onclick = () => animateSlide(direction, onClick);
       return btn;
     };
     
-    const prevBtn = createBtn('◀', () => {
+    const prevBtn = createBtn('◀', 'prev', () => {
       currentIndex = (currentIndex - 1 + images.length) % images.length;
-      img.src = images[currentIndex];
-      counter.textContent = `${currentIndex + 1}/${images.length}`;
     });
     prevBtn.style.left = '16px';
     
-    const nextBtn = createBtn('▶', () => {
+    const nextBtn = createBtn('▶', 'next', () => {
       currentIndex = (currentIndex + 1) % images.length;
-      img.src = images[currentIndex];
-      counter.textContent = `${currentIndex + 1}/${images.length}`;
     });
     nextBtn.style.right = '16px';
     
-    wrapper.append(prevBtn, nextBtn);
+    const buttons = document.createElement('div');
+    buttons.className = 'slideshow-buttons';
+    buttons.append(prevBtn, nextBtn);
+    wrapper.appendChild(buttons);
   }
   
   container.appendChild(wrapper);
   return container;
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function isLightColor(hexColor) {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+  // Convert to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  // Calculate luminance using WCAG formula
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5;
 }
 
 // ============================================================================
