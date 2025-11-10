@@ -82,11 +82,21 @@ async function loadData() {
     frag.appendChild(buildNavbar());
     
     const main = document.createElement('main');
+    
+    const githubUsername = extractGithubUsername(data.profile.github) || 'mustafalzahabi';
+    
+    // Fetch GitHub profile photo if not overridden in data.json
+    if (!data.profile.photo || data.profile.photo.includes('default')) {
+      const githubPhoto = await fetchGithubUserAvatar(githubUsername);
+      if (githubPhoto) {
+        data.profile.photo = githubPhoto;
+      }
+    }
+    
     main.appendChild(buildHero(data.profile));
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
     
-    const githubUsername = extractGithubUsername(data.profile.github) || 'mustafalzahabi';
     const allProjects = await fetchAndMergeProjects(data.projects || [], githubUsername);
     allProjectsData = allProjects;
     main.appendChild(buildProjects(allProjects));
@@ -463,6 +473,19 @@ function extractGithubUsername(url) {
   if (typeof url !== 'string') return null;
   const match = url.match(/github\.com\/([^\/]+)/);
   return match ? match[1] : null;
+}
+
+async function fetchGithubUserAvatar(username) {
+  try {
+    const url = `https://api.github.com/users/${username}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const user = await res.json();
+    return user.avatar_url || null;
+  } catch (e) {
+    console.warn('Could not fetch GitHub user avatar:', e.message);
+    return null;
+  }
 }
 
 async function fetchAndMergeProjects(manualProjects, githubUsername) {
