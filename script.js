@@ -182,37 +182,65 @@ function buildNavbar() {
 function buildHero(profile) {
   const section = document.createElement('section');
   section.id = 'home';
-  section.className = 'hero';
+  section.className = 'profile-header';
   
-  const content = document.createElement('div');
-  content.className = 'hero-content';
+  // Background banner
+  const banner = document.createElement('div');
+  banner.className = 'profile-banner';
+  section.appendChild(banner);
   
-  const h1 = document.createElement('h1');
-  h1.textContent = profile.name;
+  // Profile info container
+  const infoContainer = document.createElement('div');
+  infoContainer.className = 'profile-info-container';
   
-  const title = document.createElement('div');
-  title.className = 'title';
-  title.textContent = profile.title;
-  
-  const tagline = document.createElement('p');
-  tagline.className = 'tagline';
-  tagline.textContent = profile.tagline;
-  
-  const cta = document.createElement('a');
-  cta.href = '#projects';
-  cta.className = 'hero-cta';
-  cta.textContent = profile.cta;
-  
-  content.append(h1, title, tagline, cta);
-  
-  const imgDiv = document.createElement('div');
-  imgDiv.className = 'hero-image';
+  // Profile photo with overlap
+  const photoDiv = document.createElement('div');
+  photoDiv.className = 'profile-photo-wrapper';
   const img = document.createElement('img');
   img.src = profile.photo;
   img.alt = profile.name;
-  imgDiv.appendChild(img);
+  img.className = 'profile-photo';
+  photoDiv.appendChild(img);
+  infoContainer.appendChild(photoDiv);
   
-  section.append(content, imgDiv);
+  // Profile details
+  const details = document.createElement('div');
+  details.className = 'profile-details';
+  
+  const h1 = document.createElement('h1');
+  h1.className = 'profile-name';
+  h1.textContent = profile.name;
+  
+  const title = document.createElement('div');
+  title.className = 'profile-title';
+  title.textContent = profile.title;
+  
+  const tagline = document.createElement('p');
+  tagline.className = 'profile-tagline';
+  tagline.textContent = profile.tagline;
+  
+  details.append(h1, title, tagline);
+  infoContainer.appendChild(details);
+  section.appendChild(infoContainer);
+  
+  // Tabs navigation
+  const tabsNav = document.createElement('nav');
+  tabsNav.className = 'profile-tabs';
+  
+  const tabList = document.createElement('ul');
+  tabList.className = 'tab-list';
+  
+  const tab = document.createElement('li');
+  const tabLink = document.createElement('a');
+  tabLink.href = '#';
+  tabLink.className = 'tab-link active';
+  tabLink.textContent = 'My Profile';
+  tab.appendChild(tabLink);
+  tabList.appendChild(tab);
+  
+  tabsNav.appendChild(tabList);
+  section.appendChild(tabsNav);
+  
   return section;
 }
 
