@@ -1,7 +1,7 @@
 {
   "profile":{
     "name": "Mustafa Alzahabi",
-    "photo":"assets/profile.jpg",
+    "photo":"default",
     "title": "Web Developer",
     "tagline": "Creating visually engaging and user-centric digital experiences",
     "cta": "View My Work"
