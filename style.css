@@ -32,11 +32,6 @@ body{
 .profile-head p{margin:2px 0 0 0;color:rgba(255,255,255,0.9)}
 .rightcol{width:300px}
 
-.compose{background:var(--card);padding:12px;border-radius:12px;margin-bottom:12px}
-.compose textarea{width:100%;border:1px solid #e6e6e6;padding:8px;border-radius:8px;resize:vertical}
-.actions{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.btn{background:var(--brand);color:#fff;padding:8px 12px;border-radius:999px;border:none;cursor:pointer}
-.meta{display:flex;gap:12px;color:#657786;font-size:14px}
 .card .card-actions{display:flex;gap:16px;margin-top:8px;color:#657786}
 .like{cursor:pointer}
 @media (max-width:900px){.container{flex-direction:column}.sidebar{width:100%}}

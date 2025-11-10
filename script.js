@@ -48,47 +48,26 @@ function renderFeed(projects){
   const feed = document.getElementById('feed');
   if(!projects || projects.length===0){feed.innerHTML='<p>No projects yet.</p>';return}
 
-  // compose box
-  feed.innerHTML = `
-    <div class="compose card">
-      <textarea id="composeText" rows="3" placeholder="Share a project or a quick note..."></textarea>
-      <div class="actions">
-        <div class="meta">Draft</div>
-        <button id="postBtn" class="btn">Post</button>
-      </div>
-    </div>
-  `;
-
-  // render project cards
-  feed.innerHTML += projects.map((p,idx)=>`
+  // render project cards only (no compose box)
+  feed.innerHTML = projects.map((p,idx)=>`
     <article class="card" data-idx="${idx}">
-      <h2>${p.title}</h2>
-      <p>${p.description}</p>
-      ${p.image?`<img src="${p.image}" alt="${p.title}" />`:''}
-      ${p.link?`<p><a href="${p.link}" target="_blank">View Project</a></p>`:''}
-      <div class="card-actions">
-        <span class="like" data-liked="false">❤ <span class="like-count">${p.likes||0}</span></span>
-        <span>🔁</span>
-        <span>🔗</span>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${p.image?`<img src="${p.image}" alt="${p.title}" style="width:72px;height:72px;object-fit:cover;border-radius:8px">`:''}
+        <div style="flex:1">
+          <h2>${p.title}</h2>
+          <p>${p.description}</p>
+          ${p.link?`<p><a href="${p.link}" target="_blank">View Project</a></p>`:''}
+          <div class="card-actions">
+            <span class="like" data-liked="false">❤ <span class="like-count">${p.likes||0}</span></span>
+            <span>🔁</span>
+            <span>🔗</span>
+          </div>
+        </div>
       </div>
     </article>
   `).join('');
 
-  // wire interactions
-  document.getElementById('postBtn').addEventListener('click', ()=>{
-    const text = document.getElementById('composeText').value.trim();
-    if(!text) return alert('Please enter something to post');
-    // prepend as a new card (client-side only)
-    const newCard = document.createElement('article');
-    newCard.className = 'card';
-    newCard.innerHTML = `
-      <h2>New Post</h2>
-      <p>${escapeHtml(text)}</p>
-    `;
-    feed.insertBefore(newCard, feed.querySelector('.card').nextSibling);
-    document.getElementById('composeText').value = '';
-  });
-
+  // wire like interactions
   Array.from(document.querySelectorAll('.like')).forEach(el=>{
     el.addEventListener('click', ()=>{
       const liked = el.getAttribute('data-liked') === 'true';
