@@ -36,24 +36,6 @@
       "notes": "Exams taken at International Islamic School (IIS)."
     }
   ],
-  "projects": [
-    {
-      "name": "Project 1",
-      "description": "Description of Project 1 goes here.",
-      "technologies": ["HTML", "CSS", "JavaScript"],
-      "image": "assets/projects/project1.jpg",
-      "live_link": "https://example.com",
-      "github_link": "https://github.com/mustafalzahabi/project1"
-    },
-    {
-      "name": "Project 2",
-      "description": "Description of Project 2 goes here.",
-      "technologies": ["Node.js", "Python", "SQL"],
-      "image": "assets/projects/project2.jpg",
-      "live_link": "https://example.com",
-      "github_link": "https://github.com/mustafalzahabi/project2"
-    }
-  ],
   "skills": [
     {
       "category": "Frontend",
