@@ -232,12 +232,16 @@ function buildHero(profile, contact) {
   banner.appendChild(bannerLinks);
   section.appendChild(banner);
   
+  // Profile info container
+  const infoContainer = document.createElement('div');
+  infoContainer.className = 'profile-info-container';
+  
   // Profile photo
   const img = document.createElement('img');
   img.src = profile.photo;
   img.alt = profile.name;
   img.className = 'profile-photo';
-  section.appendChild(img);
+  infoContainer.appendChild(img);
   
   // Profile details
   const details = document.createElement('div');
@@ -256,7 +260,8 @@ function buildHero(profile, contact) {
   tagline.textContent = profile.tagline;
   
   details.append(h1, title, tagline);
-  section.appendChild(details);
+  infoContainer.appendChild(details);
+  section.appendChild(infoContainer);
   
   // Tabs navigation
   const tabsNav = document.createElement('nav');

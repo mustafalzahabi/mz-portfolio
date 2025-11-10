@@ -149,7 +149,7 @@ main {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.profile-header > :nth-child(2) {
+.profile-info-container {
   display: flex;
   gap: 24px;
   padding: 0 24px;
@@ -280,7 +280,7 @@ main {
     height: 140px;
   }
 
-  .profile-header > :nth-child(2) {
+  .profile-info-container {
     padding: 0 16px;
     gap: 16px;
     align-items: flex-end;
