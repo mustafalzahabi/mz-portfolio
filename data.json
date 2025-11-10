@@ -1,23 +1,77 @@
 {
   "profile":{
-    "name":"Your Name",
-    "title":"Web Developer",
-    "bio":"A short bio — I build web apps and interfaces. Replace this text with your real bio.",
-    "email":"your.email@example.com",
-    "image":"assets/profile.jpg"
+    "name": "Mustafa Alzahabi",
+    "photo":"assets/profile.jpg",
+    "title": "Web Developer",
+    "tagline": "Creating visually engaging and user-centric digital experiences",
+    "cta": "View My Work"
   },
-  "projects":[
+  "about": {
+    "bio": "Highly motivated developer with strong technical skills and a passion for innovative, user-focused digital solutions. Holds an Associate of Science in Computer Science from University of the People and currently pursuing a Bachelor's degree in Computer Science (expected Nov 2025). Experienced in web development technologies and continuously learning to enhance professional expertise.",
+    "philosophy": "Strive for excellence in every project while combining creativity and functionality in web development.",
+    "cv_link": "assets/Mustafa_Alzahabi_Resume.pdf"
+  },
+  "education": [
     {
-      "title":"Sample Project One",
-      "description":"A short description of project one.",
-      "image":"assets/project1.jpg",
-      "link":"#"
+      "degree": "Bachelor’s Degree in Computer Science",
+      "institution": "University of the People",
+      "location": "California, United States",
+      "start_date": "Aug 2021",
+      "end_date": "Expected Nov 2025",
+      "notes": "Studying online; work is not affected by studies."
     },
     {
-      "title":"Sample Project Two",
-      "description":"A short description of project two.",
-      "image":"assets/project2.jpg",
-      "link":"#"
+      "degree": "Associate of Science in Computer Science",
+      "institution": "University of the People",
+      "location": "California, United States",
+      "start_date": "Aug 2021",
+      "end_date": "Nov 2024"
+    },
+    {
+      "degree": "International General Certificate of Secondary Education (IGCSE)",
+      "institution": "Adni Islamic School",
+      "location": "Selangor, Malaysia",
+      "start_date": "Jan 2016",
+      "end_date": "Jun 2020",
+      "notes": "Exams taken at International Islamic School (IIS)."
     }
-  ]
+  ],
+  "projects": [
+    {
+      "name": "Project 1",
+      "description": "Description of Project 1 goes here.",
+      "technologies": ["HTML", "CSS", "JavaScript"],
+      "image": "assets/projects/project1.jpg",
+      "live_link": "https://example.com",
+      "github_link": "https://github.com/mustafalzahabi/project1"
+    },
+    {
+      "name": "Project 2",
+      "description": "Description of Project 2 goes here.",
+      "technologies": ["Node.js", "Python", "SQL"],
+      "image": "assets/projects/project2.jpg",
+      "live_link": "https://example.com",
+      "github_link": "https://github.com/mustafalzahabi/project2"
+    }
+  ],
+  "skills": [
+    {
+      "category": "Frontend",
+      "items": ["HTML", "XML", "CSS", "JavaScript", "Interface Design (UI)"]
+    },
+    {
+      "category": "Backend",
+      "items": ["Node.js", "Python", "SQL", "PHP"]
+    },
+    {
+      "category": "Languages",
+      "items": ["Arabic", "English"]
+    }
+  ],
+  "contact": {
+    "email": "mustafalzahabi2@gmail.com",
+    "github": "https://github.com/mustafalzahabi",
+    "linkedin": "https://www.linkedin.com/in/mustafalzahabi",
+    "message": "Feel free to reach out for collaboration or project inquiries."
+  }
 }
