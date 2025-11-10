@@ -232,19 +232,12 @@ function buildHero(profile, contact) {
   banner.appendChild(bannerLinks);
   section.appendChild(banner);
   
-  // Profile info container
-  const infoContainer = document.createElement('div');
-  infoContainer.className = 'profile-info-container';
-  
-  // Profile photo with overlap
-  const photoDiv = document.createElement('div');
-  photoDiv.className = 'profile-photo-wrapper';
+  // Profile photo
   const img = document.createElement('img');
   img.src = profile.photo;
   img.alt = profile.name;
   img.className = 'profile-photo';
-  photoDiv.appendChild(img);
-  infoContainer.appendChild(photoDiv);
+  section.appendChild(img);
   
   // Profile details
   const details = document.createElement('div');
@@ -263,8 +256,7 @@ function buildHero(profile, contact) {
   tagline.textContent = profile.tagline;
   
   details.append(h1, title, tagline);
-  infoContainer.appendChild(details);
-  section.appendChild(infoContainer);
+  section.appendChild(details);
   
   // Tabs navigation
   const tabsNav = document.createElement('nav');
