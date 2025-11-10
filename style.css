@@ -161,8 +161,8 @@ main {
 
 .profile-photo {
   flex-shrink: 0;
-  margin-top: -110px;
-  margin-bottom: 0;
+  margin-top: -50%;
+  margin-bottom: 5%;
   width: 220px;
   height: 220px;
   border-radius: 50%;
