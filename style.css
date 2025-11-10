@@ -1,0 +1,42 @@
+/* Twitter-inspired portfolio styles */
+:root{
+  --brand:#1da1f2;
+  --bg:#e6ecf0;
+  --card:#fff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background:var(--bg);
+  color:#14171a;
+}
+.site-header{
+  background:var(--brand);
+  color:#fff;
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.site-header .profile{display:flex;align-items:center}
+.site-header img{width:48px;height:48px;border-radius:50%;margin-right:12px}
+.container{display:flex;gap:24px;max-width:1100px;margin:20px auto;padding:0 16px}
+.sidebar{width:260px;background:var(--card);padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.feed{flex:1;max-width:640px}
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+.card img{width:100%;border-radius:8px;margin-top:8px}
+.card h2{margin:0 0 8px 0;font-size:18px}
+.card p{margin:0 0 12px 0;color:#333}
+.profile-head h1{margin:0;font-size:18px}
+.profile-head p{margin:2px 0 0 0;color:rgba(255,255,255,0.9)}
+.rightcol{width:300px}
+
+.compose{background:var(--card);padding:12px;border-radius:12px;margin-bottom:12px}
+.compose textarea{width:100%;border:1px solid #e6e6e6;padding:8px;border-radius:8px;resize:vertical}
+.actions{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.btn{background:var(--brand);color:#fff;padding:8px 12px;border-radius:999px;border:none;cursor:pointer}
+.meta{display:flex;gap:12px;color:#657786;font-size:14px}
+.card .card-actions{display:flex;gap:16px;margin-top:8px;color:#657786}
+.like{cursor:pointer}
+@media (max-width:900px){.container{flex-direction:column}.sidebar{width:100%}}
