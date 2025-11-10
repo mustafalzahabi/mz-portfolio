@@ -743,7 +743,7 @@ function renderProjectDetail(project) {
     
     const readmeContent = document.createElement('div');
     readmeContent.className = 'project-detail-readme-content';
-    readmeContent.textContent = project.fullReadme;
+    readmeContent.innerHTML = markdownToHtml(project.fullReadme);
     
     readmeSection.append(readmeTitle, readmeContent);
     main.appendChild(readmeSection);
@@ -784,25 +784,29 @@ function buildSlideshow(images) {
   
   if (images.length > 1) {
     const animateSlide = (direction, onClick) => {
-      // Slide out in direction, swap image, slide back in
-      const translateDistance = direction === 'next' ? 100 : -100;
-      img.style.transform = `translateX(${translateDistance}%)`;
-      img.style.opacity = '0';
+      // Determine which animations to use based on direction
+      const outClass = direction === 'next' ? 'slide-out-left' : 'slide-out-right';
+      const inClass = direction === 'next' ? 'slide-in-right' : 'slide-in-left';
       
+      // Add exit animation class
+      img.classList.add(outClass);
+      
+      // Wait for animation to complete before swapping image
       setTimeout(() => {
+        // Remove old animation classes
+        img.classList.remove(outClass, inClass);
+        
+        // Update image and counter
         onClick();
         img.src = images[currentIndex];
         counter.textContent = `${currentIndex + 1}/${images.length}`;
-        // Reset to opposite position and slide back in
-        img.style.transform = `translateX(${-translateDistance}%)`;
-        img.style.opacity = '0';
         
-        // Trigger reflow to restart animation
+        // Trigger reflow to allow new animation to start
         void img.offsetWidth;
         
-        img.style.transform = 'translateX(0)';
-        img.style.opacity = '1';
-      }, 200);
+        // Add enter animation class
+        img.classList.add(inClass);
+      }, 400);
     };
     
     const createBtn = (text, direction, onClick) => {
@@ -833,6 +837,63 @@ function buildSlideshow(images) {
   
   container.appendChild(wrapper);
   return container;
+}
+
+// ============================================================================
+// MARKDOWN TO HTML CONVERTER
+// ============================================================================
+
+function markdownToHtml(markdown) {
+  let html = markdown;
+  
+  // Escape HTML characters to prevent injection
+  html = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  
+  // Convert back markdown syntax to HTML
+  // Headers: # -> <h3>, ## -> <h4>, etc.
+  html = html.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^## (.*?)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.*?)$/gm, '<h2>$1</h2>');
+  
+  // Bold: **text** -> <strong>text</strong>
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Italic: *text* -> <em>text</em>
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  // Code blocks: ```code``` -> <pre><code>code</code></pre>
+  html = html.replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>');
+  
+  // Inline code: `code` -> <code>code</code>
+  html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+  
+  // Links: [text](url) -> <a href="url" target="_blank">text</a>
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+  
+  // Unordered lists: - item -> <li>item</li> (wrapped in <ul>)
+  html = html.replace(/^- (.*?)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*?<\/li>)/s, '<ul>$1</ul>');
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  
+  // Paragraphs: convert double newlines to <p>
+  html = html.replace(/\n\n+/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  
+  // Clean up empty paragraphs
+  html = html.replace(/<p><\/p>/g, '');
+  html = html.replace(/<p>(<h[2-4]>)/g, '$1');
+  html = html.replace(/(<\/h[2-4]>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<pre>)/g, '$1');
+  html = html.replace(/(<\/pre>)<\/p>/g, '$1');
+  html = html.replace(/<p>(<ul>)/g, '$1');
+  html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+  
+  return html;
 }
 
 // ============================================================================
