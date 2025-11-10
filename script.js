@@ -220,6 +220,18 @@ function buildHero(profile) {
   tagline.textContent = profile.tagline;
   
   details.append(h1, title, tagline);
+  
+  // Resume link area (similar to Twitter link area)
+  const linksArea = document.createElement('div');
+  linksArea.className = 'profile-links-area';
+  const resumeLink = document.createElement('a');
+  resumeLink.href = profile.cv_link || '#';
+  resumeLink.target = '_blank';
+  resumeLink.className = 'profile-link-item';
+  resumeLink.textContent = '📄 Resume';
+  linksArea.appendChild(resumeLink);
+  details.appendChild(linksArea);
+  
   infoContainer.appendChild(details);
   section.appendChild(infoContainer);
   

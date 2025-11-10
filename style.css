@@ -129,9 +129,9 @@ main {
 
 .profile-photo-wrapper {
   flex-shrink: 0;
-  margin-top: -60px;
-  width: 120px;
-  height: 120px;
+  margin-top: -80px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   background: light-dark(#f2f2f2, #2a2a2a);
   border: 4px solid light-dark(#fff, #0d0d0d);
@@ -171,9 +171,33 @@ main {
 .profile-tagline {
   font-size: 15px;
   color: light-dark(#666, #aaa);
-  margin: 0;
+  margin: 0 0 12px 0;
   max-width: 600px;
   line-height: 1.5;
+}
+
+.profile-links-area {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.profile-link-item {
+  display: inline-block;
+  padding: 8px 16px;
+  background: light-dark(#f2f2f2, #2a2a2a);
+  color: light-dark(#0066cc, #4a9eff);
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid light-dark(#e0e0e0, #444);
+  transition: background 0.2s, color 0.2s;
+}
+
+.profile-link-item:hover {
+  background: light-dark(#e0e0e0, #444);
+  color: light-dark(#0052a3, #6ab4ff);
 }
 
 /* Profile Tabs */
@@ -235,9 +259,15 @@ main {
     height: 140px;
   }
 
+  .profile-photo-wrapper {
+    margin-top: -60px;
+    width: 120px;
+    height: 120px;
+  }
+
   .profile-photo {
-    width: 100px;
-    height: 100px;
+    width: 100%;
+    height: 100%;
     border-width: 3px;
   }
 
@@ -260,6 +290,11 @@ main {
 
   .profile-tagline {
     font-size: 13px;
+  }
+
+  .profile-link-item {
+    font-size: 13px;
+    padding: 6px 12px;
   }
 
   .tab-link {
