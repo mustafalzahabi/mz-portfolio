@@ -94,7 +94,12 @@ async function loadData() {
     main.appendChild(buildHero(data.profile));
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
-    main.appendChild(buildProjects(data.projects));
+    
+    // Fetch GitHub repos and merge with manual projects
+    const githubUsername = data.profile.github ? extractGithubUsername(data.profile.github) : 'mustafalzahabi';
+    const allProjects = await fetchAndMergeProjects(data.projects, githubUsername);
+    main.appendChild(buildProjects(allProjects));
+    
     main.appendChild(buildSkills(data.skills));
     main.appendChild(buildContact(data.contact));
     app.appendChild(main);
@@ -303,12 +308,17 @@ function buildProjects(projects) {
     const card = document.createElement('div');
     card.className = 'project-card';
     
-    const imgDiv = document.createElement('div');
-    imgDiv.className = 'project-image';
-    const img = document.createElement('img');
-    img.src = proj.image;
-    img.alt = proj.name;
-    imgDiv.appendChild(img);
+    // Only show image if it exists
+    if (proj.image) {
+      const imgDiv = document.createElement('div');
+      imgDiv.className = 'project-image';
+      const img = document.createElement('img');
+      img.src = proj.image;
+      img.alt = proj.name;
+      img.onerror = () => { imgDiv.style.display = 'none'; }; // Hide if image fails to load
+      imgDiv.appendChild(img);
+      card.appendChild(imgDiv);
+    }
     
     const content = document.createElement('div');
     content.className = 'project-content';
@@ -328,20 +338,32 @@ function buildProjects(projects) {
       techDiv.appendChild(tag);
     });
     
+    // Show stars for GitHub repos
+    if (proj.isGitHubRepo && proj.stars !== undefined) {
+      const starsSpan = document.createElement('span');
+      starsSpan.className = 'project-stars';
+      starsSpan.textContent = `⭐ ${proj.stars}`;
+      starsSpan.style.marginLeft = '8px';
+      starsSpan.style.fontSize = '12px';
+      starsSpan.style.color = 'light-dark(#666, #aaa)';
+      techDiv.appendChild(starsSpan);
+    }
+    
     const links = document.createElement('div');
     links.className = 'project-links';
     
-    const liveLink = document.createElement('a');
-    liveLink.href = proj.live_link;
-    liveLink.target = '_blank';
-    liveLink.textContent = 'Live Demo';
+    if (proj.live_link) {
+      const liveLink = document.createElement('a');
+      liveLink.href = proj.live_link;
+      liveLink.target = '_blank';
+      liveLink.textContent = 'Live Demo';
+      links.appendChild(liveLink);
+    }
     
     const ghLink = document.createElement('a');
     ghLink.href = proj.github_link;
     ghLink.target = '_blank';
     ghLink.textContent = 'GitHub';
-    
-    links.appendChild(liveLink);
     links.appendChild(ghLink);
     
     content.appendChild(h3);
@@ -349,7 +371,6 @@ function buildProjects(projects) {
     content.appendChild(techDiv);
     content.appendChild(links);
     
-    card.appendChild(imgDiv);
     card.appendChild(content);
     grid.appendChild(card);
   });
@@ -445,6 +466,86 @@ function buildFooter() {
   p.textContent = `© ${year} Mustafa Alzahabi. All rights reserved.`;
   footer.appendChild(p);
   return footer;
+}
+
+// Extract GitHub username from URL or return as-is
+function extractGithubUsername(githubUrl) {
+  if (typeof githubUrl !== 'string') return 'mustafalzahabi';
+  const match = githubUrl.match(/github\.com\/([^\/]+)/);
+  return match ? match[1] : githubUrl;
+}
+
+// Fetch GitHub repos and extract screenshots from README
+async function fetchAndMergeProjects(manualProjects, githubUsername) {
+  try {
+    // Fetch all public repos for the user
+    const reposRes = await fetch(`https://api.github.com/users/${githubUsername}/repos?type=public&sort=stars&per_page=100`);
+    if (!reposRes.ok) throw new Error('Failed to fetch GitHub repos');
+    
+    let repos = await reposRes.json();
+    
+    // Filter out forks
+    repos = repos.filter(repo => !repo.fork);
+    
+    // Fetch README and extract screenshot for each repo
+    const reposWithScreenshots = await Promise.all(
+      repos.map(async (repo) => {
+        const screenshot = await extractScreenshotFromREADME(githubUsername, repo.name, repo.default_branch);
+        return {
+          name: repo.name,
+          description: repo.description || 'No description',
+          technologies: repo.language ? [repo.language] : [],
+          image: screenshot, // Can be null
+          live_link: repo.homepage || null,
+          github_link: repo.html_url,
+          stars: repo.stargazers_count,
+          isGitHubRepo: true
+        };
+      })
+    );
+    
+    // Combine: manual projects first (featured), then GitHub repos
+    return [
+      ...manualProjects,
+      ...reposWithScreenshots
+    ];
+  } catch (e) {
+    console.warn('Could not fetch GitHub repos, using manual projects only:', e);
+    return manualProjects;
+  }
+}
+
+// Extract screenshot URL from README
+async function extractScreenshotFromREADME(username, repoName, defaultBranch) {
+  try {
+    const readmeRes = await fetch(
+      `https://api.github.com/repos/${username}/${repoName}/readme`,
+      { headers: { 'Accept': 'application/vnd.github.v3.raw' } }
+    );
+    
+    if (!readmeRes.ok) return null;
+    
+    const readmeText = await readmeRes.text();
+    
+    // Extract image URLs from Markdown: ![alt](url)
+    const imageRegex = /!\[.*?\]\((.*?)\)/g;
+    const matches = readmeText.matchAll(imageRegex);
+    
+    for (const match of matches) {
+      const imageUrl = match[1];
+      
+      // Only accept relative URLs (files in the repo)
+      if (imageUrl.startsWith('./') || imageUrl.startsWith('/') || (!imageUrl.includes('://'))) {
+        // Convert relative URL to raw GitHub URL
+        const normalizedUrl = imageUrl.startsWith('./') ? imageUrl.slice(2) : imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
+        return `https://raw.githubusercontent.com/${username}/${repoName}/${defaultBranch}/${normalizedUrl}`;
+      }
+    }
+    
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Initialize on page load

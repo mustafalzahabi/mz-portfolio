@@ -10,6 +10,7 @@ A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScr
 - ✅ **Error Handling** - Loading states, error pages, and graceful fallbacks
 - ✅ **No Dependencies** - Pure vanilla HTML, CSS, JS (no frameworks or libraries)
 - ✅ **LocalStorage** - Persists theme preference across sessions
+- ✅ **GitHub Integration** - Auto-syncs public repos, extracts screenshots from READMEs
 
 ## File Structure
 
@@ -32,8 +33,10 @@ A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScr
 
 1. **Browser loads `index.html`** - Minimal entry point with `<noscript>` fallback
 2. **`script.js` loads** - Fetches `data.json` and generates the entire page
-3. **Styling applied** - `style.css` uses `light-dark()` for theme support
-4. **User can toggle theme** - Button in navbar saves preference to localStorage
+3. **GitHub sync** - Automatically fetches your public repos (excluding forks)
+4. **Screenshot extraction** - Scans README files for relative image URLs (only repo-hosted images)
+5. **Styling applied** - `style.css` uses `light-dark()` for theme support
+6. **User can toggle theme** - Button in navbar saves preference to localStorage
 
 ## Running Locally
 
@@ -54,24 +57,31 @@ Then open `http://localhost:8000` in your browser.
 Edit `data.json` with your:
 - Profile info (name, title, tagline, bio)
 - Education history
-- Projects with links and tech stack
+- **Featured projects** (manual entries with custom images)
 - Skills by category
 - Contact info
 
-### Add Images
+### GitHub Integration
 
-Replace placeholder images in `assets/`:
-- `profile.jpg` - Your profile picture
-- `project1.jpg`, `project2.jpg` - Project screenshots
-- Add CV/Resume PDF if needed
+Your public GitHub repositories automatically appear in the Projects section:
+- ✅ **All public repos** are fetched and displayed (sorted by stars, highest first)
+- ✅ **Forks excluded** - only your original repos show
+- ✅ **Screenshots auto-extracted** - if your README has images with relative paths (e.g., `./screenshot.png`), they appear on the card
+- ✅ **No configuration needed** - uses your GitHub username from `data.json` (or defaults to `mustafalzahabi`)
 
-### Customize Theme Colors
-
-Edit `style.css` - Look for `light-dark()` functions. The first value is light mode, second is dark mode:
-
-```css
-color: light-dark(#1a1a1a, #e0e0e0);  /* light, dark */
+To customize the GitHub username:
+```json
+"profile": {
+  "name": "Your Name",
+  "github": "https://github.com/yourusername",
+  // ... rest of profile
+}
 ```
+
+**Screenshot detection:**
+- Your README images must be **relative paths** (e.g., `./images/demo.png` or `/assets/screenshot.jpg`)
+- External images (CDN URLs) are ignored for security
+- If no screenshot is found, the card displays without an image
 
 ## Error Handling
 
