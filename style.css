@@ -116,6 +116,37 @@ main {
   width: 100%;
   height: 200px;
   background: linear-gradient(135deg, light-dark(#0066cc, #1a4d99), light-dark(#4a9eff, #0066cc));
+  position: relative;
+}
+
+.banner-links {
+  display: flex;
+  gap: 12px;
+  position: absolute;
+  bottom: 16px;
+  right: 24px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.banner-link-item {
+  display: inline-block;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0066cc;
+  text-decoration: none;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.banner-link-item:hover {
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .profile-info-container {
@@ -176,28 +207,13 @@ main {
   line-height: 1.5;
 }
 
+/* Old profile links area (deprecated - moved to banner) */
 .profile-links-area {
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  display: none;
 }
 
 .profile-link-item {
-  display: inline-block;
-  padding: 8px 16px;
-  background: light-dark(#f2f2f2, #2a2a2a);
-  color: light-dark(#0066cc, #4a9eff);
-  text-decoration: none;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid light-dark(#e0e0e0, #444);
-  transition: background 0.2s, color 0.2s;
-}
-
-.profile-link-item:hover {
-  background: light-dark(#e0e0e0, #444);
-  color: light-dark(#0052a3, #6ab4ff);
+  display: none;
 }
 
 /* Profile Tabs */

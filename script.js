@@ -93,7 +93,7 @@ async function loadData() {
       }
     }
     
-    main.appendChild(buildHero(data.profile));
+    main.appendChild(buildHero(data.profile, data.contact));
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
     
@@ -179,7 +179,7 @@ function buildNavbar() {
   return nav;
 }
 
-function buildHero(profile) {
+function buildHero(profile, contact) {
   const section = document.createElement('section');
   section.id = 'home';
   section.className = 'profile-header';
@@ -187,6 +187,49 @@ function buildHero(profile) {
   // Background banner
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
+  
+  // Banner links (bottom right)
+  const bannerLinks = document.createElement('div');
+  bannerLinks.className = 'banner-links';
+  
+  if (profile.cv_link) {
+    const resumeLink = document.createElement('a');
+    resumeLink.href = profile.cv_link;
+    resumeLink.target = '_blank';
+    resumeLink.className = 'banner-link-item';
+    resumeLink.textContent = '📄 Resume';
+    bannerLinks.appendChild(resumeLink);
+  }
+  
+  if (contact) {
+    if (contact.email) {
+      const emailLink = document.createElement('a');
+      emailLink.href = `mailto:${contact.email}`;
+      emailLink.className = 'banner-link-item';
+      emailLink.textContent = '✉️ Email';
+      bannerLinks.appendChild(emailLink);
+    }
+    
+    if (contact.github) {
+      const ghLink = document.createElement('a');
+      ghLink.href = contact.github;
+      ghLink.target = '_blank';
+      ghLink.className = 'banner-link-item';
+      ghLink.textContent = '🐙 GitHub';
+      bannerLinks.appendChild(ghLink);
+    }
+    
+    if (contact.linkedin) {
+      const liLink = document.createElement('a');
+      liLink.href = contact.linkedin;
+      liLink.target = '_blank';
+      liLink.className = 'banner-link-item';
+      liLink.textContent = '💼 LinkedIn';
+      bannerLinks.appendChild(liLink);
+    }
+  }
+  
+  banner.appendChild(bannerLinks);
   section.appendChild(banner);
   
   // Profile info container
@@ -220,18 +263,6 @@ function buildHero(profile) {
   tagline.textContent = profile.tagline;
   
   details.append(h1, title, tagline);
-  
-  // Resume link area (similar to Twitter link area)
-  const linksArea = document.createElement('div');
-  linksArea.className = 'profile-links-area';
-  const resumeLink = document.createElement('a');
-  resumeLink.href = profile.cv_link || '#';
-  resumeLink.target = '_blank';
-  resumeLink.className = 'profile-link-item';
-  resumeLink.textContent = '📄 Resume';
-  linksArea.appendChild(resumeLink);
-  details.appendChild(linksArea);
-  
   infoContainer.appendChild(details);
   section.appendChild(infoContainer);
   
