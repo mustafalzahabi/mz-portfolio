@@ -93,7 +93,6 @@ async function loadData() {
     }
     
     main.appendChild(buildHero(data.profile, data.contact));
-    main.appendChild(buildNavbar());
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
     
@@ -280,6 +279,9 @@ function buildHero(profile, contact) {
   
   tabsNav.appendChild(tabList);
   section.appendChild(tabsNav);
+  
+  // Navbar below tabs
+  section.appendChild(buildNavbar());
   
   return section;
 }
