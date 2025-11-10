@@ -1,8 +1,67 @@
+// Initialize dark mode on page load (default to dark)
+function initDarkMode() {
+  const savedMode = localStorage.getItem('theme');
+  const isDark = savedMode ? savedMode === 'dark' : true; // default to dark
+  
+  document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+  
+  return isDark;
+}
+
+// Toggle dark mode
+function toggleDarkMode() {
+  const currentScheme = document.documentElement.style.colorScheme;
+  const isDark = currentScheme !== 'dark';
+  
+  document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeToggleButton();
+}
+
+function updateThemeToggleButton() {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    const isDark = document.documentElement.style.colorScheme === 'dark';
+    btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+  }
+}
+
+// Show loading state
+function showLoading() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading portfolio...</p>
+    </div>
+  `;
+}
+
+// Show error state with retry
+function showError(message) {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <nav class="navbar">
+      <div class="nav-container">
+        <a href="#home" class="logo">MA</a>
+      </div>
+    </nav>
+    <div class="error-state" style="margin-top:40px;">
+      <div class="error-icon">⚠️</div>
+      <h2>Something went wrong</h2>
+      <p>${message}</p>
+      <button class="retry-btn" onclick="location.reload()">Try Again</button>
+    </div>
+  `;
+}
+
 // Fetch data.json and render entire page dynamically
 async function loadData() {
+  showLoading();
+  
   try {
     const res = await fetch('data.json');
-    if (!res.ok) throw new Error('Failed to load data.json');
+    if (!res.ok) throw new Error('Failed to load portfolio data');
     const data = await res.json();
     
     // Set document title and metadata
@@ -42,9 +101,16 @@ async function loadData() {
     
     // Build footer
     app.appendChild(buildFooter());
+    
+    // Setup theme toggle after rendering
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', toggleDarkMode);
+      updateThemeToggleButton();
+    }
   } catch (e) {
     console.error(e);
-    document.getElementById('app').innerHTML = '<p style="padding:40px;text-align:center;color:red;">Could not load portfolio data.</p>';
+    showError(e.message || 'Could not load portfolio data. Please check your data.json file.');
   }
 }
 
@@ -74,8 +140,14 @@ function buildNavbar() {
     ul.appendChild(li);
   });
   
+  const themeToggle = document.createElement('button');
+  themeToggle.id = 'theme-toggle';
+  themeToggle.className = 'theme-toggle';
+  themeToggle.textContent = document.documentElement.classList.contains('dark-mode') ? '☀️ Light' : '🌙 Dark';
+  
   container.appendChild(logo);
   container.appendChild(ul);
+  container.appendChild(themeToggle);
   nav.appendChild(container);
   return nav;
 }
@@ -375,4 +447,6 @@ function buildFooter() {
   return footer;
 }
 
+// Initialize on page load
+initDarkMode();
 loadData();
