@@ -626,11 +626,32 @@ function handleRoute() {
       currentPage = 'project-detail';
       renderProjectDetail(project);
     } else {
-      window.location.hash = '#';
+      // Project not found in cache, need to reload data first
+      loadDataThenRoute();
     }
   } else {
     currentPage = 'home';
     loadData();
+  }
+}
+
+async function loadDataThenRoute() {
+  showLoading();
+  
+  try {
+    const res = await fetch('data.json');
+    if (!res.ok) throw new Error('Failed to load portfolio data');
+    const data = await res.json();
+    
+    const githubUsername = extractGithubUsername(data.profile.github) || 'mustafalzahabi';
+    const allProjects = await fetchAndMergeProjects(data.projects || [], githubUsername);
+    allProjectsData = allProjects;
+    
+    // Now try the route again
+    handleRoute();
+  } catch (e) {
+    console.error(e);
+    showError(e.message || 'Could not load portfolio data.');
   }
 }
 
@@ -917,5 +938,13 @@ function isLightColor(hexColor) {
 // ============================================================================
 
 initDarkMode();
-loadData();
+
+// Check if there's a hash route on page load
+const hash = window.location.hash;
+if (hash.startsWith('#/project/')) {
+  loadDataThenRoute();
+} else {
+  loadData();
+}
+
 window.addEventListener('hashchange', handleRoute);
