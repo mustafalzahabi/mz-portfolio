@@ -235,8 +235,14 @@ main {
 /* Projects Grid */
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .project-card {
@@ -486,4 +492,9 @@ main {
   .section-title {
     font-size: 24px;
   }
+}
+
+/* Image Slideshow Animations */
+.slideshow-img {
+  transition: opacity 0.3s ease-in-out;
 }

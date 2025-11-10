@@ -20,7 +20,7 @@ function updateThemeToggleButton() {
   const btn = document.getElementById('theme-toggle');
   if (btn) {
     const isDark = document.documentElement.style.colorScheme === 'dark';
-    btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    btn.textContent = isDark ? '☀️' : '🌙';
   }
 }
 
@@ -296,8 +296,12 @@ function buildProjects(projects) {
     const h3 = document.createElement('h3');
     h3.textContent = proj.name;
     
-    const desc = document.createElement('p');
-    desc.textContent = proj.description;
+    // Only create a description paragraph if project has one
+    let desc = null;
+    if (proj.description && proj.description.trim()) {
+      desc = document.createElement('p');
+      desc.textContent = proj.description;
+    }
     
     const techDiv = document.createElement('div');
     techDiv.className = 'project-tech';
@@ -337,7 +341,9 @@ function buildProjects(projects) {
     ghLink.onclick = e => e.stopPropagation();
     links.appendChild(ghLink);
     
-    content.append(h3, desc, techDiv, links);
+  // Append description only when it exists (avoids showing empty text)
+  if (desc) content.append(h3, desc, techDiv, links);
+  else content.append(h3, techDiv, links);
     card.appendChild(content);
     grid.appendChild(card);
   });
@@ -466,13 +472,18 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
     const reposWithData = await Promise.all(
       repos.map(async (repo) => {
         const readmeData = await fetchReadmeData(githubUsername, repo.name, repo.default_branch);
+        const languages = await fetchRepoLanguages(githubUsername, repo.name);
+        
+        // Use README description if available, fallback to repo description
+        const displayDescription = readmeData?.description || repo.description || '';
+        
         return {
           name: repo.name,
-          description: repo.description || 'No description',
-          technologies: repo.language ? [repo.language] : [],
+          description: repo.description || '',
+          technologies: languages.length > 0 ? languages : (repo.language ? [repo.language] : []),
           image: readmeData?.firstImage || null,
           allImages: readmeData?.allImages || [],
-          readmeDescription: readmeData?.description || '',
+          readmeDescription: displayDescription,
           live_link: repo.homepage || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
@@ -485,6 +496,18 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
   } catch (e) {
     console.warn('Could not fetch GitHub repos:', e.message);
     return manualProjects || [];
+  }
+}
+
+async function fetchRepoLanguages(username, repoName) {
+  try {
+    const url = `https://api.github.com/repos/${username}/${repoName}/languages`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const langs = await res.json();
+    return Object.keys(langs).sort((a, b) => langs[b] - langs[a]);
+  } catch (e) {
+    return [];
   }
 }
 
@@ -658,6 +681,9 @@ function renderProjectDetail(project) {
   app.appendChild(frag);
   
   setupThemeToggle();
+  
+  // Scroll to top of page
+  window.scrollTo(0, 0);
 }
 
 function buildSlideshow(images) {
@@ -670,9 +696,10 @@ function buildSlideshow(images) {
   let currentIndex = 0;
   
   const img = document.createElement('img');
+  img.className = 'slideshow-img';
   img.src = images[0];
   img.alt = 'Project screenshot';
-  img.style.cssText = 'width:100%;height:100%;object-fit:contain';
+  img.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:1';
   img.onerror = () => img.style.display = 'none';
   
   const counter = document.createElement('div');
@@ -688,7 +715,13 @@ function buildSlideshow(images) {
       btn.style.cssText = 'position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.6);color:#fff;border:none;padding:12px 16px;border-radius:6px;cursor:pointer;font-size:18px;font-weight:700;transition:background 0.2s';
       btn.onmouseover = () => btn.style.background = 'rgba(0,0,0,0.8)';
       btn.onmouseout = () => btn.style.background = 'rgba(0,0,0,0.6)';
-      btn.onclick = onClick;
+      btn.onclick = () => {
+        img.style.opacity = '0';
+        setTimeout(() => {
+          onClick();
+          img.style.opacity = '1';
+        }, 150);
+      };
       return btn;
     };
     
