@@ -79,7 +79,6 @@ async function loadData() {
     app.innerHTML = '';
     
     const frag = document.createDocumentFragment();
-    frag.appendChild(buildNavbar());
     
     const main = document.createElement('main');
     
@@ -94,6 +93,7 @@ async function loadData() {
     }
     
     main.appendChild(buildHero(data.profile, data.contact));
+    main.appendChild(buildNavbar());
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
     
@@ -396,13 +396,6 @@ function buildProjects(projects) {
       }
       techDiv.appendChild(tag);
     });
-    
-    if (proj.isGitHubRepo && proj.stars !== undefined) {
-      const stars = document.createElement('span');
-      stars.className = 'project-stars';
-      stars.textContent = `⭐ ${proj.stars}`;
-      techDiv.appendChild(stars);
-    }
     
     const links = document.createElement('div');
     links.className = 'project-links';
@@ -750,9 +743,9 @@ function renderProjectDetail(project) {
   const app = document.getElementById('app');
   const frag = document.createDocumentFragment();
   
-  frag.appendChild(buildNavbar());
-  
   const main = document.createElement('main');
+  
+  main.appendChild(buildNavbar());
   
   // Back button
   const backBtn = document.createElement('a');

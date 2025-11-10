@@ -23,8 +23,7 @@ body {
 
 /* Navbar */
 .navbar {
-  position: sticky;
-  top: 0;
+  position: static;
   background: light-dark(#fff, #1a1a1a);
   border-bottom: 1px solid light-dark(#e0e0e0, #444);
   z-index: 1000;
@@ -213,7 +212,10 @@ main {
   display: flex;
   border-top: 1px solid light-dark(#e0e0e0, #444);
   width: 100vw;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: light-dark(#fff, #1a1a1a);
   left: 50%;
   right: 50%;
   margin-left: -50vw;
