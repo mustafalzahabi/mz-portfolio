@@ -571,20 +571,22 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
   }
 }
 
-// GitHub language color mapping (commonly used languages)
+// GitHub language color mapping (officially accurate colors)
 const GITHUB_LANGUAGE_COLORS = {
   'JavaScript': '#f1e05a',
-  'TypeScript': '#2b7489',
+  'TypeScript': '#3178c6',
   'Python': '#3572A5',
   'Java': '#b07219',
   'C++': '#f34b7d',
   'C#': '#239120',
+  'C': '#555555',
   'Go': '#00ADD8',
   'Rust': '#CE422B',
   'PHP': '#777BB4',
   'Ruby': '#CC342D',
   'CSS': '#563d7c',
   'HTML': '#e34c26',
+  'SCSS': '#c6538c',
   'JSON': '#c1e26f',
   'Markdown': '#083fa1',
   'SQL': '#336791',
@@ -593,7 +595,8 @@ const GITHUB_LANGUAGE_COLORS = {
   'Dockerfile': '#384d54',
   'React': '#61dafb',
   'Vue': '#2c3e50',
-  'Angular': '#dd0031'
+  'Angular': '#dd0031',
+  'Node.js': '#68A063'
 };
 
 async function fetchRepoLanguages(username, repoName) {

@@ -51,9 +51,9 @@ body {
 
 .navbar {
   position: sticky;
-  inset-block-start: 10%;
+  inset-block-start: 15%;
   background: var(--surface-color);
-  border: 1px solid var(--border-color);
+  border: 3px solid var(--border-color);
   box-shadow: light-dark(0 0.125rem 0.5rem rgba(0,0,0,0.08), 0 0.125rem 0.5rem rgba(0,0,0,0.3));
   display: flex;
   align-items: center;
@@ -62,8 +62,9 @@ body {
   block-size: 3.75rem;
   gap: 2rem;
   width: 70%;
-  border-radius: 100%;
+  border-radius: 30%;
   z-index: 999;
+  margin-inline: auto;
 }
 
 .navbar a {
