@@ -155,16 +155,14 @@ function buildNavbar() {
   logo.className = 'logo';
   logo.textContent = 'MA';
   
-  const ul = document.createElement('ul');
-  ul.className = 'nav-links';
+  const navLinks = document.createElement('div');
+  navLinks.className = 'nav-links';
   
-  ['Home', 'Projects', 'Skills', 'Contact'].forEach((text, idx) => {
-    const li = document.createElement('li');
+  ['Home', 'Projects', 'Skills', 'Contact'].forEach((text) => {
     const a = document.createElement('a');
     a.href = `#${text.toLowerCase()}`;
     a.textContent = text;
-    li.appendChild(a);
-    ul.appendChild(li);
+    navLinks.appendChild(a);
   });
   
   const themeBtn = document.createElement('button');
@@ -173,7 +171,7 @@ function buildNavbar() {
   themeBtn.textContent = '🌙 Dark';
   
   container.appendChild(logo);
-  container.appendChild(ul);
+  container.appendChild(navLinks);
   container.appendChild(themeBtn);
   nav.appendChild(container);
   return nav;
@@ -266,18 +264,12 @@ function buildHeader(profile, contact) {
   const tabsNav = document.createElement('nav');
   tabsNav.className = 'profile-tabs';
   
-  const tabList = document.createElement('ul');
-  tabList.className = 'tab-list';
-  
-  const tab = document.createElement('li');
   const tabLink = document.createElement('a');
   tabLink.href = '#';
   tabLink.className = 'tab-link active';
   tabLink.textContent = 'My Profile';
-  tab.appendChild(tabLink);
-  tabList.appendChild(tab);
   
-  tabsNav.appendChild(tabList);
+  tabsNav.appendChild(tabLink);
   header.appendChild(tabsNav);
   
   return header;
