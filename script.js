@@ -166,14 +166,8 @@ function buildNavbar() {
     navLinks.appendChild(a);
   });
   
-  const themeBtn = document.createElement('button');
-  themeBtn.id = 'theme-toggle';
-  themeBtn.className = 'theme-toggle';
-  themeBtn.textContent = '🌙 Dark';
-  
   container.appendChild(logo);
   container.appendChild(navLinks);
-  container.appendChild(themeBtn);
   nav.appendChild(container);
   return nav;
 }
@@ -185,6 +179,14 @@ function buildHeader(profile, contact) {
   // Background banner
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
+  
+  // Theme toggle button (top right)
+  const themeToggle = document.createElement('button');
+  themeToggle.id = 'theme-toggle';
+  themeToggle.className = 'theme-toggle';
+  themeToggle.textContent = '🌙 Dark';
+  themeToggle.onclick = toggleDarkMode;
+  banner.appendChild(themeToggle);
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
