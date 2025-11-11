@@ -148,27 +148,13 @@ function buildNavbar() {
   const nav = document.createElement('nav');
   nav.className = 'navbar';
   
-  const container = document.createElement('div');
-  container.className = 'nav-container';
-  
-  const logo = document.createElement('a');
-  logo.href = '#';
-  logo.className = 'logo';
-  logo.textContent = 'MA';
-  
-  const navLinks = document.createElement('div');
-  navLinks.className = 'nav-links';
-  
   ['Home', 'Projects', 'Skills', 'Contact'].forEach((text) => {
     const a = document.createElement('a');
     a.href = `#${text.toLowerCase()}`;
     a.textContent = text;
-    navLinks.appendChild(a);
+    nav.appendChild(a);
   });
   
-  container.appendChild(logo);
-  container.appendChild(navLinks);
-  nav.appendChild(container);
   return nav;
 }
 
