@@ -244,10 +244,10 @@ main {
 }
 
 /* ============================================================================
-   PROFILE TABS
+   TAB SELECTOR
    ============================================================================ */
 
-.profile-tabs {
+.tab-selector {
   display: flex;
   position: sticky;
   inset-block-start: 0;
@@ -255,7 +255,7 @@ main {
   background: var(--surface-color);
   border-block-end: 1px solid var(--border-color);
   padding-inline: 1.5rem;
-  margin-inline: auto;
+  max-width: 100%;
 }
 
 .tab-link {
