@@ -92,7 +92,7 @@ async function loadData() {
       }
     }
     
-    main.appendChild(buildHero(data.profile, data.contact));
+    main.appendChild(buildNavbar());
     main.appendChild(buildAbout(data.about));
     main.appendChild(buildEducation(data.education));
     
@@ -103,6 +103,7 @@ async function loadData() {
     main.appendChild(buildSkills(data.skills));
     main.appendChild(buildContact(data.contact));
     
+    frag.appendChild(buildHeader(data.profile, data.contact));
     frag.appendChild(main);
     frag.appendChild(buildFooter());
     
@@ -178,10 +179,9 @@ function buildNavbar() {
   return nav;
 }
 
-function buildHero(profile, contact) {
-  const section = document.createElement('section');
-  section.id = 'home';
-  section.className = 'profile-header';
+function buildHeader(profile, contact) {
+  const header = document.createElement('header');
+  header.id = 'header';
   
   // Background banner
   const banner = document.createElement('div');
@@ -229,7 +229,7 @@ function buildHero(profile, contact) {
   }
   
   banner.appendChild(bannerLinks);
-  section.appendChild(banner);
+  header.appendChild(banner);
   
   // Profile info container
   const infoContainer = document.createElement('div');
@@ -260,7 +260,7 @@ function buildHero(profile, contact) {
   
   details.append(h1, title, tagline);
   infoContainer.appendChild(details);
-  section.appendChild(infoContainer);
+  header.appendChild(infoContainer);
   
   // Tabs navigation
   const tabsNav = document.createElement('nav');
@@ -278,12 +278,9 @@ function buildHero(profile, contact) {
   tabList.appendChild(tab);
   
   tabsNav.appendChild(tabList);
-  section.appendChild(tabsNav);
+  header.appendChild(tabsNav);
   
-  // Navbar below tabs
-  section.appendChild(buildNavbar());
-  
-  return section;
+  return header;
 }
 
 function buildAbout(about) {

@@ -90,7 +90,8 @@ body {
    ============================================================================ */
 
 .navbar {
-  position: static;
+  position: sticky;
+  inset-block-start: 0;
   background: var(--surface-color);
   border-block-end: 1px solid var(--border-color);
   z-index: 1000;
@@ -153,14 +154,21 @@ body {
    ============================================================================ */
 
 main {
-  max-width: var(--container-width);
-  margin-inline: auto;
-  padding-inline: var(--container-padding);
+  inline-size: 100%;
 }
 
 .section {
+  padding-inline: var(--container-padding);
   padding-block: var(--spacing-4xl);
   border-block-end: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.section > * {
+  max-width: var(--container-width);
+  inline-size: 100%;
 }
 
 .section:last-of-type {
@@ -178,12 +186,18 @@ main {
    PROFILE HEADER (TWITTER-LIKE)
    ============================================================================ */
 
-.profile-header {
+/* ============================================================================
+   PROFILE HEADER (TWITTER-LIKE)
+   ============================================================================ */
+
+#header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1001;
   background: var(--surface-color);
   border-block-end: 1px solid var(--border-color);
-  margin-block-end: var(--spacing-3xl);
   inline-size: 100vw;
-  position: relative;
+  margin-block-end: var(--spacing-3xl);
   inset-inline-start: 50%;
   inset-inline-end: 50%;
   margin-inline-start: -50vw;
