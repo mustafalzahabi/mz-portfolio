@@ -104,7 +104,6 @@ async function loadData() {
     main.appendChild(buildContact(data.contact));
     
     frag.appendChild(buildHeader(data.profile, data.contact));
-    frag.appendChild(buildTabSelector());
     frag.appendChild(main);
     frag.appendChild(buildFooter());
     
@@ -274,20 +273,6 @@ function buildHeader(profile, contact) {
   header.appendChild(tabSelector);
   
   return header;
-}
-
-function buildTabSelector() {
-  const tabSelector = document.createElement('nav');
-  tabSelector.className = 'tab-selector';
-  
-  const tabLink = document.createElement('a');
-  tabLink.href = '#';
-  tabLink.className = 'tab-link active';
-  tabLink.textContent = 'My Profile';
-  
-  tabSelector.appendChild(tabLink);
-  
-  return tabSelector;
 }
 
 function buildAbout(about) {
