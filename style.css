@@ -149,7 +149,6 @@ main {
 #header {
   background: var(--surface-color);
   inline-size: 100vw;
-  position: relative;
   inset-inline-start: 50%;
   inset-inline-end: 50%;
   margin-inline-start: -50vw;
@@ -193,7 +192,7 @@ main {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.profile-info-container {
+.profile-info {
   display: flex;
   gap: 1.5rem;
   padding-inline: 1.5rem;
@@ -926,7 +925,7 @@ main {
     block-size: 8.75rem;
   }
 
-  .profile-info-container {
+  .profile-info {
     padding-inline: 1rem;
     gap: 1rem;
   }

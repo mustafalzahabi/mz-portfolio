@@ -230,15 +230,15 @@ function buildHeader(profile, contact) {
   header.appendChild(banner);
   
   // Profile info container
-  const infoContainer = document.createElement('div');
-  infoContainer.className = 'profile-info-container';
+  const profileInfo = document.createElement('div');
+  profileInfo.className = 'profile-info';
   
   // Profile photo
   const img = document.createElement('img');
   img.src = profile.photo;
   img.alt = profile.name;
   img.className = 'profile-photo';
-  infoContainer.appendChild(img);
+  profileInfo.appendChild(img);
   
   // Profile details
   const details = document.createElement('div');
@@ -257,8 +257,8 @@ function buildHeader(profile, contact) {
   tagline.textContent = profile.tagline;
   
   details.append(h1, title, tagline);
-  infoContainer.appendChild(details);
-  header.appendChild(infoContainer);
+  profileInfo.appendChild(details);
+  header.appendChild(profileInfo);
   
   // Tab selector
   const tabSelector = document.createElement('nav');
