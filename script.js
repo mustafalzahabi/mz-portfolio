@@ -426,7 +426,7 @@ function buildProjects(projects) {
       const color = GITHUB_LANGUAGE_COLORS[tech];
       if (color) {
         tag.style.backgroundColor = color;
-        tag.style.color = isLightColor(color) ? '#000' : '#fff';
+        tag.style.color = getContrastTextColor(color);
       }
       techDiv.appendChild(tag);
     });
@@ -623,33 +623,32 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
   }
 }
 
-// GitHub language color mapping (officially accurate colors)
-const GITHUB_LANGUAGE_COLORS = {
-  'JavaScript': '#f1e05a',
-  'TypeScript': '#3178c6',
-  'Python': '#3572A5',
-  'Java': '#b07219',
-  'C++': '#f34b7d',
-  'C#': '#239120',
-  'C': '#555555',
-  'Go': '#00ADD8',
-  'Rust': '#CE422B',
-  'PHP': '#777BB4',
-  'Ruby': '#CC342D',
-  'CSS': '#563d7c',
-  'HTML': '#e34c26',
-  'SCSS': '#c6538c',
-  'JSON': '#c1e26f',
-  'Markdown': '#083fa1',
-  'SQL': '#336791',
-  'Shell': '#89e051',
-  'YAML': '#cb171e',
-  'Dockerfile': '#384d54',
-  'React': '#61dafb',
-  'Vue': '#2c3e50',
-  'Angular': '#dd0031',
-  'Node.js': '#68A063'
-};
+// GitHub language colors - fetched dynamically
+let GITHUB_LANGUAGE_COLORS = {};
+
+// Fetch GitHub language colors from github/linguist colors.json
+async function initializeLanguageColors() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.json');
+    if (!res.ok) return;
+    
+    const languages = await res.json();
+    GITHUB_LANGUAGE_COLORS = {};
+    
+    // Extract color for each language
+    Object.entries(languages).forEach(([langName, langData]) => {
+      if (langData.color) {
+        GITHUB_LANGUAGE_COLORS[langName] = langData.color;
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to fetch GitHub language colors:', e);
+    // Fallback to empty colors - tags will use default CSS styling
+  }
+}
+
+// Initialize colors on page load
+initializeLanguageColors();
 
 async function fetchRepoLanguages(username, repoName) {
   try {
@@ -863,7 +862,7 @@ function renderProjectDetail(project) {
       const color = GITHUB_LANGUAGE_COLORS[t];
       if (color) {
         tag.style.backgroundColor = color;
-        tag.style.color = isLightColor(color) ? '#000' : '#fff';
+        tag.style.color = getContrastTextColor(color);
       }
       tags.appendChild(tag);
     });
@@ -1051,7 +1050,23 @@ function isLightColor(hexColor) {
   const b = parseInt(hex.substring(4, 6), 16);
   // Calculate luminance using WCAG formula
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5;
+  // Improved threshold for better contrast
+  return luminance > 0.6;
+}
+
+function getContrastTextColor(hexColor) {
+  // Ensure better contrast by checking against both black and white
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  // Calculate relative luminance using WCAG formula
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return white for dark colors, black for light colors
+  // Use 0.5 threshold for optimal readability
+  return luminance > 0.5 ? '#000000' : '#ffffff';
 }
 
 // ============================================================================

@@ -5,17 +5,17 @@
   color-scheme: light dark;
   
   /* Colors */
-  --color-accent: light-dark(#b8860b, #ffd700);
-  --hover-color: light-dark(#8b6914, #ffed4e);
+  --color-accent: light-dark(#b8860b, #d4a574);
+  --hover-color: light-dark(#8b6914, #e0b583);
   --background-color: light-dark(#fef3c7, #705507);
   --primary-color: light-dark(#1a1a1a, #e0e0e0);
   --secondary-color: light-dark(#666, #aaa);
   --surface-color: light-dark(#f2f2f2, #2a2a2a);
-  --border-color: light-dark(#e5d4b1, #4a3f20);
-  --code-color: light-dark(#b8860b, #ffd700);
+  --border-color: light-dark(#e5d4b1, #5a4a30);
+  --code-color: light-dark(#b8860b, #d4a574);
   
   /* Gradient */
-  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#ffd700, #cc9900) 0%, light-dark(#daa520, #b8860b) 25%, light-dark(#deb887, #8b6914) 50%, light-dark(#cd853f, #704214) 100%), linear-gradient(45deg, light-dark(#edc951, #c4a747) 0%, light-dark(#b8860b, #6b5a3d) 100%);
+  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#ffd700, #c9944d) 0%, light-dark(#daa520, #a68860) 25%, light-dark(#deb887, #8b7355) 50%, light-dark(#cd853f, #6b5a45) 100%), linear-gradient(45deg, light-dark(#edc951, #b89968) 0%, light-dark(#b8860b, #7a6d5a) 100%);
   
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
