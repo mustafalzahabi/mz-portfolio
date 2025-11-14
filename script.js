@@ -156,6 +156,13 @@ function buildNavbar() {
     { id: 'contact', label: 'Contact' }
   ];
   
+  const numSections = sections.length;
+  const maxGap = 2.5;
+  const minGap = 0.75;
+  const gap = numSections <= 3 ? maxGap : Math.max(minGap, maxGap - (numSections - 3) * 0.3);
+  
+  nav.style.gap = `${gap}rem`;
+  
   sections.forEach((section) => {
     const navItem = document.createElement('div');
     navItem.className = 'nav-item';

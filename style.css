@@ -50,14 +50,27 @@ body {
    ============================================================================ */
 
 .navbar {
-  position: fixed;
-  inset-inline-start: 2rem;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
+  position: sticky;
+  inset-block-start: 0;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding-block: 1.5rem;
+  z-index: 999;
+  background: var(--surface-color);
+  border-block-end: 1px solid var(--border-color);
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  block-size: 100%;
+  inline-size: 2px;
+  background: var(--border-color);
+  z-index: 0;
 }
 
 .nav-item {
@@ -65,6 +78,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  z-index: 1;
 }
 
 .nav-item a {
@@ -78,8 +92,8 @@ body {
   inline-size: 0.75rem;
   block-size: 0.75rem;
   border-radius: 50%;
-  background: var(--color-accent);
-  border: 2px solid var(--border-color);
+  background: var(--surface-color);
+  border: 2px solid var(--color-accent);
   transition: all 0.2s;
   cursor: pointer;
 }
@@ -933,6 +947,16 @@ main {
 /* Portrait orientation (typically mobile/tablet vertical) */
 @media (orientation: portrait) {
   .navbar {
+    position: static;
+    flex-direction: row;
+    border-block-end: 1px solid var(--border-color);
+    gap: 1rem;
+    overflow-x: auto;
+    padding-inline: 1rem;
+    block-size: auto;
+  }
+
+  .navbar::before {
     display: none;
   }
 
