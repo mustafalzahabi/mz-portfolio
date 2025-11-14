@@ -92,16 +92,22 @@ async function loadData() {
       }
     }
     
-    main.appendChild(buildNavbar());
-    main.appendChild(buildAbout(data.about));
-    main.appendChild(buildEducation(data.education));
+    // Create sections container
+    const sections = document.createElement('div');
+    sections.className = 'sections';
+    
+    sections.appendChild(buildAbout(data.about));
+    sections.appendChild(buildEducation(data.education));
     
     const allProjects = await fetchAndMergeProjects(data.projects || [], githubUsername);
     allProjectsData = allProjects;
-    main.appendChild(buildProjects(allProjects));
+    sections.appendChild(buildProjects(allProjects));
     
-    main.appendChild(buildSkills(data.skills));
-    main.appendChild(buildContact(data.contact));
+    sections.appendChild(buildSkills(data.skills));
+    sections.appendChild(buildContact(data.contact));
+    
+    main.appendChild(buildNavbar());
+    main.appendChild(sections);
     
     frag.appendChild(buildHeader(data.profile, data.contact));
     frag.appendChild(buildTabSelector());
