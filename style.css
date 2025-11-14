@@ -228,10 +228,6 @@ main {
   inset-inline-end: 0.5rem;
 }
 
-.theme-switch-knob.auto-mode {
-  opacity: 0;
-}
-
 .theme-switch-knob:active,
 .theme-switch-knob.dragging {
   cursor: grabbing;
