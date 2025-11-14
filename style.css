@@ -210,7 +210,7 @@ main {
   inset-block-start: 1rem;
   inset-inline-end: 1rem;
   inline-size: 3.5rem;
-  block-size: 1.5rem;
+  block-size: .5rem;
   background: var(--background-color);
   border-radius: 0.5rem;
   cursor: grab;
@@ -225,28 +225,20 @@ main {
   border: 1px solid var(--border-color);
 }
 
-/* Knob fills the track; we position the emoji using flex alignment + padding */
-.theme-switch-knob {
+/* The emoji is placed directly inside the track; style it here */
+.theme-switch-track {
   font-size: 1.5rem;
   color: var(--accent-color);
-  cursor: grab;
-  user-select: none;
-  flex: 1;
-  width: 100%;
-  display: block;
-  line-height: 1.5rem;
-  /* default: align to start */
-  text-align: start;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* left by default */
   padding-inline-start: 0.25rem;
   padding-inline-end: 0;
-  text-indent: 0; /* keep numeric offset 0 as requested */
-  white-space: nowrap;
-  transition: padding-inline-start 0.18s ease-out, padding-inline-end 0.18s ease-out;
+  transition: justify-content 0.18s ease-out, padding-inline-start 0.18s ease-out, padding-inline-end 0.18s ease-out;
 }
 
-.theme-switch-knob[data-mode="light"] {
-  /* align to end and swap paddings */
-  text-align: end;
+.theme-switch-track[data-mode="light"] {
+  justify-content: flex-end;
   padding-inline-start: 0;
   padding-inline-end: 0.25rem;
 }

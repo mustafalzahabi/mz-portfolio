@@ -24,12 +24,12 @@ function toggleTheme() {
 }
 
 function updateThemeToggleButton() {
-  const knob = document.getElementById('theme-knob');
-  if (!knob) return;
-  
+  const track = document.getElementById('theme-track');
+  if (!track) return;
+
   const mode = getCurrentTheme();
-  knob.textContent = mode === 'light' ? '☀' : '☪';
-  knob.setAttribute('data-mode', mode);
+  track.textContent = mode === 'light' ? '☀' : '☪';
+  track.setAttribute('data-mode', mode);
 }
 
 // ============================================================================
@@ -234,12 +234,8 @@ function buildHeader(profile, contact) {
   track.setAttribute('aria-label', 'Toggle theme');
   track.setAttribute('tabindex', '0');
   
-  const knob = document.createElement('span');
-  knob.id = 'theme-knob';
-  knob.className = 'theme-switch-knob';
-  knob.textContent = '☪';
-  
-  track.appendChild(knob);
+  // Place the emoji directly inside the track (no separate knob element)
+  track.textContent = '☪';
   banner.appendChild(track);
   
   // Attach click handler
