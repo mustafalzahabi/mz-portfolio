@@ -34,44 +34,23 @@ function toggleDarkMode() {
 }
 
 function updateThemeToggleButton() {
-  const moonIcon = document.getElementById('theme-knob');
-  const sunIcon = document.querySelector('.theme-switch-knob-alt');
+  const knob = document.getElementById('theme-knob');
   const track = document.getElementById('theme-track');
-  if (!moonIcon || !sunIcon || !track) return;
+  if (!knob || !track) return;
   
   const mode = getCurrentTheme();
-  const trackWidth = 80; // 5rem in pixels
-  const knobWidth = 24;  // 1.5rem in pixels
-  const maxTranslate = trackWidth - knobWidth; // 56px
-  
-  const autoTransform = `translate(${maxTranslate + 100}px, -50%)`;
-  const lightTransform = `translate(${maxTranslate}px, -50%)`;
-  const darkTransform = 'translate(0px, -50%)';
   
   if (mode === 'auto') {
-    moonIcon.classList.add('auto-mode');
-    sunIcon.classList.add('auto-mode');
-    moonIcon.setAttribute('data-mode', 'auto');
-    sunIcon.setAttribute('data-mode', 'auto');
-    // Throw off the right side, staying centered vertically
-    moonIcon.style.transform = autoTransform;
-    sunIcon.style.transform = autoTransform;
+    knob.classList.add('auto-mode');
+    knob.setAttribute('data-mode', 'auto');
   } else if (mode === 'light') {
-    moonIcon.classList.remove('auto-mode');
-    sunIcon.classList.remove('auto-mode');
-    moonIcon.setAttribute('data-mode', 'light');
-    sunIcon.setAttribute('data-mode', 'light');
-    // Move to the right (sun position), centered vertically
-    moonIcon.style.transform = lightTransform;
-    sunIcon.style.transform = lightTransform;
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'light');
+    knob.textContent = '☀';
   } else {
-    moonIcon.classList.remove('auto-mode');
-    sunIcon.classList.remove('auto-mode');
-    moonIcon.setAttribute('data-mode', 'dark');
-    sunIcon.setAttribute('data-mode', 'dark');
-    // Move to the left (moon position), centered vertically
-    moonIcon.style.transform = darkTransform;
-    sunIcon.style.transform = darkTransform;
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'dark');
+    knob.textContent = '☪';
   }
 }
 
@@ -425,17 +404,12 @@ function buildHeader(profile, contact) {
   track.setAttribute('aria-label', 'Toggle theme');
   track.setAttribute('tabindex', '0');
   
-  const moonIcon = document.createElement('span');
-  moonIcon.id = 'theme-knob';
-  moonIcon.className = 'theme-switch-knob theme-icon theme-icon-moon';
-  moonIcon.textContent = '☪';
+  const knob = document.createElement('span');
+  knob.id = 'theme-knob';
+  knob.className = 'theme-switch-knob';
+  knob.textContent = '☪';
   
-  const sunIcon = document.createElement('span');
-  sunIcon.className = 'theme-switch-knob-alt theme-icon theme-icon-sun';
-  sunIcon.textContent = '☀';
-  
-  track.appendChild(moonIcon);
-  track.appendChild(sunIcon);
+  track.appendChild(knob);
   banner.appendChild(track);
   
   // Attach drag handlers

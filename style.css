@@ -240,53 +240,31 @@ main {
   outline-offset: 2px;
 }
 
-.theme-switch-knob,
-.theme-switch-knob-alt {
+.theme-switch-knob {
   position: absolute;
   font-size: 1.5rem;
   color: var(--color-accent);
-  transition: opacity 0.2s, transform 0.3s, filter 0.3s;
+  transition: opacity 0.2s, inset-inline-start 0.3s, inset-inline-end 0.3s;
   cursor: grab;
   z-index: 2;
   inset-block-start: 50%;
   transform: translateY(-50%);
   user-select: none;
-}
-
-.theme-switch-knob {
   inset-inline-start: 0.25rem;
-  opacity: 1;
-  filter: brightness(1);
-}
-
-.theme-switch-knob-alt {
-  inset-inline-end: 0.25rem;
-  opacity: 0;
-  filter: brightness(0.6);
-}
-
-.theme-switch-knob:active,
-.theme-switch-knob-alt:active,
-.theme-switch-knob.dragging,
-.theme-switch-knob-alt.dragging {
-  cursor: grabbing;
-}
-
-/* Light mode: sun visible, moon hidden */
-.theme-switch-knob-alt[data-mode="light"] {
-  opacity: 1;
-  filter: brightness(1);
 }
 
 .theme-switch-knob[data-mode="light"] {
-  opacity: 0;
-  filter: brightness(0.6);
+  inset-inline-start: auto;
+  inset-inline-end: 0.5rem;
 }
 
-/* Auto mode: both icons hidden */
-.theme-switch-knob.auto-mode,
-.theme-switch-knob-alt.auto-mode {
+.theme-switch-knob.auto-mode {
   opacity: 0;
+}
+
+.theme-switch-knob:active,
+.theme-switch-knob.dragging {
+  cursor: grabbing;
 }
 
 .banner-links {
