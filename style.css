@@ -286,11 +286,13 @@ main {
 }
 
 .theme-icon-moon {
+  inset-inline-start: 0.25rem;
   opacity: 1;
   transform: scale(1);
 }
 
 .theme-icon-sun {
+  inset-inline-end: 0.25rem;
   opacity: 0;
   transform: scale(0.5);
 }

@@ -182,22 +182,16 @@ function attachThemeSwitchHandlers(track, knob) {
   let dragStartPos = 0;
   let currentPos = 0;
   const throwThreshold = 150; // pixels to throw off and trigger auto
-  const trackWidth = 100; // approximate track width in pixels
   
   function snapToPosition(endPos) {
-    const mode = getCurrentTheme();
-    
-    if (endPos > throwThreshold) {
-      // Thrown far enough right - enable auto
+    if (endPos > throwThreshold || endPos < -throwThreshold) {
+      // Thrown far enough - enable auto
       applyTheme('auto');
-    } else if (endPos < -throwThreshold) {
-      // Thrown far enough left - enable auto
-      applyTheme('auto');
-    } else if (endPos > trackWidth / 2) {
-      // Snap to light (right)
+    } else if (endPos > 25) {
+      // Closer to right - light mode
       applyTheme('light');
     } else {
-      // Snap to dark (left)
+      // Closer to left - dark mode
       applyTheme('dark');
     }
   }
@@ -209,6 +203,7 @@ function attachThemeSwitchHandlers(track, knob) {
     const match = transform.match(/translateX\(([^)]+)\)/);
     dragStartPos = match ? parseFloat(match[1]) : 0;
     knob.classList.add('dragging');
+    e.preventDefault();
   });
   
   document.addEventListener('pointermove', (e) => {
@@ -228,10 +223,17 @@ function attachThemeSwitchHandlers(track, knob) {
     snapToPosition(currentPos);
   });
   
-  // Click on track to cycle themes
+  // Click on track to switch between dark and light (only, not auto)
   track.addEventListener('click', (e) => {
     if (e.target !== knob && !isDragging) {
-      toggleDarkMode();
+      const current = getCurrentTheme();
+      if (current === 'auto') {
+        applyTheme('dark');
+      } else if (current === 'dark') {
+        applyTheme('light');
+      } else {
+        applyTheme('dark');
+      }
     }
   });
   
@@ -239,7 +241,14 @@ function attachThemeSwitchHandlers(track, knob) {
   track.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      toggleDarkMode();
+      const current = getCurrentTheme();
+      if (current === 'auto') {
+        applyTheme('dark');
+      } else if (current === 'dark') {
+        applyTheme('light');
+      } else {
+        applyTheme('dark');
+      }
     } else if (e.key === 'ArrowRight') {
       applyTheme('light');
     } else if (e.key === 'ArrowLeft') {
