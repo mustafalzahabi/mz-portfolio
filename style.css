@@ -5,17 +5,17 @@
   color-scheme: light dark;
   
   /* Colors */
-  --color-accent: light-dark(#0d9488, #06d6a0);
-  --hover-color: light-dark(#0f766e, #00d9a3);
-  --background-color: light-dark(#ccf0e8, rgba(6, 214, 160, 0.1));
+  --color-accent: light-dark(#b8860b, #ffd700);
+  --hover-color: light-dark(#8b6914, #ffed4e);
+  --background-color: light-dark(#fef3c7, #705507);
   --primary-color: light-dark(#1a1a1a, #e0e0e0);
   --secondary-color: light-dark(#666, #aaa);
   --surface-color: light-dark(#f2f2f2, #2a2a2a);
-  --border-color: light-dark(#839690, #122c28);
-  --code-color: light-dark(#0d9488, #06d6a0);
+  --border-color: light-dark(#e5d4b1, #4a3f20);
+  --code-color: light-dark(#b8860b, #ffd700);
   
   /* Gradient */
-  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#06d6a0, #0a8b6f) 0%, light-dark(#0d9488, #067857) 25%, light-dark(#14b8a6, #046b5b) 50%, light-dark(#0f766e, #034d45) 100%), linear-gradient(45deg, light-dark(#2dd4bf, #1b7a6f) 0%, light-dark(#0d9488, #034d45) 100%);
+  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#ffd700, #cc9900) 0%, light-dark(#daa520, #b8860b) 25%, light-dark(#deb887, #8b6914) 50%, light-dark(#cd853f, #704214) 100%), linear-gradient(45deg, light-dark(#edc951, #c4a747) 0%, light-dark(#b8860b, #6b5a3d) 100%);
   
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -61,7 +61,7 @@ body {
   justify-content: space-between;
   justify-self: start;
   padding-inline: 1.5rem;
-  z-index: 999;
+  z-index: 9;
   background: transparent;
   gap: 2.5rem;
 }
@@ -301,7 +301,7 @@ main {
   display: flex;
   position: sticky;
   inset-block-start: 0;
-  z-index: 999;
+  z-index: 10;
   background: var(--surface-color);
   border-block-end: 1px solid var(--border-color);
   padding-inline: 1.5rem;
