@@ -216,26 +216,19 @@ main {
   cursor: grab;
   user-select: none;
   z-index: 1;
-  transition: border-color 0.2s;
   display: flex;
   align-items: center;
+  font-size: 1.5rem;
+  color: var(--accent-color);
+  justify-content: flex-start; /* left by default */
+  padding-inline-start: 0.25rem;
+  padding-inline-end: 0;
+  position: relative;
+  transition: border-color 0.2s;
 }
 
 .theme-switch-track:hover {
   border: 1px solid var(--border-color);
-}
-
-/* The emoji is placed directly inside the track; style it here */
-.theme-switch-track {
-  font-size: 1.5rem;
-  color: var(--accent-color);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start; /* left by default */
-  padding-inline-start: 0.25rem;
-  padding-inline-end: 0;
-  transition: border-color 0.2s;
-  position: relative;
 }
 
 .theme-switch-track[data-mode="light"] {
