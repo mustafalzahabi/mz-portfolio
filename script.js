@@ -46,18 +46,18 @@ function updateThemeToggleButton() {
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
     knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side
-    knob.style.transform = `translateX(${maxTranslate + 100}px)`;
+    // Throw off the right side, staying centered vertically
+    knob.style.transform = `translate(${maxTranslate + 100}px, -50%)`;
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
-    // Move to the right (sun position)
-    knob.style.transform = `translateX(${maxTranslate}px)`;
+    // Move to the right (sun position), centered vertically
+    knob.style.transform = `translate(${maxTranslate}px, -50%)`;
   } else {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'dark');
-    // Move to the left (moon position)
-    knob.style.transform = 'translateX(0px)';
+    // Move to the left (moon position), centered vertically
+    knob.style.transform = 'translate(0px, -50%)';
   }
 }
 
@@ -185,20 +185,27 @@ function setupMetaTags() {
 function attachThemeSwitchHandlers(track, knob) {
   let isDragging = false;
   let dragStartX = 0;
+  let dragStartY = 0;
   let dragStartPos = 0;
   let currentPos = 0;
+  let currentY = 0;
   const trackWidth = 80;  // 5rem
+  const trackHeight = 32; // 2rem
   const knobWidth = 24;   // 1.5rem
+  const knobHeight = 24;  // 1.5rem
   const maxTranslate = trackWidth - knobWidth; // 56px
   const midpoint = maxTranslate / 2; // 28px
   const throwThreshold = 40; // pixels beyond max to trigger auto
+  const verticalThreshold = 20; // pixels up/down to trigger auto
   
-  function snapToPosition(endPos) {
+  function snapToPosition(endPos, endY) {
     const throwThresholdRight = maxTranslate + throwThreshold;
     const throwThresholdLeft = -throwThreshold;
+    const isOffVertically = Math.abs(endY) > verticalThreshold;
+    const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
     
-    if (endPos > throwThresholdRight || endPos < throwThresholdLeft) {
-      // Thrown far enough - enable auto
+    if (isOffHorizontally || isOffVertically) {
+      // Thrown off track in any direction - enable auto
       applyTheme('auto');
     } else if (endPos > midpoint) {
       // Closer to right - light mode (sun)
@@ -212,9 +219,12 @@ function attachThemeSwitchHandlers(track, knob) {
   knob.addEventListener('pointerdown', (e) => {
     isDragging = true;
     dragStartX = e.clientX;
+    dragStartY = e.clientY;
     const transform = knob.style.transform;
-    const match = transform.match(/translateX\(([-\d.]+)px\)/);
-    dragStartPos = match ? parseFloat(match[1]) : 0;
+    // Extract only the X translation, ignoring the Y centering
+    const matchX = transform.match(/translateX\(([-\d.]+)px\)/);
+    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
+    currentY = 0;
     knob.classList.add('dragging');
     e.preventDefault();
   });
@@ -223,8 +233,10 @@ function attachThemeSwitchHandlers(track, knob) {
     if (!isDragging) return;
     
     const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
     currentPos = dragStartPos + deltaX;
-    knob.style.transform = `translateX(${currentPos}px)`;
+    currentY = deltaY;
+    knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
     knob.style.transition = 'none';
   });
   
@@ -233,7 +245,7 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = false;
     knob.classList.remove('dragging');
     knob.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    snapToPosition(currentPos);
+    snapToPosition(currentPos, currentY);
   });
   
   // Click on track to switch between dark and light (only, not auto)
