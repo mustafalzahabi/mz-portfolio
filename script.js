@@ -39,19 +39,25 @@ function updateThemeToggleButton() {
   if (!knob || !track) return;
   
   const mode = getCurrentTheme();
+  const trackWidth = 80; // 5rem in pixels
+  const knobWidth = 24;  // 1.5rem in pixels
+  const maxTranslate = trackWidth - knobWidth; // 56px
   
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
     knob.setAttribute('data-mode', 'auto');
-    knob.style.transform = 'translateX(200px)';
+    // Throw off the right side
+    knob.style.transform = `translateX(${maxTranslate + 100}px)`;
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
-    knob.style.transform = 'translateX(calc(100% - 1.5rem))';
+    // Move to the right (sun position)
+    knob.style.transform = `translateX(${maxTranslate}px)`;
   } else {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'dark');
-    knob.style.transform = 'translateX(0)';
+    // Move to the left (moon position)
+    knob.style.transform = 'translateX(0px)';
   }
 }
 
@@ -181,17 +187,24 @@ function attachThemeSwitchHandlers(track, knob) {
   let dragStartX = 0;
   let dragStartPos = 0;
   let currentPos = 0;
-  const throwThreshold = 150; // pixels to throw off and trigger auto
+  const trackWidth = 80;  // 5rem
+  const knobWidth = 24;   // 1.5rem
+  const maxTranslate = trackWidth - knobWidth; // 56px
+  const midpoint = maxTranslate / 2; // 28px
+  const throwThreshold = 40; // pixels beyond max to trigger auto
   
   function snapToPosition(endPos) {
-    if (endPos > throwThreshold || endPos < -throwThreshold) {
+    const throwThresholdRight = maxTranslate + throwThreshold;
+    const throwThresholdLeft = -throwThreshold;
+    
+    if (endPos > throwThresholdRight || endPos < throwThresholdLeft) {
       // Thrown far enough - enable auto
       applyTheme('auto');
-    } else if (endPos > 25) {
-      // Closer to right - light mode
+    } else if (endPos > midpoint) {
+      // Closer to right - light mode (sun)
       applyTheme('light');
     } else {
-      // Closer to left - dark mode
+      // Closer to left - dark mode (moon)
       applyTheme('dark');
     }
   }
@@ -200,7 +213,7 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = true;
     dragStartX = e.clientX;
     const transform = knob.style.transform;
-    const match = transform.match(/translateX\(([^)]+)\)/);
+    const match = transform.match(/translateX\(([-\d.]+)px\)/);
     dragStartPos = match ? parseFloat(match[1]) : 0;
     knob.classList.add('dragging');
     e.preventDefault();
@@ -225,7 +238,11 @@ function attachThemeSwitchHandlers(track, knob) {
   
   // Click on track to switch between dark and light (only, not auto)
   track.addEventListener('click', (e) => {
-    if (e.target !== knob && !isDragging) {
+    // Only toggle if clicking on the track itself, not the knob
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    
+    if (clickX < currentPos || clickX > currentPos + knobWidth) {
       const current = getCurrentTheme();
       if (current === 'auto') {
         applyTheme('dark');
@@ -255,6 +272,9 @@ function attachThemeSwitchHandlers(track, knob) {
       applyTheme('dark');
     }
   });
+  
+  // Initialize current position
+  updateThemeToggleButton();
 }
 
 function setupThemeToggle() {
