@@ -50,32 +50,61 @@ body {
    ============================================================================ */
 
 .navbar {
-  position: sticky;
-  inset-block-start: 15%;
-  background: var(--surface-color);
-  border: 3px solid var(--border-color);
-  box-shadow: light-dark(0 0.125rem 0.5rem rgba(0,0,0,0.08), 0 0.125rem 0.5rem rgba(0,0,0,0.3));
+  position: fixed;
+  inset-inline-start: 2rem;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  z-index: 1000;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-item a {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
-  block-size: 3.75rem;
-  gap: 2rem;
-  width: 70%;
-  border-radius: 30%;
-  z-index: 999;
-  margin-inline: auto;
-}
-
-.navbar a {
-  color: var(--primary-color);
   text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
 }
 
-.navbar a:hover {
-  color: var(--color-accent);
+.nav-dot {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--border-color);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.nav-item:hover .nav-dot {
+  inline-size: 1rem;
+  block-size: 1rem;
+  background: var(--color-accent);
+  box-shadow: 0 0 0.5rem var(--color-accent);
+}
+
+.nav-label {
+  position: absolute;
+  inset-inline-start: 2rem;
+  white-space: nowrap;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.nav-item:hover .nav-label {
+  opacity: 1;
 }
 
 /* ============================================================================
@@ -904,7 +933,7 @@ main {
 /* Portrait orientation (typically mobile/tablet vertical) */
 @media (orientation: portrait) {
   .navbar {
-    gap: 1rem;
+    display: none;
   }
 
   .profile-banner {

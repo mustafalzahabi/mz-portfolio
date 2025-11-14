@@ -148,11 +148,33 @@ function buildNavbar() {
   const nav = document.createElement('nav');
   nav.className = 'navbar';
   
-  ['Home', 'Projects', 'Skills', 'Contact'].forEach((text) => {
+  const sections = [
+    { id: 'home', label: 'Home' },
+    { id: 'about', label: 'About' },
+    { id: 'projects', label: 'Projects' },
+    { id: 'skills', label: 'Skills' },
+    { id: 'contact', label: 'Contact' }
+  ];
+  
+  sections.forEach((section) => {
+    const navItem = document.createElement('div');
+    navItem.className = 'nav-item';
+    navItem.setAttribute('data-section', section.id);
+    
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot';
+    
+    const label = document.createElement('span');
+    label.className = 'nav-label';
+    label.textContent = section.label;
+    
     const a = document.createElement('a');
-    a.href = `#${text.toLowerCase()}`;
-    a.textContent = text;
-    nav.appendChild(a);
+    a.href = `#${section.id}`;
+    a.appendChild(dot);
+    
+    navItem.appendChild(a);
+    navItem.appendChild(label);
+    nav.appendChild(navItem);
   });
   
   return nav;
