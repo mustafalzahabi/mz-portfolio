@@ -176,15 +176,17 @@ function attachThemeSwitchHandlers(track, knob) {
   let currentY = 0;
   let escapeTrack = false;
   
-  // Constants (all in pixels; track is 80px/5rem, icon is at ~24px/1.5rem)
+  // Constants (all in pixels; track is 80px/5rem)
   const TRACK_WIDTH = 80;
   const THROW_THRESHOLD = 40;      // Distance to throw knob off-track to trigger auto mode
   const VERTICAL_THRESHOLD = 20;   // Vertical distance to trigger auto mode
   const ESCAPE_THRESHOLD = 15;     // Distance to unlock vertical movement
   const MIDPOINT = TRACK_WIDTH / 2; // 40px - switching point between dark/light
+  const DARK_POS = 0;              // Left position for dark mode
+  const LIGHT_POS = TRACK_WIDTH - 5; // Right position for light mode (adjusted for icon width)
   
   /**
-   * Determines theme based on final drag position
+   * Snaps knob to nearest valid position based on drag distance
    * If thrown far enough (horizontally or vertically), triggers auto mode
    */
   function snapToPosition(endPos, endY) {
@@ -194,10 +196,13 @@ function attachThemeSwitchHandlers(track, knob) {
     const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
     
     if (isOffHorizontally || isOffVertically) {
+      // Thrown off track - trigger auto mode
       applyTheme('auto');
     } else if (endPos > MIDPOINT) {
+      // Snap to light (right)
       applyTheme('light');
     } else {
+      // Snap to dark (left)
       applyTheme('dark');
     }
   }
@@ -211,6 +216,7 @@ function attachThemeSwitchHandlers(track, knob) {
     currentY = 0;
     escapeTrack = false;
     knob.classList.add('dragging');
+    knob.style.transition = 'none'; // Disable transitions while dragging
     e.preventDefault();
   });
   
@@ -241,7 +247,6 @@ function attachThemeSwitchHandlers(track, knob) {
     knob.style.insetInlineStart = currentPos + 'px';
     knob.style.insetInlineEnd = 'auto';
     knob.style.transform = `translateY(calc(-50% + ${currentY}px))`;
-    knob.style.transition = 'none'; // Disable transitions while dragging
   });
   
   // End drag and snap to nearest theme
@@ -249,7 +254,8 @@ function attachThemeSwitchHandlers(track, knob) {
     if (!isDragging) return;
     isDragging = false;
     knob.classList.remove('dragging');
-    knob.style.transition = 'inset-inline-start 0.3s, inset-inline-end 0.3s, opacity 0.2s';
+    // Re-enable transitions for snapping
+    knob.style.transition = 'inset-inline-start 0.3s ease-out, inset-inline-end 0.3s ease-out, opacity 0.2s';
     snapToPosition(currentPos, currentY);
   });
   
