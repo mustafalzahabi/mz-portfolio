@@ -214,14 +214,10 @@ main {
 }
 
 /* Draggable Theme Switch */
-#theme-switch {
+.theme-switch-track {
   position: absolute;
   inset-block-start: 1rem;
   inset-inline-end: 1.5rem;
-}
-
-.theme-switch-track {
-  position: relative;
   inline-size: 5rem;
   block-size: 2rem;
   background: var(--surface-color);
@@ -235,12 +231,12 @@ main {
 }
 
 .theme-switch-track:hover {
-  border: 2px solid var(--accent-color);
-  box-shadow: inset 0 0.375rem 0.75rem rgba(0, 0, 0, 0.1), 0 0 0 0.5px var(--accent-color);
+  border: 2px solid var(--color-accent);
+  box-shadow: inset 0 0.375rem 0.75rem rgba(0, 0, 0, 0.1), 0 0 0 0.5px var(--color-accent);
 }
 
 .theme-switch-track:focus {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -248,26 +244,23 @@ main {
 .theme-switch-knob-alt {
   position: absolute;
   font-size: 1.5rem;
-  color: var(--accent-color);
+  color: var(--color-accent);
   transition: opacity 0.2s, transform 0.3s, filter 0.3s;
   cursor: grab;
   z-index: 2;
   inset-block-start: 50%;
   transform: translateY(-50%);
   user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .theme-switch-knob {
-  inset-inline-start: 0.5rem;
+  inset-inline-start: 0.25rem;
   opacity: 1;
   filter: brightness(1);
 }
 
 .theme-switch-knob-alt {
-  inset-inline-start: 4rem;
+  inset-inline-end: 0.25rem;
   opacity: 0;
   filter: brightness(0.6);
 }

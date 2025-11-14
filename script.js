@@ -418,10 +418,6 @@ function buildHeader(profile, contact) {
   banner.className = 'profile-banner';
   
   // Theme toggle switch (top right) - draggable
-  const themeSwitch = document.createElement('div');
-  themeSwitch.id = 'theme-switch';
-  themeSwitch.className = 'theme-switch';
-  
   const track = document.createElement('div');
   track.id = 'theme-track';
   track.className = 'theme-switch-track';
@@ -440,8 +436,7 @@ function buildHeader(profile, contact) {
   
   track.appendChild(moonIcon);
   track.appendChild(sunIcon);
-  themeSwitch.appendChild(track);
-  banner.appendChild(themeSwitch);
+  banner.appendChild(track);
   
   // Attach drag handlers
   attachThemeSwitchHandlers(track, moonIcon);
