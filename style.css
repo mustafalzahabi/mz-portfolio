@@ -65,6 +65,7 @@ body {
   inset-inline-start: 0;
   inset-block-start: 20vh;
   block-size: 60vh;
+  inline-size: 3vh;
   margin-block: 20vh;
   display: flex;
   flex-direction: column;
@@ -203,6 +204,7 @@ main {
 }
 
 /* Draggable Theme Switch */
+/* Theme switch track */
 .theme-switch-track {
   position: absolute;
   inset-block-start: 1rem;
@@ -217,23 +219,37 @@ main {
   transition: border-color 0.2s;
   display: flex;
   align-items: center;
-  text-align: start;
+  /* size tokens used by the knob positioning */
+  --theme-track-size: 3.5rem;
+  --theme-knob-size: 1.5rem;
+  --knob-offset: 0.25rem; /* small inset for the emoji from the edge */
 }
 
 .theme-switch-track:hover {
   border: 1px solid var(--border-color);
 }
 
+/* Knob fills the track; we position the emoji using flex alignment + padding */
 .theme-switch-knob {
-  font-size: 1.5rem;
+  font-size: var(--theme-knob-size);
   color: var(--accent-color);
-  transition: text-align 0.3s ease-out;
   cursor: grab;
   user-select: none;
+  flex: 1;
+  width: 100%;
+  display: block;
+  line-height: var(--theme-knob-size);
+  padding-inline-start: var(--knob-offset);
+  padding-inline-end: var(--knob-offset);
+  text-indent: 0; /* left position */
+  white-space: nowrap;
+  transition: text-indent 0.22s cubic-bezier(.2,.9,.2,1);
 }
 
 .theme-switch-knob[data-mode="light"] {
-  text-align: end;
+  /* Move the inline text to the right edge by indenting it.
+     Calculation: track width - knob font-size - 2*offset */
+  text-indent: calc(var(--theme-track-size) - var(--theme-knob-size) - (2 * var(--knob-offset)));
 }
 
 .theme-switch-track:active,
