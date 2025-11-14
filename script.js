@@ -2,8 +2,6 @@
 // THEME MANAGEMENT
 // ============================================================================
 
-let themeKnobPosition = 0; // 0 = dark (left), 1 = light (right), -1 = auto (thrown off)
-
 function initDarkMode() {
   const savedMode = localStorage.getItem('theme') || 'auto';
   applyTheme(savedMode);
@@ -25,18 +23,9 @@ function getCurrentTheme() {
   return localStorage.getItem('theme') || 'auto';
 }
 
-function toggleDarkMode() {
-  const themes = ['auto', 'light', 'dark'];
-  const current = getCurrentTheme();
-  const currentIndex = themes.indexOf(current);
-  const nextIndex = (currentIndex + 1) % themes.length;
-  applyTheme(themes[nextIndex]);
-}
-
 function updateThemeToggleButton() {
   const knob = document.getElementById('theme-knob');
-  const track = document.getElementById('theme-track');
-  if (!knob || !track) return;
+  if (!knob) return;
   
   const mode = getCurrentTheme();
   
@@ -152,8 +141,6 @@ async function loadData() {
     frag.appendChild(buildFooter());
     
     app.appendChild(frag);
-    
-    setupThemeToggle();
   } catch (e) {
     console.error(e);
     showError(e.message || 'Could not load portfolio data.');
@@ -175,122 +162,103 @@ function setupMetaTags() {
   }
 }
 
+// ============================================================================
+// THEME SWITCH DRAG HANDLER
+// ============================================================================
+
 function attachThemeSwitchHandlers(track, knob) {
+  // Drag state
   let isDragging = false;
   let dragStartX = 0;
   let dragStartY = 0;
-  let dragStartPos = 0;
+  let dragStartLeft = 0;
   let currentPos = 0;
   let currentY = 0;
-  let escapeTrack = false; // Whether knob has escaped track bounds
-  let activeDragIcon = null; // Track which icon is being dragged
-  const trackWidth = 80;  // 5rem
-  const trackHeight = 32; // 2rem
-  const knobWidth = 24;   // 1.5rem
-  const knobHeight = 24;  // 1.5rem
-  const maxTranslate = trackWidth - knobWidth; // 56px
-  const midpoint = maxTranslate / 2; // 28px
-  const throwThreshold = 40; // pixels beyond max to trigger auto
-  const verticalThreshold = 20; // pixels up/down to trigger auto
-  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
+  let escapeTrack = false;
   
-  // Get both moon (knob) and sun (knob-alt) icons
-  const moonIcon = track.querySelector('#theme-knob');
-  const sunIcon = track.querySelector('.theme-switch-knob-alt');
+  // Constants (all in pixels; track is 80px/5rem, icon is at ~24px/1.5rem)
+  const TRACK_WIDTH = 80;
+  const THROW_THRESHOLD = 40;      // Distance to throw knob off-track to trigger auto mode
+  const VERTICAL_THRESHOLD = 20;   // Vertical distance to trigger auto mode
+  const ESCAPE_THRESHOLD = 15;     // Distance to unlock vertical movement
+  const MIDPOINT = TRACK_WIDTH / 2; // 40px - switching point between dark/light
   
+  /**
+   * Determines theme based on final drag position
+   * If thrown far enough (horizontally or vertically), triggers auto mode
+   */
   function snapToPosition(endPos, endY) {
-    const throwThresholdRight = maxTranslate + throwThreshold;
-    const throwThresholdLeft = -throwThreshold;
-    const isOffVertically = Math.abs(endY) > verticalThreshold;
+    const throwThresholdRight = TRACK_WIDTH + THROW_THRESHOLD;
+    const throwThresholdLeft = -THROW_THRESHOLD;
+    const isOffVertically = Math.abs(endY) > VERTICAL_THRESHOLD;
     const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
     
     if (isOffHorizontally || isOffVertically) {
-      // Thrown off track in any direction - enable auto
       applyTheme('auto');
-    } else if (endPos > midpoint) {
-      // Closer to right - light mode (sun)
+    } else if (endPos > MIDPOINT) {
       applyTheme('light');
     } else {
-      // Closer to left - dark mode (moon)
       applyTheme('dark');
     }
   }
   
-  function startDrag(e, icon) {
+  // Start drag on pointer down
+  knob.addEventListener('pointerdown', (e) => {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const transform = icon.style.transform;
-    // Extract only the X translation
-    const matchX = transform.match(/translate\(([-\d.]+)px/);
-    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
+    dragStartLeft = knob.offsetLeft;
     currentY = 0;
     escapeTrack = false;
-    activeDragIcon = icon;
-    icon.classList.add('dragging');
+    knob.classList.add('dragging');
     e.preventDefault();
-  }
-  
-  // Both icons start drag
-  [moonIcon, sunIcon].forEach(icon => {
-    icon.addEventListener('pointerdown', (e) => startDrag(e, icon));
   });
   
+  // Track drag movement
   document.addEventListener('pointermove', (e) => {
-    if (!isDragging || !activeDragIcon) return;
+    if (!isDragging) return;
     
     const deltaX = e.clientX - dragStartX;
     const deltaY = e.clientY - dragStartY;
-    currentPos = dragStartPos + deltaX;
+    currentPos = dragStartLeft + deltaX;
     
-    // Check if knob has escaped the track horizontally
-    const hasEscapedRight = currentPos > (maxTranslate + escapeThreshold);
-    const hasEscapedLeft = currentPos < -escapeThreshold;
+    // Check if knob has escaped track bounds (enables vertical dragging)
+    const hasEscapedRight = currentPos > (TRACK_WIDTH + ESCAPE_THRESHOLD);
+    const hasEscapedLeft = currentPos < -ESCAPE_THRESHOLD;
     
     if (hasEscapedRight || hasEscapedLeft) {
       escapeTrack = true;
     }
     
-    // Only apply vertical movement if knob has escaped track
+    // Only apply vertical movement if escape threshold is met
     if (escapeTrack) {
       currentY = deltaY;
     } else {
       currentY = 0;
     }
     
-    // Update both icons with new position
-    const transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
-    moonIcon.style.transform = transform;
-    sunIcon.style.transform = transform;
-    moonIcon.style.transition = 'none';
-    sunIcon.style.transition = 'none';
+    // Apply visual updates during drag
+    knob.style.insetInlineStart = currentPos + 'px';
+    knob.style.insetInlineEnd = 'auto';
+    knob.style.transform = `translateY(calc(-50% + ${currentY}px))`;
+    knob.style.transition = 'none'; // Disable transitions while dragging
   });
   
+  // End drag and snap to nearest theme
   document.addEventListener('pointerup', () => {
     if (!isDragging) return;
     isDragging = false;
-    if (activeDragIcon) {
-      activeDragIcon.classList.remove('dragging');
-      activeDragIcon = null;
-    }
-    moonIcon.style.transition = 'transform 0.3s, opacity 0.2s, filter 0.3s';
-    sunIcon.style.transition = 'transform 0.3s, opacity 0.2s, filter 0.3s';
+    knob.classList.remove('dragging');
+    knob.style.transition = 'inset-inline-start 0.3s, inset-inline-end 0.3s, opacity 0.2s';
     snapToPosition(currentPos, currentY);
   });
   
-  // Click on track to switch between dark and light (only, not auto)
+  // Click track to toggle between dark/light (skip auto mode)
   track.addEventListener('click', (e) => {
-    // Only toggle if clicking on the track itself, not an icon
-    if (e.target !== moonIcon && e.target !== sunIcon) {
-      const current = getCurrentTheme();
-      if (current === 'auto') {
-        applyTheme('dark');
-      } else if (current === 'dark') {
-        applyTheme('light');
-      } else {
-        applyTheme('dark');
-      }
-    }
+    if (e.target === knob) return; // Don't toggle if clicking knob
+    const current = getCurrentTheme();
+    const nextTheme = current === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme);
   });
   
   // Keyboard support
@@ -298,13 +266,8 @@ function attachThemeSwitchHandlers(track, knob) {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       const current = getCurrentTheme();
-      if (current === 'auto') {
-        applyTheme('dark');
-      } else if (current === 'dark') {
-        applyTheme('light');
-      } else {
-        applyTheme('dark');
-      }
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
     } else if (e.key === 'ArrowRight') {
       applyTheme('light');
     } else if (e.key === 'ArrowLeft') {
@@ -312,17 +275,10 @@ function attachThemeSwitchHandlers(track, knob) {
     }
   });
   
-  // Initialize current position
+  // Initialize knob display
   updateThemeToggleButton();
 }
 
-function setupThemeToggle() {
-  const track = document.getElementById('theme-track');
-  const knob = document.getElementById('theme-knob');
-  if (track && knob) {
-    updateThemeToggleButton();
-  }
-}
 
 // ============================================================================
 // DOM BUILDERS
@@ -413,7 +369,7 @@ function buildHeader(profile, contact) {
   banner.appendChild(track);
   
   // Attach drag handlers
-  attachThemeSwitchHandlers(track, moonIcon);
+  attachThemeSwitchHandlers(track, knob);
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
@@ -1101,8 +1057,6 @@ function renderProjectDetail(project) {
   
   app.innerHTML = '';
   app.appendChild(frag);
-  
-  setupThemeToggle();
   
   // Scroll to top of page
   window.scrollTo(0, 0);
