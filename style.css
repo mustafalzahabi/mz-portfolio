@@ -247,23 +247,26 @@ main {
 .theme-switch-knob,
 .theme-switch-knob-alt {
   position: absolute;
-  font-size: 1.5rem;
+  font-size: 1rem;
   transition: opacity 0.2s, transform 0.3s, filter 0.3s;
   cursor: grab;
   z-index: 2;
   inset-block-start: 50%;
-  transform: translate(0, -50%);
+  transform: translate(-50%, -50%);
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .theme-switch-knob {
-  inset-inline-start: 0.25rem;
+  inset-inline-start: 0.75rem;
   opacity: 1;
   filter: brightness(1);
 }
 
 .theme-switch-knob-alt {
-  inset-inline-start: 3.25rem;
+  inset-inline-start: 4.25rem;
   opacity: 0;
   filter: brightness(0.6);
 }

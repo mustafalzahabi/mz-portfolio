@@ -432,11 +432,11 @@ function buildHeader(profile, contact) {
   const moonIcon = document.createElement('span');
   moonIcon.id = 'theme-knob';
   moonIcon.className = 'theme-switch-knob theme-icon theme-icon-moon';
-  moonIcon.textContent = '🌙';
+  moonIcon.textContent = '☪';
   
   const sunIcon = document.createElement('span');
   sunIcon.className = 'theme-switch-knob-alt theme-icon theme-icon-sun';
-  sunIcon.textContent = '☀️';
+  sunIcon.textContent = '☀';
   
   track.appendChild(moonIcon);
   track.appendChild(sunIcon);
