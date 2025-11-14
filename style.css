@@ -235,17 +235,20 @@ main {
   width: 100%;
   display: block;
   line-height: 1.5rem;
+  /* default: align to start */
+  text-align: start;
   padding-inline-start: 0.25rem;
-  padding-inline-end: 0.25rem;
-  text-indent: 0; /* left position */
+  padding-inline-end: 0;
+  text-indent: 0; /* keep numeric offset 0 as requested */
   white-space: nowrap;
-  transition: text-indent 0.22s cubic-bezier(.2,.9,.2,1);
+  transition: padding-inline-start 0.18s ease-out, padding-inline-end 0.18s ease-out;
 }
 
 .theme-switch-knob[data-mode="light"] {
-  /* Move the inline text to the right edge by indenting it.
-     Precomputed: 3.5rem (track) - 1.5rem (knob) - 2*0.25rem = 1.5rem */
-  text-indent: 1.5rem;
+  /* align to end and swap paddings */
+  text-align: end;
+  padding-inline-start: 0;
+  padding-inline-end: 0.25rem;
 }
 
 .theme-switch-track:active,
