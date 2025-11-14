@@ -46,18 +46,24 @@ function updateThemeToggleButton() {
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
     knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side, staying centered vertically
-    knob.style.transform = `translate(${maxTranslate + 100}px, -50%)`;
+    // Throw off the right side, centered vertically
+    knob.style.insetInlineStart = (maxTranslate + 100) + 'px';
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginBlockStart = '-0.75rem';
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
     // Move to the right (sun position), centered vertically
-    knob.style.transform = `translate(${maxTranslate}px, -50%)`;
+    knob.style.insetInlineStart = maxTranslate + 'px';
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginBlockStart = '-0.75rem';
   } else {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'dark');
     // Move to the left (moon position), centered vertically
-    knob.style.transform = 'translate(0px, -50%)';
+    knob.style.insetInlineStart = '0px';
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginBlockStart = '-0.75rem';
   }
 }
 
@@ -222,10 +228,8 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const transform = knob.style.transform;
-    // Extract only the X translation, ignoring the Y centering
-    const matchX = transform.match(/translate\(([-\d.]+)px/);
-    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
+    const insetStart = parseFloat(knob.style.insetInlineStart) || 0;
+    dragStartPos = insetStart;
     currentY = 0;
     escapeTrack = false;
     knob.classList.add('dragging');
@@ -254,7 +258,8 @@ function attachThemeSwitchHandlers(track, knob) {
       currentY = 0;
     }
     
-    knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
+    knob.style.insetInlineStart = currentPos + 'px';
+    knob.style.insetBlockStart = (50 + (currentY / 32) * 100) + '%';
     knob.style.transition = 'none';
   });
   
@@ -262,7 +267,7 @@ function attachThemeSwitchHandlers(track, knob) {
     if (!isDragging) return;
     isDragging = false;
     knob.classList.remove('dragging');
-    knob.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    knob.style.transition = 'inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
     snapToPosition(currentPos, currentY);
   });
   
