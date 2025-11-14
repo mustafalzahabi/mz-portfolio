@@ -34,37 +34,44 @@ function toggleDarkMode() {
 }
 
 function updateThemeToggleButton() {
-  const knob = document.getElementById('theme-knob');
+  const moonIcon = document.getElementById('theme-knob');
+  const sunIcon = document.querySelector('.theme-switch-knob-alt');
   const track = document.getElementById('theme-track');
-  if (!knob || !track) return;
+  if (!moonIcon || !sunIcon || !track) return;
   
   const mode = getCurrentTheme();
+  const trackWidth = 80; // 5rem in pixels
+  const knobWidth = 24;  // 1.5rem in pixels
+  const maxTranslate = trackWidth - knobWidth; // 56px
+  
+  const autoTransform = `translate(${maxTranslate + 100}px, -50%)`;
+  const lightTransform = `translate(${maxTranslate}px, -50%)`;
+  const darkTransform = 'translate(0px, -50%)';
   
   if (mode === 'auto') {
-    knob.classList.add('auto-mode');
-    knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side
-    knob.style.marginInlineStart = '';
-    knob.style.marginInlineEnd = '';
-    knob.style.insetInlineStart = (80 + 100) + 'px'; // Still need manual offset for auto
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginBlockStart = '-0.75rem';
+    moonIcon.classList.add('auto-mode');
+    sunIcon.classList.add('auto-mode');
+    moonIcon.setAttribute('data-mode', 'auto');
+    sunIcon.setAttribute('data-mode', 'auto');
+    // Throw off the right side, staying centered vertically
+    moonIcon.style.transform = autoTransform;
+    sunIcon.style.transform = autoTransform;
   } else if (mode === 'light') {
-    knob.classList.remove('auto-mode');
-    knob.setAttribute('data-mode', 'light');
-    // Sun on the right
-    knob.style.insetInlineStart = '';
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginInlineEnd = '0';
-    knob.style.marginBlockStart = '-0.75rem';
+    moonIcon.classList.remove('auto-mode');
+    sunIcon.classList.remove('auto-mode');
+    moonIcon.setAttribute('data-mode', 'light');
+    sunIcon.setAttribute('data-mode', 'light');
+    // Move to the right (sun position), centered vertically
+    moonIcon.style.transform = lightTransform;
+    sunIcon.style.transform = lightTransform;
   } else {
-    knob.classList.remove('auto-mode');
-    knob.setAttribute('data-mode', 'dark');
-    // Moon on the left
-    knob.style.insetInlineEnd = '';
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginInlineStart = '0';
-    knob.style.marginBlockStart = '-0.75rem';
+    moonIcon.classList.remove('auto-mode');
+    sunIcon.classList.remove('auto-mode');
+    moonIcon.setAttribute('data-mode', 'dark');
+    sunIcon.setAttribute('data-mode', 'dark');
+    // Move to the left (moon position), centered vertically
+    moonIcon.style.transform = darkTransform;
+    sunIcon.style.transform = darkTransform;
   }
 }
 
@@ -197,6 +204,7 @@ function attachThemeSwitchHandlers(track, knob) {
   let currentPos = 0;
   let currentY = 0;
   let escapeTrack = false; // Whether knob has escaped track bounds
+  let activeDragIcon = null; // Track which icon is being dragged
   const trackWidth = 80;  // 5rem
   const trackHeight = 32; // 2rem
   const knobWidth = 24;   // 1.5rem
@@ -206,6 +214,10 @@ function attachThemeSwitchHandlers(track, knob) {
   const throwThreshold = 40; // pixels beyond max to trigger auto
   const verticalThreshold = 20; // pixels up/down to trigger auto
   const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
+  
+  // Get both moon (knob) and sun (knob-alt) icons
+  const moonIcon = track.querySelector('#theme-knob');
+  const sunIcon = track.querySelector('.theme-switch-knob-alt');
   
   function snapToPosition(endPos, endY) {
     const throwThresholdRight = maxTranslate + throwThreshold;
@@ -225,20 +237,28 @@ function attachThemeSwitchHandlers(track, knob) {
     }
   }
   
-  knob.addEventListener('pointerdown', (e) => {
+  function startDrag(e, icon) {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const insetStart = parseFloat(knob.style.insetInlineStart) || 0;
-    dragStartPos = insetStart;
+    const transform = icon.style.transform;
+    // Extract only the X translation
+    const matchX = transform.match(/translate\(([-\d.]+)px/);
+    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
     currentY = 0;
     escapeTrack = false;
-    knob.classList.add('dragging');
+    activeDragIcon = icon;
+    icon.classList.add('dragging');
     e.preventDefault();
+  }
+  
+  // Both icons start drag
+  [moonIcon, sunIcon].forEach(icon => {
+    icon.addEventListener('pointerdown', (e) => startDrag(e, icon));
   });
   
   document.addEventListener('pointermove', (e) => {
-    if (!isDragging) return;
+    if (!isDragging || !activeDragIcon) return;
     
     const deltaX = e.clientX - dragStartX;
     const deltaY = e.clientY - dragStartY;
@@ -259,26 +279,30 @@ function attachThemeSwitchHandlers(track, knob) {
       currentY = 0;
     }
     
-    knob.style.insetInlineStart = currentPos + 'px';
-    knob.style.insetBlockStart = (50 + (currentY / 32) * 100) + '%';
-    knob.style.transition = 'none';
+    // Update both icons with new position
+    const transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
+    moonIcon.style.transform = transform;
+    sunIcon.style.transform = transform;
+    moonIcon.style.transition = 'none';
+    sunIcon.style.transition = 'none';
   });
   
   document.addEventListener('pointerup', () => {
     if (!isDragging) return;
     isDragging = false;
-    knob.classList.remove('dragging');
-    knob.style.transition = 'inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    if (activeDragIcon) {
+      activeDragIcon.classList.remove('dragging');
+      activeDragIcon = null;
+    }
+    moonIcon.style.transition = 'transform 0.3s, opacity 0.2s, filter 0.3s';
+    sunIcon.style.transition = 'transform 0.3s, opacity 0.2s, filter 0.3s';
     snapToPosition(currentPos, currentY);
   });
   
   // Click on track to switch between dark and light (only, not auto)
   track.addEventListener('click', (e) => {
-    // Only toggle if clicking on the track itself, not the knob
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    
-    if (clickX < currentPos || clickX > currentPos + knobWidth) {
+    // Only toggle if clicking on the track itself, not an icon
+    if (e.target !== moonIcon && e.target !== sunIcon) {
       const current = getCurrentTheme();
       if (current === 'auto') {
         applyTheme('dark');
@@ -405,26 +429,22 @@ function buildHeader(profile, contact) {
   track.setAttribute('aria-label', 'Toggle theme');
   track.setAttribute('tabindex', '0');
   
-  const knob = document.createElement('div');
-  knob.id = 'theme-knob';
-  knob.className = 'theme-switch-knob';
-  
   const moonIcon = document.createElement('span');
-  moonIcon.className = 'theme-icon theme-icon-moon';
+  moonIcon.id = 'theme-knob';
+  moonIcon.className = 'theme-switch-knob theme-icon theme-icon-moon';
   moonIcon.textContent = '🌙';
   
   const sunIcon = document.createElement('span');
-  sunIcon.className = 'theme-icon theme-icon-sun';
+  sunIcon.className = 'theme-switch-knob-alt theme-icon theme-icon-sun';
   sunIcon.textContent = '☀️';
   
-  knob.appendChild(moonIcon);
-  knob.appendChild(sunIcon);
-  track.appendChild(knob);
+  track.appendChild(moonIcon);
+  track.appendChild(sunIcon);
   themeSwitch.appendChild(track);
   banner.appendChild(themeSwitch);
   
   // Attach drag handlers
-  attachThemeSwitchHandlers(track, knob);
+  attachThemeSwitchHandlers(track, moonIcon);
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
