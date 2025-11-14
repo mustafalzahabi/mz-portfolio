@@ -3,26 +3,60 @@
 // ============================================================================
 
 function initDarkMode() {
-  const savedMode = localStorage.getItem('theme');
-  const isDark = savedMode ? savedMode === 'dark' : true;
-  document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+  const savedMode = localStorage.getItem('theme') || 'auto';
+  applyTheme(savedMode);
+}
+
+function applyTheme(mode) {
+  let effectiveScheme = mode;
+  
+  if (mode === 'auto') {
+    effectiveScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  
+  document.documentElement.style.colorScheme = effectiveScheme;
+  localStorage.setItem('theme', mode);
+  updateThemeToggleButton();
+}
+
+function getCurrentTheme() {
+  return localStorage.getItem('theme') || 'auto';
 }
 
 function toggleDarkMode() {
-  const isDark = document.documentElement.style.colorScheme === 'dark';
-  const newScheme = isDark ? 'light' : 'dark';
-  document.documentElement.style.colorScheme = newScheme;
-  localStorage.setItem('theme', newScheme);
-  updateThemeToggleButton();
+  const themes = ['auto', 'light', 'dark'];
+  const current = getCurrentTheme();
+  const currentIndex = themes.indexOf(current);
+  const nextIndex = (currentIndex + 1) % themes.length;
+  applyTheme(themes[nextIndex]);
 }
 
 function updateThemeToggleButton() {
   const btn = document.getElementById('theme-toggle');
   if (btn) {
-    const isDark = document.documentElement.style.colorScheme === 'dark';
-    btn.textContent = isDark ? '☀️' : '🌙';
+    const mode = getCurrentTheme();
+    let label = '';
+    
+    if (mode === 'auto') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      label = isDark ? 'Auto (Dark)' : 'Auto (Light)';
+    } else if (mode === 'light') {
+      label = 'Light';
+    } else {
+      label = 'Dark';
+    }
+    
+    btn.setAttribute('data-theme', mode);
+    btn.textContent = label;
   }
 }
+
+// Listen for system theme changes when in auto mode
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (getCurrentTheme() === 'auto') {
+    applyTheme('auto');
+  }
+});
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -218,11 +252,16 @@ function buildHeader(profile, contact) {
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
   
-  // Theme toggle button (top right)
+  // Theme toggle switch (top right)
   const themeToggle = document.createElement('button');
   themeToggle.id = 'theme-toggle';
-  themeToggle.className = 'theme-toggle';
-  themeToggle.textContent = '🌙 Dark';
+  themeToggle.className = 'theme-toggle-switch';
+  themeToggle.setAttribute('aria-label', 'Toggle theme');
+  themeToggle.innerHTML = `
+    <span class="theme-icon theme-icon-auto">🔄</span>
+    <span class="theme-icon theme-icon-light">☀️</span>
+    <span class="theme-icon theme-icon-dark">🌙</span>
+  `;
   themeToggle.onclick = toggleDarkMode;
   banner.appendChild(themeToggle);
   
