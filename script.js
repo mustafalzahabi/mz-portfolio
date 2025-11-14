@@ -151,7 +151,55 @@ function setupMetaTags() {
 // ============================================================================
 
 function attachThemeSwitchHandlers(track) {
-  track.addEventListener('click', toggleTheme);
+  track.addEventListener('click', (e) => {
+    // Ignore click if it was part of a drag
+    if (track.dataset.dragging === 'true') return;
+    toggleTheme();
+  });
+  // Pointer drag support
+  let pointerId = null;
+  let startX = 0;
+  let rect = null;
+
+  function onPointerDown(e) {
+    track.setPointerCapture(e.pointerId);
+    pointerId = e.pointerId;
+    track.dataset.dragging = 'true';
+    startX = e.clientX;
+    rect = track.getBoundingClientRect();
+    track.classList.add('dragging');
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+  }
+
+  function onPointerMove(e) {
+    if (e.pointerId !== pointerId) return;
+    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+    const progress = x / rect.width; // 0..1
+    // store as percentage for CSS to translate the ::after
+    track.style.setProperty('--drag-progress', progress);
+  }
+
+  function endDragAndSetTheme() {
+    const progress = parseFloat(getComputedStyle(track).getPropertyValue('--drag-progress')) || 0;
+    // threshold 0.5
+    const newMode = progress >= 0.5 ? 'light' : 'dark';
+    applyTheme(newMode);
+    track.style.removeProperty('--drag-progress');
+  }
+
+  function onPointerUp(e) {
+    if (e.pointerId !== pointerId) return;
+    try { track.releasePointerCapture(pointerId); } catch (err) {}
+    pointerId = null;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    track.classList.remove('dragging');
+    delete track.dataset.dragging;
+    endDragAndSetTheme();
+  }
+
+  track.addEventListener('pointerdown', onPointerDown);
   updateThemeToggleButton();
 }
 
