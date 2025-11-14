@@ -236,7 +236,6 @@ main {
 .theme-switch-track {
   position: relative;
   inline-size: 5rem;
-  block-size: 2rem;
   background: var(--surface-color);
   border: 2px solid var(--border-color);
   border-radius: 2rem;

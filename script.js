@@ -189,6 +189,7 @@ function attachThemeSwitchHandlers(track, knob) {
   let dragStartPos = 0;
   let currentPos = 0;
   let currentY = 0;
+  let escapeTrack = false; // Whether knob has escaped track bounds
   const trackWidth = 80;  // 5rem
   const trackHeight = 32; // 2rem
   const knobWidth = 24;   // 1.5rem
@@ -197,6 +198,7 @@ function attachThemeSwitchHandlers(track, knob) {
   const midpoint = maxTranslate / 2; // 28px
   const throwThreshold = 40; // pixels beyond max to trigger auto
   const verticalThreshold = 20; // pixels up/down to trigger auto
+  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
   
   function snapToPosition(endPos, endY) {
     const throwThresholdRight = maxTranslate + throwThreshold;
@@ -222,9 +224,10 @@ function attachThemeSwitchHandlers(track, knob) {
     dragStartY = e.clientY;
     const transform = knob.style.transform;
     // Extract only the X translation, ignoring the Y centering
-    const matchX = transform.match(/translateX\(([-\d.]+)px\)/);
+    const matchX = transform.match(/translate\(([-\d.]+)px/);
     dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
     currentY = 0;
+    escapeTrack = false;
     knob.classList.add('dragging');
     e.preventDefault();
   });
@@ -235,7 +238,22 @@ function attachThemeSwitchHandlers(track, knob) {
     const deltaX = e.clientX - dragStartX;
     const deltaY = e.clientY - dragStartY;
     currentPos = dragStartPos + deltaX;
-    currentY = deltaY;
+    
+    // Check if knob has escaped the track horizontally
+    const hasEscapedRight = currentPos > (maxTranslate + escapeThreshold);
+    const hasEscapedLeft = currentPos < -escapeThreshold;
+    
+    if (hasEscapedRight || hasEscapedLeft) {
+      escapeTrack = true;
+    }
+    
+    // Only apply vertical movement if knob has escaped track
+    if (escapeTrack) {
+      currentY = deltaY;
+    } else {
+      currentY = 0;
+    }
+    
     knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
     knob.style.transition = 'none';
   });
