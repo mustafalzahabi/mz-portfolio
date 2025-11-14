@@ -626,21 +626,38 @@ async function fetchAndMergeProjects(manualProjects, githubUsername) {
 // GitHub language colors - fetched dynamically
 let GITHUB_LANGUAGE_COLORS = {};
 
-// Fetch GitHub language colors from github/linguist colors.json
+// Fetch GitHub language colors from github/linguist languages.yml
 async function initializeLanguageColors() {
   try {
-    const res = await fetch('https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.json');
+    const res = await fetch('https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml');
     if (!res.ok) return;
     
-    const languages = await res.json();
+    const yaml = await res.text();
     GITHUB_LANGUAGE_COLORS = {};
     
-    // Extract color for each language
-    Object.entries(languages).forEach(([langName, langData]) => {
-      if (langData.color) {
-        GITHUB_LANGUAGE_COLORS[langName] = langData.color;
+    // Parse YAML to extract language names and their color codes
+    // YAML format: language_name:\n  color: '#HEXCODE'
+    const lines = yaml.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Match language name (key with no indentation followed by colon)
+      const langMatch = line.match(/^([a-zA-Z0-9\s\-\+#]+):\s*$/);
+      if (langMatch) {
+        const langName = langMatch[1].trim();
+        // Look for color in next few lines (usually indented with 2 spaces)
+        for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+          const colorMatch = lines[j].match(/^\s+color:\s*['"](#[0-9a-fA-F]{6})['"]/);
+          if (colorMatch) {
+            GITHUB_LANGUAGE_COLORS[langName] = colorMatch[1];
+            break;
+          }
+          // Stop if we hit another language definition
+          if (lines[j].match(/^[a-zA-Z0-9\s\-\+#]+:\s*$/) && !lines[j].startsWith(' ')) {
+            break;
+          }
+        }
       }
-    });
+    }
   } catch (e) {
     console.warn('Failed to fetch GitHub language colors:', e);
     // Fallback to empty colors - tags will use default CSS styling
