@@ -234,13 +234,31 @@ main {
   justify-content: flex-start; /* left by default */
   padding-inline-start: 0.25rem;
   padding-inline-end: 0;
-  transition: justify-content 0.18s ease-out, padding-inline-start 0.18s ease-out, padding-inline-end 0.18s ease-out;
+  transition: border-color 0.2s;
+  position: relative;
 }
 
 .theme-switch-track[data-mode="light"] {
-  justify-content: flex-end;
   padding-inline-start: 0;
   padding-inline-end: 0.25rem;
+}
+
+/* Animated emoji using a pseudo-element for smooth transform animation */
+.theme-switch-track::after {
+  content: '☪';
+  position: absolute;
+  top: 50%;
+  left: 0.25rem; /* anchor at start */
+  transform: translateY(-50%) translateX(0);
+  transition: transform 0.22s cubic-bezier(.2,.9,.2,1);
+}
+
+.theme-switch-track[data-mode="light"]::after {
+  content: '☀';
+  /* translate from the start anchor to the right edge
+     calc: track(100%) - (emoji(1.5rem) + padding(0.25rem)) - startAnchor(0.25rem)
+     simplifies to: calc(100% - 2rem) */
+  transform: translateY(-50%) translateX(calc(100% - 2rem));
 }
 
 .theme-switch-track:active,

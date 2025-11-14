@@ -28,8 +28,10 @@ function updateThemeToggleButton() {
   if (!track) return;
 
   const mode = getCurrentTheme();
-  track.textContent = mode === 'light' ? '☀' : '☪';
+  // UI handled by CSS pseudo-element; only set state attribute
   track.setAttribute('data-mode', mode);
+  // reflect ARIA state for assistive tech
+  track.setAttribute('aria-checked', mode === 'light' ? 'true' : 'false');
 }
 
 // ============================================================================
