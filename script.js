@@ -28,13 +28,7 @@ function updateThemeToggleButton() {
   if (!knob) return;
   
   const mode = getCurrentTheme();
-  const TRACK_WIDTH = 80;
-  const DARK_POS = 0;
-  const LIGHT_POS = TRACK_WIDTH - 5;
-  
-  knob.style.transition = 'inset-inline-start 0.3s ease-out';
   knob.textContent = mode === 'light' ? '☀' : '☪';
-  knob.style.insetInlineStart = mode === 'light' ? LIGHT_POS + 'px' : DARK_POS + 'px';
   knob.setAttribute('data-mode', mode);
 }
 

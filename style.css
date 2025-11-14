@@ -3,7 +3,7 @@
    ============================================================================ */
 :root {
   color-scheme: light dark;
-  
+
   /* Colors */
   --accent-color: light-dark(#b8860b, #e8c55f);
   --hover-color: light-dark(#8b6914, #f0d974);
@@ -13,15 +13,26 @@
   --surface-color: light-dark(#f2f2f2, #2a2a2a);
   --border-color: light-dark(#e5d4b1, #5a4a30);
   --code-color: light-dark(#b8860b, #e8c55f);
-  
-  /* Gradient */
-  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#ffd700, #c9944d) 0%, light-dark(#daa520, #a68860) 25%, light-dark(#deb887, #8b7355) 50%, light-dark(#cd853f, #6b5a45) 100%), linear-gradient(45deg, light-dark(#edc951, #b89968) 0%, light-dark(#b8860b, #7a6d5a) 100%);
-  
-  /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-family-mono: 'Courier New', monospace;
-}
 
+  /* Gradient */
+  --gradient-banner: radial-gradient(
+      ellipse 150% 100% at 30% 50%,
+      light-dark(#ffd700, #c9944d) 0%,
+      light-dark(#daa520, #a68860) 25%,
+      light-dark(#deb887, #8b7355) 50%,
+      light-dark(#cd853f, #6b5a45) 100%
+    ),
+    linear-gradient(
+      45deg,
+      light-dark(#edc951, #b89968) 0%,
+      light-dark(#b8860b, #7a6d5a) 100%
+    );
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  --font-family-mono: "Courier New", monospace;
+}
 
 /* ============================================================================
    GLOBAL STYLES
@@ -67,13 +78,13 @@ body {
 }
 
 .navbar::before {
-  content: '';
+  content: "";
   position: absolute;
   inset-block-start: 0;
   inset-block-end: 0;
   inset-inline-start: 50%;
   transform: translateX(-50%);
-  inline-size: .5ch;
+  inline-size: 0.5ch;
   background: var(--border-color);
   z-index: 0;
 }
@@ -195,41 +206,38 @@ main {
 .theme-switch-track {
   position: absolute;
   inset-block-start: 1rem;
-  inset-inline-end: 1.5rem;
-  inline-size: 5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.125rem;
+  inset-inline-end: 1rem;
+  inline-size: 3.5rem;
+  block-size: 1.5rem;
+  background: var(--background-color);
+  border-radius: 0.5rem;
   cursor: grab;
   user-select: none;
   z-index: 1;
   transition: border-color 0.2s;
+  display: flex;
+  align-items: center;
+  text-align: start;
 }
 
 .theme-switch-track:hover {
-  border-color: var(--accent-color);
+  border: 1px solid var(--border-color);
 }
 
-
 .theme-switch-knob {
-  position: absolute;
   font-size: 1.5rem;
   color: var(--accent-color);
-  transition: inset-inline-start 0.3s ease-out, inset-inline-end 0.3s ease-out, opacity 0.2s;
+  transition: text-align 0.3s ease-out;
   cursor: grab;
-  z-index: 2;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
   user-select: none;
-  inset-inline-start: 0.25rem;
 }
 
 .theme-switch-knob[data-mode="light"] {
-  inset-inline-start: auto;
-  inset-inline-end: 0.5rem;
+  text-align: end;
 }
 
-.theme-switch-knob:active,
-.theme-switch-knob.dragging {
+.theme-switch-track:active,
+.theme-switch-track.dragging {
   cursor: grabbing;
 }
 
@@ -253,7 +261,10 @@ main {
   font-size: 0.8125rem;
   font-weight: 600;
   transition: background 0.2s, transform 0.2s;
-  box-shadow: light-dark(0 0.125rem 0.5rem rgba(0,0,0,0.08), 0 0.125rem 0.5rem rgba(0,0,0,0.2));
+  box-shadow: light-dark(
+    0 0.125rem 0.5rem rgba(0, 0, 0, 0.08),
+    0 0.125rem 0.5rem rgba(0, 0, 0, 0.2)
+  );
   white-space: nowrap;
 }
 
@@ -446,7 +457,10 @@ main {
 }
 
 .project-card:hover {
-  box-shadow: light-dark(0 0.125rem 0.75rem rgba(0,0,0,0.08), 0 0.125rem 0.75rem rgba(0,0,0,0.3));
+  box-shadow: light-dark(
+    0 0.125rem 0.75rem rgba(0, 0, 0, 0.08),
+    0 0.125rem 0.75rem rgba(0, 0, 0, 0.3)
+  );
 }
 
 .project-image {
@@ -550,7 +564,7 @@ main {
 }
 
 .skill-category li::before {
-  content: '✓ ';
+  content: "✓ ";
   color: var(--accent-color);
   font-weight: 700;
   margin-inline-end: 0.5rem;
@@ -628,8 +642,12 @@ main {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
