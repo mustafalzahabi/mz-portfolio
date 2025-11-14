@@ -2,6 +2,8 @@
 // THEME MANAGEMENT
 // ============================================================================
 
+let themeKnobPosition = 0; // 0 = dark (left), 1 = light (right), -1 = auto (thrown off)
+
 function initDarkMode() {
   const savedMode = localStorage.getItem('theme') || 'auto';
   applyTheme(savedMode);
@@ -32,22 +34,24 @@ function toggleDarkMode() {
 }
 
 function updateThemeToggleButton() {
-  const btn = document.getElementById('theme-toggle');
-  if (btn) {
-    const mode = getCurrentTheme();
-    let label = '';
-    
-    if (mode === 'auto') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      label = isDark ? 'Auto (Dark)' : 'Auto (Light)';
-    } else if (mode === 'light') {
-      label = 'Light';
-    } else {
-      label = 'Dark';
-    }
-    
-    btn.setAttribute('data-theme', mode);
-    btn.textContent = label;
+  const knob = document.getElementById('theme-knob');
+  const track = document.getElementById('theme-track');
+  if (!knob || !track) return;
+  
+  const mode = getCurrentTheme();
+  
+  if (mode === 'auto') {
+    knob.classList.add('auto-mode');
+    knob.setAttribute('data-mode', 'auto');
+    knob.style.transform = 'translateX(200px)';
+  } else if (mode === 'light') {
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'light');
+    knob.style.transform = 'translateX(calc(100% - 1.5rem))';
+  } else {
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'dark');
+    knob.style.transform = 'translateX(0)';
   }
 }
 
@@ -172,10 +176,82 @@ function setupMetaTags() {
   }
 }
 
+function attachThemeSwitchHandlers(track, knob) {
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartPos = 0;
+  let currentPos = 0;
+  const throwThreshold = 150; // pixels to throw off and trigger auto
+  const trackWidth = 100; // approximate track width in pixels
+  
+  function snapToPosition(endPos) {
+    const mode = getCurrentTheme();
+    
+    if (endPos > throwThreshold) {
+      // Thrown far enough right - enable auto
+      applyTheme('auto');
+    } else if (endPos < -throwThreshold) {
+      // Thrown far enough left - enable auto
+      applyTheme('auto');
+    } else if (endPos > trackWidth / 2) {
+      // Snap to light (right)
+      applyTheme('light');
+    } else {
+      // Snap to dark (left)
+      applyTheme('dark');
+    }
+  }
+  
+  knob.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    const transform = knob.style.transform;
+    const match = transform.match(/translateX\(([^)]+)\)/);
+    dragStartPos = match ? parseFloat(match[1]) : 0;
+    knob.classList.add('dragging');
+  });
+  
+  document.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - dragStartX;
+    currentPos = dragStartPos + deltaX;
+    knob.style.transform = `translateX(${currentPos}px)`;
+    knob.style.transition = 'none';
+  });
+  
+  document.addEventListener('pointerup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    knob.classList.remove('dragging');
+    knob.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    snapToPosition(currentPos);
+  });
+  
+  // Click on track to cycle themes
+  track.addEventListener('click', (e) => {
+    if (e.target !== knob && !isDragging) {
+      toggleDarkMode();
+    }
+  });
+  
+  // Keyboard support
+  track.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      toggleDarkMode();
+    } else if (e.key === 'ArrowRight') {
+      applyTheme('light');
+    } else if (e.key === 'ArrowLeft') {
+      applyTheme('dark');
+    }
+  });
+}
+
 function setupThemeToggle() {
-  const btn = document.getElementById('theme-toggle');
-  if (btn) {
-    btn.onclick = toggleDarkMode;
+  const track = document.getElementById('theme-track');
+  const knob = document.getElementById('theme-knob');
+  if (track && knob) {
     updateThemeToggleButton();
   }
 }
@@ -252,18 +328,38 @@ function buildHeader(profile, contact) {
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
   
-  // Theme toggle switch (top right)
-  const themeToggle = document.createElement('button');
-  themeToggle.id = 'theme-toggle';
-  themeToggle.className = 'theme-toggle-switch';
-  themeToggle.setAttribute('aria-label', 'Toggle theme');
-  themeToggle.innerHTML = `
-    <span class="theme-icon theme-icon-auto">🔄</span>
-    <span class="theme-icon theme-icon-light">☀️</span>
-    <span class="theme-icon theme-icon-dark">🌙</span>
-  `;
-  themeToggle.onclick = toggleDarkMode;
-  banner.appendChild(themeToggle);
+  // Theme toggle switch (top right) - draggable
+  const themeSwitch = document.createElement('div');
+  themeSwitch.id = 'theme-switch';
+  themeSwitch.className = 'theme-switch';
+  
+  const track = document.createElement('div');
+  track.id = 'theme-track';
+  track.className = 'theme-switch-track';
+  track.setAttribute('role', 'switch');
+  track.setAttribute('aria-label', 'Toggle theme');
+  track.setAttribute('tabindex', '0');
+  
+  const knob = document.createElement('div');
+  knob.id = 'theme-knob';
+  knob.className = 'theme-switch-knob';
+  
+  const moonIcon = document.createElement('span');
+  moonIcon.className = 'theme-icon theme-icon-moon';
+  moonIcon.textContent = '🌙';
+  
+  const sunIcon = document.createElement('span');
+  sunIcon.className = 'theme-icon theme-icon-sun';
+  sunIcon.textContent = '☀️';
+  
+  knob.appendChild(moonIcon);
+  knob.appendChild(sunIcon);
+  track.appendChild(knob);
+  themeSwitch.appendChild(track);
+  banner.appendChild(themeSwitch);
+  
+  // Attach drag handlers
+  attachThemeSwitchHandlers(track, knob);
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
