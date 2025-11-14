@@ -145,6 +145,7 @@ main {
 .sections {
   flex: 1;
   margin-inline-start: 3rem;
+  min-inline-size: 0;
 }
 
 .section {
@@ -154,10 +155,11 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-inline-size: 0;
 }
 
 .section > * {
-  max-width: 62.5rem;
+  max-width: 100%;
   inline-size: 100%;
 }
 
@@ -178,12 +180,8 @@ main {
 
 #header {
   background: var(--surface-color);
-  inline-size: 100vw;
+  inline-size: 100%;
   position: relative;
-  inset-inline-start: 50%;
-  inset-inline-end: 50%;
-  margin-inline-start: -50vw;
-  margin-inline-end: -50vw;
 }
 
 .profile-banner {
