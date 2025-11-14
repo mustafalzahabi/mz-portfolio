@@ -43,21 +43,28 @@ function updateThemeToggleButton() {
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
     knob.setAttribute('data-mode', 'auto');
-    // Throw off to the right
-    knob.style.marginInlineStart = '100px';
-    knob.style.insetInlineEnd = 'auto';
+    // Throw off the right side
+    knob.style.marginInlineStart = '';
+    knob.style.marginInlineEnd = '';
+    knob.style.insetInlineStart = (80 + 100) + 'px'; // Still need manual offset for auto
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginBlockStart = '-0.75rem';
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
-    // Snap to the right (sun)
-    knob.style.insetInlineEnd = '0px';
-    knob.style.marginInlineStart = '0px';
+    // Sun on the right
+    knob.style.insetInlineStart = '';
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginInlineEnd = '0';
+    knob.style.marginBlockStart = '-0.75rem';
   } else {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'dark');
-    // Snap to the left (moon)
-    knob.style.marginInlineStart = '0px';
-    knob.style.insetInlineEnd = 'auto';
+    // Moon on the left
+    knob.style.insetInlineEnd = '';
+    knob.style.insetBlockStart = '50%';
+    knob.style.marginInlineStart = '0';
+    knob.style.marginBlockStart = '-0.75rem';
   }
 }
 
@@ -190,15 +197,18 @@ function attachThemeSwitchHandlers(track, knob) {
   let currentPos = 0;
   let currentY = 0;
   let escapeTrack = false; // Whether knob has escaped track bounds
-  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
+  const trackWidth = 80;  // 5rem
+  const trackHeight = 32; // 2rem
+  const knobWidth = 24;   // 1.5rem
+  const knobHeight = 24;  // 1.5rem
+  const maxTranslate = trackWidth - knobWidth; // 56px
+  const midpoint = maxTranslate / 2; // 28px
   const throwThreshold = 40; // pixels beyond max to trigger auto
   const verticalThreshold = 20; // pixels up/down to trigger auto
-  const trackWidth = 80;  // 5rem - used for midpoint calculation
-  const knobWidth = 24;   // 1.5rem
-  const midpoint = (trackWidth - knobWidth) / 2; // 28px - center of track movement
+  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
   
   function snapToPosition(endPos, endY) {
-    const throwThresholdRight = throwThreshold;
+    const throwThresholdRight = maxTranslate + throwThreshold;
     const throwThresholdLeft = -throwThreshold;
     const isOffVertically = Math.abs(endY) > verticalThreshold;
     const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
@@ -219,8 +229,8 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const margin = parseFloat(knob.style.marginInlineStart) || 0;
-    dragStartPos = margin;
+    const insetStart = parseFloat(knob.style.insetInlineStart) || 0;
+    dragStartPos = insetStart;
     currentY = 0;
     escapeTrack = false;
     knob.classList.add('dragging');
@@ -235,7 +245,7 @@ function attachThemeSwitchHandlers(track, knob) {
     currentPos = dragStartPos + deltaX;
     
     // Check if knob has escaped the track horizontally
-    const hasEscapedRight = currentPos > escapeThreshold;
+    const hasEscapedRight = currentPos > (maxTranslate + escapeThreshold);
     const hasEscapedLeft = currentPos < -escapeThreshold;
     
     if (hasEscapedRight || hasEscapedLeft) {
@@ -249,8 +259,7 @@ function attachThemeSwitchHandlers(track, knob) {
       currentY = 0;
     }
     
-    knob.style.marginInlineStart = currentPos + 'px';
-    knob.style.insetInlineEnd = 'auto';
+    knob.style.insetInlineStart = currentPos + 'px';
     knob.style.insetBlockStart = (50 + (currentY / 32) * 100) + '%';
     knob.style.transition = 'none';
   });
@@ -259,7 +268,7 @@ function attachThemeSwitchHandlers(track, knob) {
     if (!isDragging) return;
     isDragging = false;
     knob.classList.remove('dragging');
-    knob.style.transition = 'margin-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    knob.style.transition = 'inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
     snapToPosition(currentPos, currentY);
   });
   

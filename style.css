@@ -265,12 +265,13 @@ main {
   background: var(--color-accent);
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  transition: inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), margin-inline 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
   z-index: 2;
+  margin-inline-start: 0;
   inset-block-start: 50%;
   margin-block-start: -0.75rem;
 }
