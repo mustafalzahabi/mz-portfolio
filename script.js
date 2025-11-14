@@ -39,31 +39,25 @@ function updateThemeToggleButton() {
   if (!knob || !track) return;
   
   const mode = getCurrentTheme();
-  const trackWidth = 80; // 5rem in pixels
-  const knobWidth = 24;  // 1.5rem in pixels
-  const maxTranslate = trackWidth - knobWidth; // 56px
   
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
     knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side, centered vertically
-    knob.style.insetInlineStart = (maxTranslate + 100) + 'px';
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginBlockStart = '-0.75rem';
+    // Throw off to the right
+    knob.style.marginInlineStart = '100px';
+    knob.style.insetInlineEnd = 'auto';
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
-    // Move to the right (sun position), centered vertically
-    knob.style.insetInlineStart = maxTranslate + 'px';
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginBlockStart = '-0.75rem';
+    // Snap to the right (sun)
+    knob.style.insetInlineEnd = '0px';
+    knob.style.marginInlineStart = '0px';
   } else {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'dark');
-    // Move to the left (moon position), centered vertically
-    knob.style.insetInlineStart = '0px';
-    knob.style.insetBlockStart = '50%';
-    knob.style.marginBlockStart = '-0.75rem';
+    // Snap to the left (moon)
+    knob.style.marginInlineStart = '0px';
+    knob.style.insetInlineEnd = 'auto';
   }
 }
 
@@ -196,18 +190,15 @@ function attachThemeSwitchHandlers(track, knob) {
   let currentPos = 0;
   let currentY = 0;
   let escapeTrack = false; // Whether knob has escaped track bounds
-  const trackWidth = 80;  // 5rem
-  const trackHeight = 32; // 2rem
-  const knobWidth = 24;   // 1.5rem
-  const knobHeight = 24;  // 1.5rem
-  const maxTranslate = trackWidth - knobWidth; // 56px
-  const midpoint = maxTranslate / 2; // 28px
+  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
   const throwThreshold = 40; // pixels beyond max to trigger auto
   const verticalThreshold = 20; // pixels up/down to trigger auto
-  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
+  const trackWidth = 80;  // 5rem - used for midpoint calculation
+  const knobWidth = 24;   // 1.5rem
+  const midpoint = (trackWidth - knobWidth) / 2; // 28px - center of track movement
   
   function snapToPosition(endPos, endY) {
-    const throwThresholdRight = maxTranslate + throwThreshold;
+    const throwThresholdRight = throwThreshold;
     const throwThresholdLeft = -throwThreshold;
     const isOffVertically = Math.abs(endY) > verticalThreshold;
     const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
@@ -228,8 +219,8 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const insetStart = parseFloat(knob.style.insetInlineStart) || 0;
-    dragStartPos = insetStart;
+    const margin = parseFloat(knob.style.marginInlineStart) || 0;
+    dragStartPos = margin;
     currentY = 0;
     escapeTrack = false;
     knob.classList.add('dragging');
@@ -244,7 +235,7 @@ function attachThemeSwitchHandlers(track, knob) {
     currentPos = dragStartPos + deltaX;
     
     // Check if knob has escaped the track horizontally
-    const hasEscapedRight = currentPos > (maxTranslate + escapeThreshold);
+    const hasEscapedRight = currentPos > escapeThreshold;
     const hasEscapedLeft = currentPos < -escapeThreshold;
     
     if (hasEscapedRight || hasEscapedLeft) {
@@ -258,7 +249,8 @@ function attachThemeSwitchHandlers(track, knob) {
       currentY = 0;
     }
     
-    knob.style.insetInlineStart = currentPos + 'px';
+    knob.style.marginInlineStart = currentPos + 'px';
+    knob.style.insetInlineEnd = 'auto';
     knob.style.insetBlockStart = (50 + (currentY / 32) * 100) + '%';
     knob.style.transition = 'none';
   });
@@ -267,7 +259,7 @@ function attachThemeSwitchHandlers(track, knob) {
     if (!isDragging) return;
     isDragging = false;
     knob.classList.remove('dragging');
-    knob.style.transition = 'inset-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    knob.style.transition = 'margin-inline-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), inset-block-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
     snapToPosition(currentPos, currentY);
   });
   
