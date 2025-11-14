@@ -149,8 +149,8 @@ function buildNavbar() {
   nav.className = 'navbar';
   
   const sections = [
-    { id: 'home', label: 'Home' },
     { id: 'about', label: 'About' },
+    { id: 'education', label: 'Education' },
     { id: 'projects', label: 'Projects' },
     { id: 'skills', label: 'Skills' },
     { id: 'contact', label: 'Contact' }
@@ -184,7 +184,31 @@ function buildNavbar() {
     nav.appendChild(navItem);
   });
   
+  // Track active section on scroll
+  window.addEventListener('scroll', updateActiveNavItem);
+  
   return nav;
+}
+
+function updateActiveNavItem() {
+  const navItems = document.querySelectorAll('.nav-item');
+  const scrollPos = window.scrollY + 200;
+  
+  navItems.forEach((item) => {
+    const sectionId = item.getAttribute('data-section');
+    const section = document.getElementById(sectionId);
+    
+    if (section) {
+      const sectionTop = section.offsetTop;
+      const sectionBottom = sectionTop + section.offsetHeight;
+      
+      if (scrollPos >= sectionTop && scrollPos < sectionBottom) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    }
+  });
 }
 
 function buildHeader(profile, contact) {
