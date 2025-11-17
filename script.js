@@ -437,15 +437,15 @@ function buildHeader(profile, contact) {
   moonIcon.className = 'theme-icon theme-icon-moon';
   moonIcon.src = 'dark-theme.svg';
   moonIcon.alt = 'moon';
-  moonIcon.width = 36;
-  moonIcon.height = 36;
+  moonIcon.width = 30;
+  moonIcon.height = 30;
 
   const sunIcon = document.createElement('img');
   sunIcon.className = 'theme-icon theme-icon-sun';
   sunIcon.src = 'light-theme.svg';
   sunIcon.alt = 'sun';
-  sunIcon.width = 36;
-  sunIcon.height = 36;
+  sunIcon.width = 30;
+  sunIcon.height = 30;
   
   knob.appendChild(moonIcon);
   knob.appendChild(sunIcon);
