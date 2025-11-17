@@ -1048,220 +1048,359 @@ function getContrastTextColor(hexColor) {
 }
 
 // ============================================================================
+// SMART THEME SWITCHER CLASS
+// ============================================================================
+
+class SmartThemeSwitch {
+  constructor() {
+    this.mode = 'auto'; // 'light', 'dark', 'auto'
+    this.isDragging = false;
+    this.startX = 0;
+    this.currentX = 0;
+    this.dragOffset = 0;
+    this.isResisting = false;
+    this.threshold = 1.5; // rem threshold for mode switching
+    this.resistanceMultiplier = 0.33;
+    this.maxOffTrackDistance = 2; // rem
+    this.element = null;
+    this.knob = null;
+    this.track = null;
+
+    this.init();
+  }
+
+  init() {
+    this.loadSavedMode();
+    this.applyMode();
+    this.waitForBanner();
+  }
+
+  waitForBanner() {
+    // Wait for the banner to be created, then insert the toggle
+    const checkBanner = setInterval(() => {
+      const banner = document.querySelector('.profile-banner');
+      if (banner) {
+        clearInterval(checkBanner);
+        this.createAndInsert();
+        this.attachEventListeners();
+      }
+    }, 50);
+  }
+
+  loadSavedMode() {
+    const saved = localStorage.getItem('theme');
+    if (saved && ['light', 'dark', 'auto'].includes(saved)) {
+      this.mode = saved;
+    } else {
+      this.mode = 'auto';
+    }
+  }
+
+  saveModeToStorage() {
+    localStorage.setItem('theme', this.mode);
+  }
+
+  createAndInsert() {
+    const banner = document.querySelector('.profile-banner');
+    if (!banner) return;
+
+    // Create toggle DOM
+    this.element = document.createElement('div');
+    this.element.className = 'theme-toggle';
+
+    this.track = document.createElement('div');
+    this.track.className = 'track';
+
+    this.knob = document.createElement('div');
+    this.knob.className = 'knob';
+    this.updateKnobIcon();
+
+    if (this.mode === 'auto') {
+      this.knob.classList.add('auto');
+    }
+
+    this.element.appendChild(this.track);
+    this.element.appendChild(this.knob);
+
+    banner.appendChild(this.element);
+
+    // Position knob initially
+    this.positionKnob();
+  }
+
+  updateKnobIcon() {
+    if (!this.knob) return;
+
+    let icon = '☀️'; // light mode
+
+    if (this.mode === 'dark') {
+      icon = '🌙'; // dark mode
+    } else if (this.mode === 'auto') {
+      // Auto mode: show moon or sun based on system preference
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      icon = prefersDark ? '🌙' : '☀️';
+    }
+
+    this.knob.textContent = icon;
+  }
+
+  positionKnob() {
+    if (!this.knob) return;
+
+    let percentage = 50; // auto mode (center)
+
+    if (this.mode === 'dark') {
+      percentage = 0; // left
+    } else if (this.mode === 'light') {
+      percentage = 100; // right
+    }
+
+    const knobWidth = parseFloat(
+      getComputedStyle(this.knob).getPropertyValue('inline-size')
+    );
+    const toggleWidth = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('inline-size')
+    );
+    const padding = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('padding')
+    );
+
+    const maxTravel = toggleWidth - knobWidth - 2 * padding;
+    const newPosition = (percentage / 100) * maxTravel;
+
+    this.knob.style.insetInlineStart = `calc(${padding}rem + ${(newPosition / 16)}rem)`;
+    this.dragOffset = newPosition;
+  }
+
+  attachEventListeners() {
+    if (!this.element) return;
+
+    this.element.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    this.element.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+
+    document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+
+    document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+    this.element.addEventListener('click', (e) => this.handleClick(e));
+
+    // Listen for system theme changes in auto mode
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (this.mode === 'auto') {
+        this.updateKnobIcon();
+      }
+    });
+  }
+
+  handleMouseDown(e) {
+    this.startDrag(e.clientX);
+  }
+
+  handleTouchStart(e) {
+    if (e.touches.length === 1) {
+      this.startDrag(e.touches[0].clientX);
+    }
+  }
+
+  startDrag(x) {
+    if (!this.knob) return;
+
+    this.isDragging = true;
+    this.startX = x;
+    this.element.style.cursor = 'grabbing';
+  }
+
+  handleMouseMove(e) {
+    if (this.isDragging) {
+      this.updateDrag(e.clientX);
+    }
+  }
+
+  handleTouchMove(e) {
+    if (this.isDragging && e.touches.length === 1) {
+      this.updateDrag(e.touches[0].clientX);
+    }
+  }
+
+  updateDrag(x) {
+    if (!this.element || !this.knob) return;
+
+    const deltaX = x - this.startX;
+
+    const toggleWidth = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('inline-size')
+    );
+    const knobWidth = parseFloat(
+      getComputedStyle(this.knob).getPropertyValue('inline-size')
+    );
+    const padding = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('padding')
+    );
+
+    const maxTravel = toggleWidth - knobWidth - 2 * padding;
+
+    // Apply resistance in auto mode
+    let adjustedDelta = deltaX;
+    if (this.mode === 'auto') {
+      adjustedDelta = deltaX * this.resistanceMultiplier;
+    }
+
+    let newPosition = this.dragOffset + adjustedDelta;
+
+    // Apply off-track resistance
+    if (newPosition < 0) {
+      const offTrack = Math.abs(newPosition);
+      if (offTrack > 0.5 * 16) {
+        // Beyond threshold, apply resistance
+        newPosition = -Math.pow(offTrack, 0.5) * 2;
+        if (!this.isResisting) {
+          this.isResisting = true;
+          this.knob.classList.add('resisting');
+        }
+      }
+    } else if (newPosition > maxTravel) {
+      const offTrack = newPosition - maxTravel;
+      if (offTrack > 0.5 * 16) {
+        // Beyond threshold, apply resistance
+        newPosition = maxTravel + Math.pow(offTrack, 0.5) * 2;
+        if (!this.isResisting) {
+          this.isResisting = true;
+          this.knob.classList.add('resisting');
+        }
+      }
+    } else {
+      if (this.isResisting) {
+        this.isResisting = false;
+        this.knob.classList.remove('resisting');
+      }
+    }
+
+    // Clamp to reasonable bounds for visual feedback
+    newPosition = Math.max(-2 * 16, Math.min(maxTravel + 2 * 16, newPosition));
+
+    this.knob.style.insetInlineStart = `calc(${padding}rem + ${(newPosition / 16)}rem)`;
+  }
+
+  handleMouseUp(e) {
+    if (this.isDragging) {
+      this.endDrag();
+    }
+  }
+
+  handleTouchEnd(e) {
+    if (this.isDragging) {
+      this.endDrag();
+    }
+  }
+
+  endDrag() {
+    if (!this.element || !this.knob) return;
+
+    this.isDragging = false;
+    this.element.style.cursor = 'grab';
+
+    const toggleWidth = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('inline-size')
+    );
+    const knobWidth = parseFloat(
+      getComputedStyle(this.knob).getPropertyValue('inline-size')
+    );
+    const padding = parseFloat(
+      getComputedStyle(this.element).getPropertyValue('padding')
+    );
+
+    const maxTravel = toggleWidth - knobWidth - 2 * padding;
+
+    // Get current knob position
+    const currentInlineStart = this.knob.style.insetInlineStart;
+    const positionMatch = currentInlineStart.match(/([\d.]+)rem/);
+    const currentPos = positionMatch ? parseFloat(positionMatch[1]) * 16 : this.dragOffset;
+
+    // Determine target position based on distance
+    const thirdPoint = maxTravel / 3;
+    let newMode = 'auto';
+
+    if (currentPos < thirdPoint) {
+      newMode = 'dark';
+    } else if (currentPos > 2 * thirdPoint) {
+      newMode = 'light';
+    } else {
+      newMode = 'auto';
+    }
+
+    // If exiting auto mode, allow full drag range
+    if (this.mode === 'auto' && newMode !== 'auto') {
+      // Check if drag was large enough to exit auto mode
+      const dragDistance = Math.abs(currentPos - this.dragOffset);
+      if (dragDistance < this.threshold * 16) {
+        newMode = 'auto'; // Not far enough, stay in auto
+      }
+    }
+
+    this.setMode(newMode);
+  }
+
+  handleClick(e) {
+    // Only allow clicks in manual modes (not in auto mode)
+    if (this.mode === 'auto') return;
+
+    // Toggle between light and dark
+    if (this.mode === 'light') {
+      this.setMode('dark');
+    } else {
+      this.setMode('light');
+    }
+  }
+
+  setMode(newMode) {
+    if (newMode === this.mode) return;
+
+    this.mode = newMode;
+    this.saveModeToStorage();
+    this.applyMode();
+    this.updateKnobIcon();
+    this.positionKnob();
+
+    // Remove resisting class on snap
+    if (this.knob && this.knob.classList.contains('resisting')) {
+      this.knob.classList.remove('resisting');
+    }
+  }
+
+  applyMode() {
+    const html = document.documentElement;
+
+    if (this.mode === 'auto') {
+      // Remove data-theme to let system preference take over
+      html.removeAttribute('data-theme');
+
+      if (this.knob) {
+        this.knob.classList.add('auto');
+      }
+    } else {
+      // Set explicit theme
+      html.setAttribute('data-theme', this.mode);
+
+      if (this.knob) {
+        this.knob.classList.remove('auto');
+      }
+    }
+
+    // Update body background and color immediately for no flicker
+    document.body.style.transition = 'none';
+    document.body.offsetHeight; // Force reflow
+    document.body.style.transition = '';
+  }
+}
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
-// Theme toggle implementation and initialization
 function initDarkMode() {
-  // Create toggle only once
-  try {
-    const existing = document.querySelector('.theme-toggle');
-    if (existing) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'theme-toggle';
-
-    const track = document.createElement('div');
-    track.className = 'track';
-
-    const knob = document.createElement('div');
-    knob.className = 'knob';
-    knob.textContent = '☀️';
-
-    wrapper.appendChild(track);
-    wrapper.appendChild(knob);
-
-    // Prefer inserting into the banner so we can position with block-start / inline-end
-    const banner = document.querySelector('.profile-banner');
-    if (banner) {
-      banner.appendChild(wrapper);
-    } else {
-      // Fallback: try banner-links, header, then body
-      const bannerLinks = document.querySelector('.banner-links') || document.getElementById('header') || document.body;
-      bannerLinks.insertBefore(wrapper, bannerLinks.firstChild || null);
-    }
-
-    // Setup state
-    const STORAGE_KEY = 'theme';
-    let mode = localStorage.getItem(STORAGE_KEY) || 'auto';
-
-    const htmlEl = document.documentElement;
-
-    function applyTheme(m) {
-      mode = m;
-      try { localStorage.setItem(STORAGE_KEY, m); } catch (e) {}
-
-      if (m === 'auto') {
-        htmlEl.removeAttribute('data-theme');
-        knob.classList.add('auto');
-        // set icon based on system
-        const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        knob.textContent = dark ? '🌙' : '☀️';
-        // disable pointer events on track click behavior handled elsewhere
-      } else {
-        htmlEl.setAttribute('data-theme', m);
-        knob.classList.remove('auto');
-        knob.textContent = m === 'dark' ? '🌙' : '☀️';
-      }
-      // position knob visually without transition flicker
-      snapKnobToMode(m, true);
-    }
-
-    // Position helpers
-    const TRACK_PADDING = 4; // as in CSS
-    const TRACK_WIDTH = 80;
-    const KNOB_WIDTH = 28;
-    const MIN_X = TRACK_PADDING; // leftmost left value
-    const MAX_X = TRACK_WIDTH - TRACK_PADDING - KNOB_WIDTH; // rightmost left value
-    const CENTER_X = (MIN_X + MAX_X) / 2;
-
-    function setKnobLeft(x, instant) {
-      if (instant) {
-        knob.style.transition = 'none';
-        knob.style.left = x + 'px';
-        // force reflow then restore transition
-        void knob.offsetWidth;
-        knob.style.transition = '';
-      } else {
-        knob.style.left = x + 'px';
-      }
-    }
-
-    function snapKnobToMode(m, instant) {
-      if (m === 'dark') setKnobLeft(MIN_X, instant);
-      else if (m === 'light') setKnobLeft(MAX_X, instant);
-      else setKnobLeft(CENTER_X, instant);
-    }
-
-    // Apply initial theme immediately to avoid flicker
-    applyTheme(mode);
-
-    // Listen to system changes only when in auto
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    mq.addEventListener && mq.addEventListener('change', () => {
-      if (mode === 'auto') applyTheme('auto');
-    });
-
-    // Click on track toggles when not auto
-    track.addEventListener('click', (e) => {
-      if (mode === 'auto') return;
-      const newMode = mode === 'light' ? 'dark' : 'light';
-      applyTheme(newMode);
-    });
-
-    // Dragging
-    let dragging = false;
-    let startX = 0;
-    let knobStartLeft = 0;
-    let lastClientX = 0;
-
-    function getClientX(ev) {
-      return ev.touches ? ev.touches[0].clientX : ev.clientX;
-    }
-
-    function onStart(ev) {
-      ev.preventDefault();
-      dragging = true;
-      wrapper.classList.add('dragging');
-      knob.classList.remove('resisting');
-      startX = getClientX(ev);
-      knobStartLeft = parseFloat(getComputedStyle(knob).left) || MIN_X;
-      lastClientX = startX;
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onEnd);
-      document.addEventListener('touchmove', onMove, { passive: false });
-      document.addEventListener('touchend', onEnd);
-    }
-
-    function onMove(ev) {
-      if (!dragging) return;
-      ev.preventDefault();
-      const clientX = getClientX(ev);
-      const dx = clientX - startX;
-      let newLeft;
-
-      if (mode === 'auto') {
-        // movement slowed by factor of 3
-        newLeft = knobStartLeft + dx / 3;
-        knob.classList.add('auto');
-        knob.classList.add('resisting');
-      } else {
-        newLeft = knobStartLeft + dx;
-        knob.classList.remove('resisting');
-      }
-
-      // Drag Off-Track Resistance: allow small overdrag with extra resistance
-      const over = 20; // px
-      if (newLeft < MIN_X - over) {
-        // sticky resistance beyond far left
-        newLeft = MIN_X - over + (newLeft - (MIN_X - over)) / 3;
-      } else if (newLeft > MAX_X + over) {
-        newLeft = MAX_X + over + (newLeft - (MAX_X + over)) / 3;
-      }
-
-      // clamp soft limits to prevent runaway
-      const absoluteLimit = 1000;
-      newLeft = Math.max(MIN_X - absoluteLimit, Math.min(MAX_X + absoluteLimit, newLeft));
-
-      setKnobLeft(newLeft, false);
-      lastClientX = clientX;
-    }
-
-    function onEnd(ev) {
-      if (!dragging) return;
-      dragging = false;
-      wrapper.classList.remove('dragging');
-      knob.classList.remove('resisting');
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onEnd);
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
-
-      // Determine final left
-      let left = parseFloat(getComputedStyle(knob).left) || MIN_X;
-
-      // If dragged far beyond edges => switch to auto
-      const farThreshold = 28; // px beyond edges
-      if (left <= MIN_X - farThreshold || left >= MAX_X + farThreshold) {
-        applyTheme('auto');
-        return;
-      }
-
-      // Snap regions: left half -> dark, center -> auto, right half -> light
-      const third = (MAX_X - MIN_X) / 2; // center region threshold
-      const mid = CENTER_X;
-      if (left < mid - (KNOB_WIDTH / 2)) {
-        applyTheme('dark');
-      } else if (left > mid + (KNOB_WIDTH / 2)) {
-        applyTheme('light');
-      } else {
-        applyTheme('auto');
-      }
-    }
-
-    knob.addEventListener('mousedown', onStart);
-    knob.addEventListener('touchstart', onStart, { passive: false });
-
-    // Accessibility: allow keyboard toggle
-    knob.tabIndex = 0;
-    knob.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const newMode = mode === 'light' ? 'dark' : (mode === 'dark' ? 'auto' : 'light');
-        applyTheme(newMode);
-        e.preventDefault();
-      }
-    });
-
-    // Click on knob cycles modes quickly
-    knob.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const cycle = mode === 'light' ? 'dark' : (mode === 'dark' ? 'auto' : 'light');
-      applyTheme(cycle);
-    });
-
-  } catch (e) {
-    console.error('initDarkMode error', e);
-  }
+  new SmartThemeSwitch();
 }
 
 initDarkMode();
