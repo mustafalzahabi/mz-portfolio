@@ -287,18 +287,16 @@ main {
   padding: 0.25rem;
 }
 
-.theme-switch-knob:active,
-.theme-switch-knob.dragging {
-  cursor: grabbing;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
 .theme-icon {
   position: absolute;
   inline-size: 1rem;
   block-size: 1rem;
   object-fit: contain;
   transition: opacity 0.2s, transform 0.2s, filter 0.2s;
+  display: block;
+}
+
+.theme-switch-knob img {
   display: block;
 }
 
