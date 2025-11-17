@@ -271,9 +271,9 @@ main {
   position: absolute;
   inline-size: 1.5rem;
   block-size: 1.5rem;
-  background: var(--color-accent);
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border-radius: 0; /* no visible circle */
+  box-shadow: none;
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
@@ -327,8 +327,8 @@ main {
 
 /* Auto mode: both icons hidden */
 .theme-switch-knob.auto-mode {
-  background: var(--surface-color);
-  border: 2px solid var(--border-color);
+  background: transparent;
+  border: none;
   box-shadow: none;
 }
 
@@ -348,6 +348,19 @@ main {
   opacity: 0.6;
   transform: scale(0.9);
   color: var(--secondary-color);
+}
+
+/* Explicit modes: show icon in accent color */
+.theme-switch-knob[data-mode="light"] .theme-icon-sun {
+  color: var(--color-accent);
+  opacity: 1;
+  transform: scale(1);
+}
+
+.theme-switch-knob[data-mode="dark"] .theme-icon-moon {
+  color: var(--color-accent);
+  opacity: 1;
+  transform: scale(1);
 }
 
 .banner-links {
