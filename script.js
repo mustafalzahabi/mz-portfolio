@@ -1,4 +1,72 @@
-// (Theme toggle removed - will be reimplemented later)
+// ============================================================================
+// THEME MANAGEMENT
+// ============================================================================
+
+let themeKnobPosition = 0; // 0 = dark (left), 1 = light (right), -1 = auto (thrown off)
+
+function initDarkMode() {
+  const savedMode = localStorage.getItem('theme') || 'auto';
+  applyTheme(savedMode);
+}
+
+function applyTheme(mode) {
+  let effectiveScheme = mode;
+  
+  if (mode === 'auto') {
+    effectiveScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  
+  document.documentElement.style.colorScheme = effectiveScheme;
+  localStorage.setItem('theme', mode);
+  updateThemeToggleButton();
+}
+
+function getCurrentTheme() {
+  return localStorage.getItem('theme') || 'auto';
+}
+
+function toggleDarkMode() {
+  const themes = ['auto', 'light', 'dark'];
+  const current = getCurrentTheme();
+  const currentIndex = themes.indexOf(current);
+  const nextIndex = (currentIndex + 1) % themes.length;
+  applyTheme(themes[nextIndex]);
+}
+
+function updateThemeToggleButton() {
+  const knob = document.getElementById('theme-knob');
+  const track = document.getElementById('theme-track');
+  if (!knob || !track) return;
+  
+  const mode = getCurrentTheme();
+  const trackWidth = 80; // 5rem in pixels
+  const knobWidth = 24;  // 1.5rem in pixels
+  const maxTranslate = trackWidth - knobWidth; // 56px
+  
+  if (mode === 'auto') {
+    knob.classList.add('auto-mode');
+    knob.setAttribute('data-mode', 'auto');
+    // Throw off the right side, staying centered vertically
+    knob.style.transform = `translate(${maxTranslate + 100}px, -50%)`;
+  } else if (mode === 'light') {
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'light');
+    // Move to the right (sun position), centered vertically
+    knob.style.transform = `translate(${maxTranslate}px, -50%)`;
+  } else {
+    knob.classList.remove('auto-mode');
+    knob.setAttribute('data-mode', 'dark');
+    // Move to the left (moon position), centered vertically
+    knob.style.transform = 'translate(0px, -50%)';
+  }
+}
+
+// Listen for system theme changes when in auto mode
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (getCurrentTheme() === 'auto') {
+    applyTheme('auto');
+  }
+});
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -91,6 +159,8 @@ async function loadData() {
     frag.appendChild(buildFooter());
     
     app.appendChild(frag);
+    
+    setupThemeToggle();
   } catch (e) {
     console.error(e);
     showError(e.message || 'Could not load portfolio data.');
@@ -112,8 +182,138 @@ function setupMetaTags() {
   }
 }
 
-// (Theme switch handlers removed)
+function attachThemeSwitchHandlers(track, knob) {
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragStartPos = 0;
+  let currentPos = 0;
+  let currentY = 0;
+  let escapeTrack = false; // Whether knob has escaped track bounds
+  const trackWidth = 80;  // 5rem
+  const trackHeight = 32; // 2rem
+  const knobWidth = 24;   // 1.5rem
+  const knobHeight = 24;  // 1.5rem
+  const maxTranslate = trackWidth - knobWidth; // 56px
+  const midpoint = maxTranslate / 2; // 28px
+  const throwThreshold = 40; // pixels beyond max to trigger auto
+  const verticalThreshold = 20; // pixels up/down to trigger auto
+  const escapeThreshold = 15; // pixels beyond track to unlock vertical movement
+  
+  function snapToPosition(endPos, endY) {
+    const throwThresholdRight = maxTranslate + throwThreshold;
+    const throwThresholdLeft = -throwThreshold;
+    const isOffVertically = Math.abs(endY) > verticalThreshold;
+    const isOffHorizontally = endPos > throwThresholdRight || endPos < throwThresholdLeft;
+    
+    if (isOffHorizontally || isOffVertically) {
+      // Thrown off track in any direction - enable auto
+      applyTheme('auto');
+    } else if (endPos > midpoint) {
+      // Closer to right - light mode (sun)
+      applyTheme('light');
+    } else {
+      // Closer to left - dark mode (moon)
+      applyTheme('dark');
+    }
+  }
+  
+  knob.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    const transform = knob.style.transform;
+    // Extract only the X translation, ignoring the Y centering
+    const matchX = transform.match(/translate\(([-\d.]+)px/);
+    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
+    currentY = 0;
+    escapeTrack = false;
+    knob.classList.add('dragging');
+    e.preventDefault();
+  });
+  
+  document.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    currentPos = dragStartPos + deltaX;
+    
+    // Check if knob has escaped the track horizontally
+    const hasEscapedRight = currentPos > (maxTranslate + escapeThreshold);
+    const hasEscapedLeft = currentPos < -escapeThreshold;
+    
+    if (hasEscapedRight || hasEscapedLeft) {
+      escapeTrack = true;
+    }
+    
+    // Only apply vertical movement if knob has escaped track
+    if (escapeTrack) {
+      currentY = deltaY;
+    } else {
+      currentY = 0;
+    }
+    
+    knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
+    knob.style.transition = 'none';
+  });
+  
+  document.addEventListener('pointerup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    knob.classList.remove('dragging');
+    knob.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    snapToPosition(currentPos, currentY);
+  });
+  
+  // Click on track to switch between dark and light (only, not auto)
+  track.addEventListener('click', (e) => {
+    // Only toggle if clicking on the track itself, not the knob
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    
+    if (clickX < currentPos || clickX > currentPos + knobWidth) {
+      const current = getCurrentTheme();
+      if (current === 'auto') {
+        applyTheme('dark');
+      } else if (current === 'dark') {
+        applyTheme('light');
+      } else {
+        applyTheme('dark');
+      }
+    }
+  });
+  
+  // Keyboard support
+  track.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      const current = getCurrentTheme();
+      if (current === 'auto') {
+        applyTheme('dark');
+      } else if (current === 'dark') {
+        applyTheme('light');
+      } else {
+        applyTheme('dark');
+      }
+    } else if (e.key === 'ArrowRight') {
+      applyTheme('light');
+    } else if (e.key === 'ArrowLeft') {
+      applyTheme('dark');
+    }
+  });
+  
+  // Initialize current position
+  updateThemeToggleButton();
+}
 
+function setupThemeToggle() {
+  const track = document.getElementById('theme-track');
+  const knob = document.getElementById('theme-knob');
+  if (track && knob) {
+    updateThemeToggleButton();
+  }
+}
 
 // ============================================================================
 // DOM BUILDERS
@@ -187,7 +387,38 @@ function buildHeader(profile, contact) {
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
   
-  // Theme toggle removed (will be reimplemented later)
+  // Theme toggle switch (top right) - draggable
+  const themeSwitch = document.createElement('div');
+  themeSwitch.id = 'theme-switch';
+  themeSwitch.className = 'theme-switch';
+  
+  const track = document.createElement('div');
+  track.id = 'theme-track';
+  track.className = 'theme-switch-track';
+  track.setAttribute('role', 'switch');
+  track.setAttribute('aria-label', 'Toggle theme');
+  track.setAttribute('tabindex', '0');
+  
+  const knob = document.createElement('div');
+  knob.id = 'theme-knob';
+  knob.className = 'theme-switch-knob';
+  
+  const moonIcon = document.createElement('span');
+  moonIcon.className = 'theme-icon theme-icon-moon';
+  moonIcon.textContent = '🌙';
+  
+  const sunIcon = document.createElement('span');
+  sunIcon.className = 'theme-icon theme-icon-sun';
+  sunIcon.textContent = '☀️';
+  
+  knob.appendChild(moonIcon);
+  knob.appendChild(sunIcon);
+  track.appendChild(knob);
+  themeSwitch.appendChild(track);
+  banner.appendChild(themeSwitch);
+  
+  // Attach drag handlers
+  attachThemeSwitchHandlers(track, knob);
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
@@ -876,6 +1107,8 @@ function renderProjectDetail(project) {
   app.innerHTML = '';
   app.appendChild(frag);
   
+  setupThemeToggle();
+  
   // Scroll to top of page
   window.scrollTo(0, 0);
 }
@@ -1048,360 +1281,8 @@ function getContrastTextColor(hexColor) {
 }
 
 // ============================================================================
-// SMART THEME SWITCHER CLASS
-// ============================================================================
-
-class SmartThemeSwitch {
-  constructor() {
-    this.mode = 'auto'; // 'light', 'dark', 'auto'
-    this.isDragging = false;
-    this.startX = 0;
-    this.currentX = 0;
-    this.dragOffset = 0;
-    this.isResisting = false;
-    this.threshold = 1.5; // rem threshold for mode switching
-    this.resistanceMultiplier = 0.33;
-    this.maxOffTrackDistance = 2; // rem
-    this.element = null;
-    this.knob = null;
-    this.track = null;
-
-    this.init();
-  }
-
-  init() {
-    this.loadSavedMode();
-    this.applyMode();
-    this.waitForBanner();
-  }
-
-  waitForBanner() {
-    // Wait for the banner to be created, then insert the toggle
-    const checkBanner = setInterval(() => {
-      const banner = document.querySelector('.profile-banner');
-      if (banner) {
-        clearInterval(checkBanner);
-        this.createAndInsert();
-        this.attachEventListeners();
-      }
-    }, 50);
-  }
-
-  loadSavedMode() {
-    const saved = localStorage.getItem('theme');
-    if (saved && ['light', 'dark', 'auto'].includes(saved)) {
-      this.mode = saved;
-    } else {
-      this.mode = 'auto';
-    }
-  }
-
-  saveModeToStorage() {
-    localStorage.setItem('theme', this.mode);
-  }
-
-  createAndInsert() {
-    const banner = document.querySelector('.profile-banner');
-    if (!banner) return;
-
-    // Create toggle DOM
-    this.element = document.createElement('div');
-    this.element.className = 'theme-toggle';
-
-    this.track = document.createElement('div');
-    this.track.className = 'track';
-
-    this.knob = document.createElement('div');
-    this.knob.className = 'knob';
-    this.updateKnobIcon();
-
-    if (this.mode === 'auto') {
-      this.knob.classList.add('auto');
-    }
-
-    this.element.appendChild(this.track);
-    this.element.appendChild(this.knob);
-
-    banner.appendChild(this.element);
-
-    // Position knob initially
-    this.positionKnob();
-  }
-
-  updateKnobIcon() {
-    if (!this.knob) return;
-
-    let icon = '☀️'; // light mode
-
-    if (this.mode === 'dark') {
-      icon = '🌙'; // dark mode
-    } else if (this.mode === 'auto') {
-      // Auto mode: show moon or sun based on system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      icon = prefersDark ? '🌙' : '☀️';
-    }
-
-    this.knob.textContent = icon;
-  }
-
-  positionKnob() {
-    if (!this.knob) return;
-
-    let percentage = 50; // auto mode (center)
-
-    if (this.mode === 'dark') {
-      percentage = 0; // left
-    } else if (this.mode === 'light') {
-      percentage = 100; // right
-    }
-
-    const knobWidth = parseFloat(
-      getComputedStyle(this.knob).getPropertyValue('inline-size')
-    );
-    const toggleWidth = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('inline-size')
-    );
-    const padding = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('padding')
-    );
-
-    const maxTravel = toggleWidth - knobWidth - 2 * padding;
-    const newPosition = (percentage / 100) * maxTravel;
-
-    this.knob.style.insetInlineStart = `calc(${padding}rem + ${(newPosition / 16)}rem)`;
-    this.dragOffset = newPosition;
-  }
-
-  attachEventListeners() {
-    if (!this.element) return;
-
-    this.element.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-    this.element.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-
-    document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-    document.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-
-    document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-    document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-
-    this.element.addEventListener('click', (e) => this.handleClick(e));
-
-    // Listen for system theme changes in auto mode
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (this.mode === 'auto') {
-        this.updateKnobIcon();
-      }
-    });
-  }
-
-  handleMouseDown(e) {
-    this.startDrag(e.clientX);
-  }
-
-  handleTouchStart(e) {
-    if (e.touches.length === 1) {
-      this.startDrag(e.touches[0].clientX);
-    }
-  }
-
-  startDrag(x) {
-    if (!this.knob) return;
-
-    this.isDragging = true;
-    this.startX = x;
-    this.element.style.cursor = 'grabbing';
-  }
-
-  handleMouseMove(e) {
-    if (this.isDragging) {
-      this.updateDrag(e.clientX);
-    }
-  }
-
-  handleTouchMove(e) {
-    if (this.isDragging && e.touches.length === 1) {
-      this.updateDrag(e.touches[0].clientX);
-    }
-  }
-
-  updateDrag(x) {
-    if (!this.element || !this.knob) return;
-
-    const deltaX = x - this.startX;
-
-    const toggleWidth = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('inline-size')
-    );
-    const knobWidth = parseFloat(
-      getComputedStyle(this.knob).getPropertyValue('inline-size')
-    );
-    const padding = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('padding')
-    );
-
-    const maxTravel = toggleWidth - knobWidth - 2 * padding;
-
-    // Apply resistance in auto mode
-    let adjustedDelta = deltaX;
-    if (this.mode === 'auto') {
-      adjustedDelta = deltaX * this.resistanceMultiplier;
-    }
-
-    let newPosition = this.dragOffset + adjustedDelta;
-
-    // Apply off-track resistance
-    if (newPosition < 0) {
-      const offTrack = Math.abs(newPosition);
-      if (offTrack > 0.5 * 16) {
-        // Beyond threshold, apply resistance
-        newPosition = -Math.pow(offTrack, 0.5) * 2;
-        if (!this.isResisting) {
-          this.isResisting = true;
-          this.knob.classList.add('resisting');
-        }
-      }
-    } else if (newPosition > maxTravel) {
-      const offTrack = newPosition - maxTravel;
-      if (offTrack > 0.5 * 16) {
-        // Beyond threshold, apply resistance
-        newPosition = maxTravel + Math.pow(offTrack, 0.5) * 2;
-        if (!this.isResisting) {
-          this.isResisting = true;
-          this.knob.classList.add('resisting');
-        }
-      }
-    } else {
-      if (this.isResisting) {
-        this.isResisting = false;
-        this.knob.classList.remove('resisting');
-      }
-    }
-
-    // Clamp to reasonable bounds for visual feedback
-    newPosition = Math.max(-2 * 16, Math.min(maxTravel + 2 * 16, newPosition));
-
-    this.knob.style.insetInlineStart = `calc(${padding}rem + ${(newPosition / 16)}rem)`;
-  }
-
-  handleMouseUp(e) {
-    if (this.isDragging) {
-      this.endDrag();
-    }
-  }
-
-  handleTouchEnd(e) {
-    if (this.isDragging) {
-      this.endDrag();
-    }
-  }
-
-  endDrag() {
-    if (!this.element || !this.knob) return;
-
-    this.isDragging = false;
-    this.element.style.cursor = 'grab';
-
-    const toggleWidth = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('inline-size')
-    );
-    const knobWidth = parseFloat(
-      getComputedStyle(this.knob).getPropertyValue('inline-size')
-    );
-    const padding = parseFloat(
-      getComputedStyle(this.element).getPropertyValue('padding')
-    );
-
-    const maxTravel = toggleWidth - knobWidth - 2 * padding;
-
-    // Get current knob position
-    const currentInlineStart = this.knob.style.insetInlineStart;
-    const positionMatch = currentInlineStart.match(/([\d.]+)rem/);
-    const currentPos = positionMatch ? parseFloat(positionMatch[1]) * 16 : this.dragOffset;
-
-    // Determine target position based on distance
-    const thirdPoint = maxTravel / 3;
-    let newMode = 'auto';
-
-    if (currentPos < thirdPoint) {
-      newMode = 'dark';
-    } else if (currentPos > 2 * thirdPoint) {
-      newMode = 'light';
-    } else {
-      newMode = 'auto';
-    }
-
-    // If exiting auto mode, allow full drag range
-    if (this.mode === 'auto' && newMode !== 'auto') {
-      // Check if drag was large enough to exit auto mode
-      const dragDistance = Math.abs(currentPos - this.dragOffset);
-      if (dragDistance < this.threshold * 16) {
-        newMode = 'auto'; // Not far enough, stay in auto
-      }
-    }
-
-    this.setMode(newMode);
-  }
-
-  handleClick(e) {
-    // Only allow clicks in manual modes (not in auto mode)
-    if (this.mode === 'auto') return;
-
-    // Toggle between light and dark
-    if (this.mode === 'light') {
-      this.setMode('dark');
-    } else {
-      this.setMode('light');
-    }
-  }
-
-  setMode(newMode) {
-    if (newMode === this.mode) return;
-
-    this.mode = newMode;
-    this.saveModeToStorage();
-    this.applyMode();
-    this.updateKnobIcon();
-    this.positionKnob();
-
-    // Remove resisting class on snap
-    if (this.knob && this.knob.classList.contains('resisting')) {
-      this.knob.classList.remove('resisting');
-    }
-  }
-
-  applyMode() {
-    const html = document.documentElement;
-
-    if (this.mode === 'auto') {
-      // Remove data-theme to let system preference take over
-      html.removeAttribute('data-theme');
-
-      if (this.knob) {
-        this.knob.classList.add('auto');
-      }
-    } else {
-      // Set explicit theme
-      html.setAttribute('data-theme', this.mode);
-
-      if (this.knob) {
-        this.knob.classList.remove('auto');
-      }
-    }
-
-    // Update body background and color immediately for no flicker
-    document.body.style.transition = 'none';
-    document.body.offsetHeight; // Force reflow
-    document.body.style.transition = '';
-  }
-}
-
-// ============================================================================
 // INITIALIZATION
 // ============================================================================
-
-function initDarkMode() {
-  new SmartThemeSwitch();
-}
 
 initDarkMode();
 
