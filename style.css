@@ -48,6 +48,14 @@ html {
   scroll-behavior: smooth;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 body {
   font-family: var(--font-family);
   line-height: 1.6;
@@ -203,67 +211,7 @@ main {
   position: relative;
 }
 
-/* Draggable Theme Switch */
-/* Theme switch track */
-.theme-switch-track {
-  position: absolute;
-  inset-block-start: 1rem;
-  inset-inline-end: 1rem;
-  inline-size: 3.5rem;
-  block-size: .5rem;
-  background: var(--background-color);
-  border-radius: 0.5rem;
-  cursor: grab;
-  user-select: none;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  font-size: 1.5rem;
-  color: var(--accent-color);
-  justify-content: flex-start; /* left by default */
-  padding-inline-start: 0.25rem;
-  padding-inline-end: 0;
-  position: relative;
-  transition: border-color 0.2s;
-}
-
-.theme-switch-track:hover {
-  border: 1px solid var(--border-color);
-}
-
-.theme-switch-track[data-mode="light"] {
-  padding-inline-start: 0;
-  padding-inline-end: 0.25rem;
-}
-
-/* Animated emoji using a pseudo-element for smooth transform animation */
-.theme-switch-track::after {
-  content: '☪';
-  position: absolute;
-  top: 50%;
-  left: 0.25rem; /* anchor at start */
-  transform: translateY(-50%) translateX(0);
-  transition: transform 0.18s cubic-bezier(.2,.9,.2,1);
-}
-
-.theme-switch-track[data-mode="light"]::after {
-  content: '☀';
-  /* translate from the start anchor to the right edge
-     calc: track(100%) - (emoji(1.5rem) + padding(0.25rem)) - startAnchor(0.25rem)
-     simplifies to: calc(100% - 2rem) */
-  transform: translateY(-50%) translateX(calc(100% - 2rem));
-}
-
-/* While dragging, allow the JS-driven --drag-progress to override position */
-.theme-switch-track.dragging::after {
-  transition: none;
-  transform: translateY(-50%) translateX(calc(var(--drag-progress, 0) * (100% - 2rem)));
-}
-
-.theme-switch-track:active,
-.theme-switch-track.dragging {
-  cursor: grabbing;
-}
+/* Theme toggle removed */
 
 .banner-links {
   display: flex;
@@ -443,6 +391,52 @@ main {
   font-weight: 700;
   margin-block-end: 0.5rem;
 }
+
+/* Theme toggle component styles (injected at runtime) */
+.theme-toggle {
+  position: relative;
+  width: 80px;
+  height: 36px;
+  background: var(--surface-color);
+  border-radius: 50px;
+  padding: 4px;
+  cursor: grab;
+  user-select: none;
+}
+
+.theme-toggle .track {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.theme-toggle .knob {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: var(--surface-color);
+  color: var(--primary-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: left 0.25s, background 0.25s, color 0.25s;
+  cursor: grab;
+}
+
+.theme-toggle .knob.auto {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.theme-toggle .knob.resisting {
+  transition: left 0.1s; 
+}
+
 
 .education-card .institution {
   color: var(--accent-color);

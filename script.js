@@ -1,38 +1,4 @@
-// ============================================================================
-// THEME MANAGEMENT
-// ============================================================================
-
-function initDarkMode() {
-  const savedMode = localStorage.getItem('theme') || 'dark';
-  applyTheme(savedMode);
-}
-
-function applyTheme(mode) {
-  document.documentElement.style.colorScheme = mode;
-  localStorage.setItem('theme', mode);
-  updateThemeToggleButton();
-}
-
-function getCurrentTheme() {
-  return localStorage.getItem('theme') || 'dark';
-}
-
-function toggleTheme() {
-  const current = getCurrentTheme();
-  const next = current === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
-}
-
-function updateThemeToggleButton() {
-  const track = document.getElementById('theme-track');
-  if (!track) return;
-
-  const mode = getCurrentTheme();
-  // UI handled by CSS pseudo-element; only set state attribute
-  track.setAttribute('data-mode', mode);
-  // reflect ARIA state for assistive tech
-  track.setAttribute('aria-checked', mode === 'light' ? 'true' : 'false');
-}
+// (Theme toggle removed - will be reimplemented later)
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -146,62 +112,7 @@ function setupMetaTags() {
   }
 }
 
-// ============================================================================
-// THEME SWITCH CLICK HANDLER
-// ============================================================================
-
-function attachThemeSwitchHandlers(track) {
-  track.addEventListener('click', (e) => {
-    // Ignore click if it was part of a drag
-    if (track.dataset.dragging === 'true') return;
-    toggleTheme();
-  });
-  // Pointer drag support
-  let pointerId = null;
-  let startX = 0;
-  let rect = null;
-
-  function onPointerDown(e) {
-    track.setPointerCapture(e.pointerId);
-    pointerId = e.pointerId;
-    track.dataset.dragging = 'true';
-    startX = e.clientX;
-    rect = track.getBoundingClientRect();
-    track.classList.add('dragging');
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-  }
-
-  function onPointerMove(e) {
-    if (e.pointerId !== pointerId) return;
-    const x = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
-    const progress = x / rect.width; // 0..1
-    // store as percentage for CSS to translate the ::after
-    track.style.setProperty('--drag-progress', progress);
-  }
-
-  function endDragAndSetTheme() {
-    const progress = parseFloat(getComputedStyle(track).getPropertyValue('--drag-progress')) || 0;
-    // threshold 0.5
-    const newMode = progress >= 0.5 ? 'light' : 'dark';
-    applyTheme(newMode);
-    track.style.removeProperty('--drag-progress');
-  }
-
-  function onPointerUp(e) {
-    if (e.pointerId !== pointerId) return;
-    try { track.releasePointerCapture(pointerId); } catch (err) {}
-    pointerId = null;
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-    track.classList.remove('dragging');
-    delete track.dataset.dragging;
-    endDragAndSetTheme();
-  }
-
-  track.addEventListener('pointerdown', onPointerDown);
-  updateThemeToggleButton();
-}
+// (Theme switch handlers removed)
 
 
 // ============================================================================
@@ -276,20 +187,7 @@ function buildHeader(profile, contact) {
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
   
-  // Theme toggle switch (top right) - draggable
-  const track = document.createElement('div');
-  track.id = 'theme-track';
-  track.className = 'theme-switch-track';
-  track.setAttribute('role', 'switch');
-  track.setAttribute('aria-label', 'Toggle theme');
-  track.setAttribute('tabindex', '0');
-  
-  // Place the emoji directly inside the track (no separate knob element)
-  track.textContent = '☪';
-  banner.appendChild(track);
-  
-  // Attach click handler
-  attachThemeSwitchHandlers(track);
+  // Theme toggle removed (will be reimplemented later)
   
   // Banner links (bottom right)
   const bannerLinks = document.createElement('div');
@@ -1152,6 +1050,215 @@ function getContrastTextColor(hexColor) {
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
+
+// Theme toggle implementation and initialization
+function initDarkMode() {
+  // Create toggle only once
+  try {
+    const existing = document.querySelector('.theme-toggle');
+    if (existing) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'theme-toggle';
+
+    const track = document.createElement('div');
+    track.className = 'track';
+
+    const knob = document.createElement('div');
+    knob.className = 'knob';
+    knob.textContent = '☀️';
+
+    wrapper.appendChild(track);
+    wrapper.appendChild(knob);
+
+    // Find banner-links container; if not present, append to header
+    const bannerLinks = document.querySelector('.banner-links') || document.getElementById('header') || document.body;
+
+    // Insert at the start of banner-links to appear top-right
+    bannerLinks.insertBefore(wrapper, bannerLinks.firstChild || null);
+
+    // Setup state
+    const STORAGE_KEY = 'theme';
+    let mode = localStorage.getItem(STORAGE_KEY) || 'auto';
+
+    const htmlEl = document.documentElement;
+
+    function applyTheme(m) {
+      mode = m;
+      try { localStorage.setItem(STORAGE_KEY, m); } catch (e) {}
+
+      if (m === 'auto') {
+        htmlEl.removeAttribute('data-theme');
+        knob.classList.add('auto');
+        // set icon based on system
+        const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        knob.textContent = dark ? '🌙' : '☀️';
+        // disable pointer events on track click behavior handled elsewhere
+      } else {
+        htmlEl.setAttribute('data-theme', m);
+        knob.classList.remove('auto');
+        knob.textContent = m === 'dark' ? '🌙' : '☀️';
+      }
+      // position knob visually without transition flicker
+      snapKnobToMode(m, true);
+    }
+
+    // Position helpers
+    const TRACK_PADDING = 4; // as in CSS
+    const TRACK_WIDTH = 80;
+    const KNOB_WIDTH = 28;
+    const MIN_X = TRACK_PADDING; // leftmost left value
+    const MAX_X = TRACK_WIDTH - TRACK_PADDING - KNOB_WIDTH; // rightmost left value
+    const CENTER_X = (MIN_X + MAX_X) / 2;
+
+    function setKnobLeft(x, instant) {
+      if (instant) {
+        knob.style.transition = 'none';
+        knob.style.left = x + 'px';
+        // force reflow then restore transition
+        void knob.offsetWidth;
+        knob.style.transition = '';
+      } else {
+        knob.style.left = x + 'px';
+      }
+    }
+
+    function snapKnobToMode(m, instant) {
+      if (m === 'dark') setKnobLeft(MIN_X, instant);
+      else if (m === 'light') setKnobLeft(MAX_X, instant);
+      else setKnobLeft(CENTER_X, instant);
+    }
+
+    // Apply initial theme immediately to avoid flicker
+    applyTheme(mode);
+
+    // Listen to system changes only when in auto
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener && mq.addEventListener('change', () => {
+      if (mode === 'auto') applyTheme('auto');
+    });
+
+    // Click on track toggles when not auto
+    track.addEventListener('click', (e) => {
+      if (mode === 'auto') return;
+      const newMode = mode === 'light' ? 'dark' : 'light';
+      applyTheme(newMode);
+    });
+
+    // Dragging
+    let dragging = false;
+    let startX = 0;
+    let knobStartLeft = 0;
+    let lastClientX = 0;
+
+    function getClientX(ev) {
+      return ev.touches ? ev.touches[0].clientX : ev.clientX;
+    }
+
+    function onStart(ev) {
+      ev.preventDefault();
+      dragging = true;
+      wrapper.classList.add('dragging');
+      knob.classList.remove('resisting');
+      startX = getClientX(ev);
+      knobStartLeft = parseFloat(getComputedStyle(knob).left) || MIN_X;
+      lastClientX = startX;
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onEnd);
+    }
+
+    function onMove(ev) {
+      if (!dragging) return;
+      ev.preventDefault();
+      const clientX = getClientX(ev);
+      const dx = clientX - startX;
+      let newLeft;
+
+      if (mode === 'auto') {
+        // movement slowed by factor of 3
+        newLeft = knobStartLeft + dx / 3;
+        knob.classList.add('auto');
+        knob.classList.add('resisting');
+      } else {
+        newLeft = knobStartLeft + dx;
+        knob.classList.remove('resisting');
+      }
+
+      // Drag Off-Track Resistance: allow small overdrag with extra resistance
+      const over = 20; // px
+      if (newLeft < MIN_X - over) {
+        // sticky resistance beyond far left
+        newLeft = MIN_X - over + (newLeft - (MIN_X - over)) / 3;
+      } else if (newLeft > MAX_X + over) {
+        newLeft = MAX_X + over + (newLeft - (MAX_X + over)) / 3;
+      }
+
+      // clamp soft limits to prevent runaway
+      const absoluteLimit = 1000;
+      newLeft = Math.max(MIN_X - absoluteLimit, Math.min(MAX_X + absoluteLimit, newLeft));
+
+      setKnobLeft(newLeft, false);
+      lastClientX = clientX;
+    }
+
+    function onEnd(ev) {
+      if (!dragging) return;
+      dragging = false;
+      wrapper.classList.remove('dragging');
+      knob.classList.remove('resisting');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+
+      // Determine final left
+      let left = parseFloat(getComputedStyle(knob).left) || MIN_X;
+
+      // If dragged far beyond edges => switch to auto
+      const farThreshold = 28; // px beyond edges
+      if (left <= MIN_X - farThreshold || left >= MAX_X + farThreshold) {
+        applyTheme('auto');
+        return;
+      }
+
+      // Snap regions: left half -> dark, center -> auto, right half -> light
+      const third = (MAX_X - MIN_X) / 2; // center region threshold
+      const mid = CENTER_X;
+      if (left < mid - (KNOB_WIDTH / 2)) {
+        applyTheme('dark');
+      } else if (left > mid + (KNOB_WIDTH / 2)) {
+        applyTheme('light');
+      } else {
+        applyTheme('auto');
+      }
+    }
+
+    knob.addEventListener('mousedown', onStart);
+    knob.addEventListener('touchstart', onStart, { passive: false });
+
+    // Accessibility: allow keyboard toggle
+    knob.tabIndex = 0;
+    knob.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const newMode = mode === 'light' ? 'dark' : (mode === 'dark' ? 'auto' : 'light');
+        applyTheme(newMode);
+        e.preventDefault();
+      }
+    });
+
+    // Click on knob cycles modes quickly
+    knob.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cycle = mode === 'light' ? 'dark' : (mode === 'dark' ? 'auto' : 'light');
+      applyTheme(cycle);
+    });
+
+  } catch (e) {
+    console.error('initDarkMode error', e);
+  }
+}
 
 initDarkMode();
 
