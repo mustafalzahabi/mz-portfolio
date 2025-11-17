@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="128" height="128" role="img" aria-labelledby="moonTitle" focusable="false">
+  <title id="moonTitle">Dark theme — moon</title>
+  <!-- Moon crescent -->
+  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
+  <!-- subtle stars -->
+  <g fill="currentColor" opacity="0.9">
+    <circle cx="5" cy="5" r="0.6" />
+    <circle cx="18" cy="6" r="0.5" />
+    <circle cx="16" cy="17" r="0.5" />
+  </g>
+</svg>

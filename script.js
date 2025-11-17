@@ -433,13 +433,19 @@ function buildHeader(profile, contact) {
   knob.id = 'theme-knob';
   knob.className = 'theme-switch-knob';
   
-  const moonIcon = document.createElement('span');
+  const moonIcon = document.createElement('img');
   moonIcon.className = 'theme-icon theme-icon-moon';
-  moonIcon.textContent = '🌙';
-  
-  const sunIcon = document.createElement('span');
+  moonIcon.src = 'dark-theme.svg';
+  moonIcon.alt = 'moon';
+  moonIcon.width = 20;
+  moonIcon.height = 20;
+
+  const sunIcon = document.createElement('img');
   sunIcon.className = 'theme-icon theme-icon-sun';
-  sunIcon.textContent = '☀️';
+  sunIcon.src = 'light-theme.svg';
+  sunIcon.alt = 'sun';
+  sunIcon.width = 20;
+  sunIcon.height = 20;
   
   knob.appendChild(moonIcon);
   knob.appendChild(sunIcon);
