@@ -47,9 +47,15 @@ function updateThemeToggleButton() {
   
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
-    knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side, staying centered vertically
-    knob.style.transform = `translate(${maxTranslate + 100}px, -50%)`;
+    // Determine effective scheme and position the knob accordingly, but mark as auto
+    const effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    knob.setAttribute('data-mode', effective);
+    knob.setAttribute('data-auto', 'true');
+    if (effective === 'light') {
+      knob.style.transform = `translate(${maxTranslate}px, -50%)`;
+    } else {
+      knob.style.transform = 'translate(0px, -50%)';
+    }
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
     knob.setAttribute('data-mode', 'light');
