@@ -269,8 +269,8 @@ main {
 
 .theme-switch-knob {
   position: absolute;
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
   background: transparent;
   border-radius: 0; /* no visible circle */
   box-shadow: none;
@@ -284,13 +284,13 @@ main {
   top: 50%;
   transform: translate(0, -50%);
   /* slightly larger hit area for touch devices */
-  padding: 0.25rem;
+  padding: 0.5rem;
 }
 
 .theme-icon {
   position: absolute;
-  inline-size: 1rem;
-  block-size: 1rem;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   object-fit: contain;
   transition: opacity 0.2s, transform 0.2s, filter 0.2s;
   display: block;
@@ -298,6 +298,13 @@ main {
 
 .theme-switch-knob img {
   display: block;
+}
+
+/* default icon color uses the accent variable */
+.theme-switch-knob .theme-icon,
+.theme-switch-knob img {
+  color: var(--color-accent);
+  filter: none;
 }
 
 .theme-icon-moon {
