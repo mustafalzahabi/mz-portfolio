@@ -1,72 +1,189 @@
 // ============================================================================
-// THEME MANAGEMENT
+// THEME MANAGEMENT (REWRITTEN)
+// - Keeps HTML/CSS unchanged
+// - Stores mode in localStorage as 'auto'|'light'|'dark'
+// - Uses `html[data-theme]` to expose mode for CSS
+// - Positions knob via `inset-inline-start` based on computed sizes
+// - Auto mode: click disabled; drag has 1/3 speed/resistance; requires strong drag to exit
+// - Manual modes: click toggles light/dark; drag is free and snaps on release
 // ============================================================================
 
-let themeKnobPosition = 0; // 0 = dark (left), 1 = light (right), -1 = auto (thrown off)
+const THEME_KEY = 'theme';
 
-function initDarkMode() {
-  const savedMode = localStorage.getItem('theme') || 'auto';
-  applyTheme(savedMode);
+function getStoredTheme() {
+  return localStorage.getItem(THEME_KEY) || 'auto';
 }
 
-function applyTheme(mode) {
-  let effectiveScheme = mode;
-  
-  if (mode === 'auto') {
-    effectiveScheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  
-  document.documentElement.style.colorScheme = effectiveScheme;
-  localStorage.setItem('theme', mode);
-  updateThemeToggleButton();
+function setStoredTheme(mode) {
+  localStorage.setItem(THEME_KEY, mode);
+  document.documentElement.setAttribute('data-theme', mode);
+  // Update visual state of knob/track
+  updateKnobPositionImmediate();
 }
 
-function getCurrentTheme() {
-  return localStorage.getItem('theme') || 'auto';
-}
-
-function toggleDarkMode() {
-  const themes = ['auto', 'light', 'dark'];
-  const current = getCurrentTheme();
-  const currentIndex = themes.indexOf(current);
-  const nextIndex = (currentIndex + 1) % themes.length;
-  applyTheme(themes[nextIndex]);
-}
-
-function updateThemeToggleButton() {
-  const knob = document.getElementById('theme-knob');
+// compute and apply knob inset based on current theme and computed sizes
+function updateKnobPositionImmediate() {
   const track = document.getElementById('theme-track');
-  if (!knob || !track) return;
-  
-  const mode = getCurrentTheme();
-  const trackWidth = 80; // 5rem in pixels
-  const knobWidth = 24;  // 1.5rem in pixels
-  const maxTranslate = trackWidth - knobWidth; // 56px
-  
-  if (mode === 'auto') {
-    knob.classList.add('auto-mode');
-    knob.setAttribute('data-mode', 'auto');
-    // Throw off the right side, staying centered vertically
-    knob.style.transform = `translate(${maxTranslate + 100}px, -50%)`;
+  const knob = document.getElementById('theme-knob');
+  if (!track || !knob) return;
+
+  const mode = getStoredTheme();
+  const trackRect = track.getBoundingClientRect();
+  const knobRect = knob.getBoundingClientRect();
+  const knobFraction = knobRect.width / trackRect.width; // fraction of track
+  const rightPercent = (1 - knobFraction) * 100;
+
+  knob.classList.toggle('auto-mode', mode === 'auto');
+
+  if (mode === 'dark') {
+    knob.style.setProperty('inset-inline-start', '0%');
   } else if (mode === 'light') {
-    knob.classList.remove('auto-mode');
-    knob.setAttribute('data-mode', 'light');
-    // Move to the right (sun position), centered vertically
-    knob.style.transform = `translate(${maxTranslate}px, -50%)`;
+    knob.style.setProperty('inset-inline-start', rightPercent + '%');
   } else {
-    knob.classList.remove('auto-mode');
-    knob.setAttribute('data-mode', 'dark');
-    // Move to the left (moon position), centered vertically
-    knob.style.transform = 'translate(0px, -50%)';
+    // auto: position according to system preference but visually greyed
+    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    knob.style.setProperty('inset-inline-start', isSystemDark ? rightPercent + '%' : '0%');
+    // expose system state for CSS if needed
+    knob.setAttribute('data-system', isSystemDark ? 'dark' : 'light');
   }
 }
 
-// Listen for system theme changes when in auto mode
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  if (getCurrentTheme() === 'auto') {
-    applyTheme('auto');
+// Smoothly animate the knob to the computed inset (used on click/finish)
+function animateKnobTo(mode) {
+  const track = document.getElementById('theme-track');
+  const knob = document.getElementById('theme-knob');
+  if (!track || !knob) return;
+
+  // Use the immediate function to compute target percent
+  const trackRect = track.getBoundingClientRect();
+  const knobRect = knob.getBoundingClientRect();
+  const knobFraction = knobRect.width / trackRect.width;
+  const rightPercent = (1 - knobFraction) * 100;
+  let target = '0%';
+  if (mode === 'light') target = rightPercent + '%';
+  else if (mode === 'dark') target = '0%';
+  else {
+    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    target = isSystemDark ? rightPercent + '%' : '0%';
   }
-});
+
+  // animate via CSS transition already present on the knob (visual CSS unchanged)
+  knob.style.transition = '';
+  requestAnimationFrame(() => {
+    knob.style.transition = '';
+    knob.style.setProperty('inset-inline-start', target);
+  });
+}
+
+// Setup behavior for track + knob: click + drag with different rules per mode
+function setupThemeBehavior() {
+  const track = document.getElementById('theme-track');
+  const knob = document.getElementById('theme-knob');
+  if (!track || !knob) return;
+
+  // Pointer drag state
+  let dragging = false;
+  let startX = 0;
+  let startPercent = 0; // 0..1
+  let trackRect = null;
+  let knobFraction = 0;
+
+  // Listen to system theme changes to update auto display
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  mq.addEventListener('change', () => {
+    if (getStoredTheme() === 'auto') updateKnobPositionImmediate();
+  });
+
+  function percentToInset(pct) {
+    // returns percent string
+    return pct * 100 + '%';
+  }
+
+  function clamp(v, a=0, b=1){ return Math.min(b, Math.max(a, v)); }
+
+  function getProgressFromEvent(e) {
+    const x = clamp((e.clientX - trackRect.left) / trackRect.width, 0, 1);
+    return x;
+  }
+
+  knob.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    trackRect = track.getBoundingClientRect();
+    const knobRect = knob.getBoundingClientRect();
+    knobFraction = knobRect.width / trackRect.width;
+    const insetStyle = window.getComputedStyle(knob).getPropertyValue('inset-inline-start');
+    startPercent = insetStyle.includes('%') ? parseFloat(insetStyle) / 100 : 0;
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp, { once: true });
+    knob.classList.add('dragging');
+  });
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const raw = getProgressFromEvent(e);
+    const mode = getStoredTheme();
+    let progress = raw;
+
+    if (mode === 'auto') {
+      // resisting feel: slow movement to 1/3 speed relative to start
+      const delta = raw - startPercent;
+      progress = clamp(startPercent + delta * 0.33);
+      // allow slight off-track stickiness but don't let it jump too far
+      progress = clamp(progress, -0.1, 1.1);
+    } else {
+      // free drag in manual modes
+      progress = clamp(raw, 0, 1);
+    }
+
+    // convert to percent inset accounting for knob fraction
+    const insetPercent = progress * (1 - knobFraction) * 100;
+    knob.style.setProperty('inset-inline-start', insetPercent + '%');
+  }
+
+  function onPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    knob.classList.remove('dragging');
+    document.removeEventListener('pointermove', onPointerMove);
+
+    // determine final progress
+    trackRect = track.getBoundingClientRect();
+    const knobRect = knob.getBoundingClientRect();
+    const knobFrac = knobRect.width / trackRect.width;
+    const currentInset = window.getComputedStyle(knob).getPropertyValue('inset-inline-start') || '0%';
+    const currentPercent = parseFloat(currentInset) / 100; // fraction of track
+    const progress = currentPercent / (1 - knobFrac);
+
+    const mode = getStoredTheme();
+    if (mode === 'auto') {
+      // only a strong drag exits auto
+      if (progress <= 0.15) {
+        setStoredTheme('dark');
+      } else if (progress >= 0.85) {
+        setStoredTheme('light');
+      } else {
+        // stay in auto
+        setStoredTheme('auto');
+      }
+    } else {
+      // snap to nearest side
+      if (progress >= 0.5) setStoredTheme('light'); else setStoredTheme('dark');
+    }
+  }
+
+  // Click on track: in manual modes, toggle between light/dark. In auto: no-op.
+  track.addEventListener('click', (e) => {
+    const mode = getStoredTheme();
+    if (mode === 'auto') return; // clicking does nothing in auto
+    const newMode = (mode === 'light') ? 'dark' : 'light';
+    setStoredTheme(newMode);
+  });
+
+  // initialize visuals
+  updateKnobPositionImmediate();
+}
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -160,7 +277,7 @@ async function loadData() {
     
     app.appendChild(frag);
     
-    setupThemeToggle();
+      setupThemeBehavior();
   } catch (e) {
     console.error(e);
     showError(e.message || 'Could not load portfolio data.');
@@ -304,15 +421,7 @@ function attachThemeSwitchHandlers(track, knob) {
   });
   
   // Initialize current position
-  updateThemeToggleButton();
-}
-
-function setupThemeToggle() {
-  const track = document.getElementById('theme-track');
-  const knob = document.getElementById('theme-knob');
-  if (track && knob) {
-    updateThemeToggleButton();
-  }
+  updateKnobPositionImmediate();
 }
 
 // ============================================================================
@@ -1107,7 +1216,7 @@ function renderProjectDetail(project) {
   app.innerHTML = '';
   app.appendChild(frag);
   
-  setupThemeToggle();
+    setupThemeBehavior();
   
   // Scroll to top of page
   window.scrollTo(0, 0);
