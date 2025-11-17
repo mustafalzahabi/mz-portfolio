@@ -1071,11 +1071,15 @@ function initDarkMode() {
     wrapper.appendChild(track);
     wrapper.appendChild(knob);
 
-    // Find banner-links container; if not present, append to header
-    const bannerLinks = document.querySelector('.banner-links') || document.getElementById('header') || document.body;
-
-    // Insert at the start of banner-links to appear top-right
-    bannerLinks.insertBefore(wrapper, bannerLinks.firstChild || null);
+    // Prefer inserting into the banner so we can position with block-start / inline-end
+    const banner = document.querySelector('.profile-banner');
+    if (banner) {
+      banner.appendChild(wrapper);
+    } else {
+      // Fallback: try banner-links, header, then body
+      const bannerLinks = document.querySelector('.banner-links') || document.getElementById('header') || document.body;
+      bannerLinks.insertBefore(wrapper, bannerLinks.firstChild || null);
+    }
 
     // Setup state
     const STORAGE_KEY = 'theme';

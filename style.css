@@ -404,6 +404,14 @@ main {
   user-select: none;
 }
 
+/* Position the toggle inside the banner at block-start / inline-end */
+.profile-banner .theme-toggle {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 1.5rem;
+  z-index: 20;
+}
+
 .theme-toggle .track {
   position: absolute;
   inset: 0;
