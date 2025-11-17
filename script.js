@@ -41,9 +41,12 @@ function updateThemeToggleButton() {
   if (!knob || !track) return;
   
   const mode = getCurrentTheme();
-  const trackWidth = 80; // 5rem in pixels
-  const knobWidth = 24;  // 1.5rem in pixels
-  const maxTranslate = trackWidth - knobWidth; // 56px
+  // Compute actual sizes so the positions are accurate across devices
+  const trackRect = track.getBoundingClientRect();
+  const knobRect = knob.getBoundingClientRect();
+  const trackWidth = Math.round(trackRect.width);
+  const knobWidth = Math.round(knobRect.width);
+  const maxTranslate = Math.round(trackWidth - knobWidth);
   
   if (mode === 'auto') {
     knob.classList.add('auto-mode');
@@ -54,7 +57,7 @@ function updateThemeToggleButton() {
     if (effective === 'light') {
       knob.style.transform = `translate(${maxTranslate}px, -50%)`;
     } else {
-      knob.style.transform = 'translate(0px, -50%)';
+      knob.style.transform = `translate(0px, -50%)`;
     }
   } else if (mode === 'light') {
     knob.classList.remove('auto-mode');
@@ -198,11 +201,19 @@ function attachThemeSwitchHandlers(track, knob) {
   let currentPos = 0;
   let currentY = 0;
   let escapeTrack = false; // Whether knob has escaped track bounds
-  const trackWidth = 80;  // 5rem
-  const trackHeight = 32; // 2rem
-  const knobWidth = 24;   // 1.5rem
-  const knobHeight = 24;  // 1.5rem
-  const maxTranslate = trackWidth - knobWidth; // 56px
+  // Compute actual sizes from DOM so behavior is consistent on mobile
+  function computeSizes() {
+    const tRect = track.getBoundingClientRect();
+    const kRect = knob.getBoundingClientRect();
+    return {
+      trackWidth: Math.round(tRect.width),
+      trackHeight: Math.round(tRect.height),
+      knobWidth: Math.round(kRect.width),
+      knobHeight: Math.round(kRect.height),
+      maxTranslate: Math.round(tRect.width - kRect.width),
+    };
+  }
+  let { trackWidth, trackHeight, knobWidth, knobHeight, maxTranslate } = computeSizes();
   const midpoint = maxTranslate / 2; // 28px
   const throwThreshold = 40; // pixels beyond max to trigger auto
   const verticalThreshold = 20; // pixels up/down to trigger auto
@@ -230,6 +241,8 @@ function attachThemeSwitchHandlers(track, knob) {
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
+    // Recompute sizes at drag start (handles orientation/zoom changes)
+    ({ trackWidth, trackHeight, knobWidth, knobHeight, maxTranslate } = computeSizes());
     const transform = knob.style.transform;
     // Extract only the X translation, ignoring the Y centering
     const matchX = transform.match(/translate\(([-\d.]+)px/);
@@ -237,7 +250,11 @@ function attachThemeSwitchHandlers(track, knob) {
     currentY = 0;
     escapeTrack = false;
     knob.classList.add('dragging');
+    // Prevent scrolling while interacting and ensure we capture all pointer events
     e.preventDefault();
+    if (e.pointerId && knob.setPointerCapture) {
+      try { knob.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    }
   });
   
   document.addEventListener('pointermove', (e) => {
@@ -272,6 +289,8 @@ function attachThemeSwitchHandlers(track, knob) {
     knob.classList.remove('dragging');
     knob.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
     snapToPosition(currentPos, currentY);
+    // release pointer capture if we have it
+    try { if (knob.releasePointerCapture) knob.releasePointerCapture(); } catch (e) { /* ignore */ }
   });
   
   // Click on track to switch between dark and light (only, not auto)
@@ -279,8 +298,11 @@ function attachThemeSwitchHandlers(track, knob) {
     // Only toggle if clicking on the track itself, not the knob
     const rect = track.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    
-    if (clickX < currentPos || clickX > currentPos + knobWidth) {
+    const kRect = knob.getBoundingClientRect();
+    const knobLeft = kRect.left - rect.left;
+    const knobRight = knobLeft + kRect.width;
+
+    if (clickX < knobLeft || clickX > knobRight) {
       const current = getCurrentTheme();
       if (current === 'auto') {
         applyTheme('dark');
