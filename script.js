@@ -119,63 +119,196 @@ function showError(message) {
 // MAIN PAGE LOADING
 // ============================================================================
 
+
+async function getDynamicResume() {
+  // 1. Extract GitHub username from URL path
+  let githubUsername = '';
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  if (pathParts.length > 0) {
+    githubUsername = pathParts[pathParts.length - 1];
+  }
+  if (!githubUsername) {
+    throw new Error("No username specified in the URL path.");
+  }
+  try {
+    // 2. Fetch the user's gists list from GitHub API
+    const gistsResponse = await fetch(`https://api.github.com/users/${githubUsername}/gists`);
+    if (gistsResponse.status === 403) {
+      throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    }
+    if (!gistsResponse.ok) {
+      throw new Error(`GitHub user \"${githubUsername}\" not found.`);
+    }
+    const gists = await gistsResponse.json();
+    // 3. Scan the array for a file called 'resume.json'
+    const resumeGist = gists.find(gist => gist.files && gist.files['resume.json']);
+    if (!resumeGist) {
+      throw new Error(`User \"${githubUsername}\" does not have a public gist named 'resume.json'.`);
+    }
+    // 4. Fetch the raw payload data from the found URL
+    const rawUrl = resumeGist.files['resume.json'].raw_url;
+    const resumeResponse = await fetch(rawUrl);
+    if (!resumeResponse.ok) {
+      throw new Error('Could not fetch resume.json from gist.');
+    }
+    const resumeData = await resumeResponse.json();
+    return { resumeData, githubUsername };
+  } catch (error) {
+    throw error;
+  }
+}
+
 async function loadData() {
   showLoading();
-  
   try {
-    const res = await fetch('data.json');
-    if (!res.ok) throw new Error('Failed to load portfolio data');
-    const data = await res.json();
-    
-    document.title = `${data.profile.name} - ${data.profile.title}`;
-    setupMetaTags();
-    
-    const app = document.getElementById('app');
-    app.innerHTML = '';
-    
-    const frag = document.createDocumentFragment();
-    
-    const main = document.createElement('main');
-    
-    const githubUsername = extractGithubUsername(data.profile.github) || 'mustafalzahabi';
-    
-    // Fetch GitHub profile photo if not overridden in data.json
-    if (!data.profile.photo || data.profile.photo.includes('default')) {
-      const githubPhoto = await fetchGithubUserAvatar(githubUsername);
-      if (githubPhoto) {
-        data.profile.photo = githubPhoto;
+    const { resumeData: data, githubUsername } = await getDynamicResume();
+
+    // --- Customization Section ---
+
+    // Support mz-portfolio-config under meta (JSON Resume v1.0+ compatible)
+    let custom = {};
+    if (data.meta && data.meta["mz-portfolio-config"]) {
+      // Support both array and object for maximum compatibility
+      if (Array.isArray(data.meta["mz-portfolio-config"])) {
+        custom = data.meta["mz-portfolio-config"][0] || {};
+      } else {
+        custom = data.meta["mz-portfolio-config"];
       }
     }
-    
+    const theme = custom.theme || {};
+    const text = custom.text || {};
+
+    // 1. Apply custom accent color and derived palette if present
+    if (theme.accent) {
+      injectCustomAccent(theme.accent);
+    }
+
+    document.title = `${data.basics?.name || githubUsername} - ${data.basics?.label || ''}`;
+    setupMetaTags();
+
+    const app = document.getElementById('app');
+    app.innerHTML = '';
+
+    const frag = document.createDocumentFragment();
+    const main = document.createElement('main');
+
+    // Profile photo: basics.image or fallback to GitHub avatar
+    let profilePhoto = data.basics?.image;
+    if (!profilePhoto && githubUsername) {
+      profilePhoto = `https://github.com/${githubUsername}.png`;
+    }
+
+    // Build header
+    frag.appendChild(buildHeader({
+      name: data.basics?.name || githubUsername,
+      title: data.basics?.label || '',
+      tagline: text.tagline ?? '',
+      photo: profilePhoto,
+      cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '',
+      cta: text.cta ?? ''
+    }, {
+      email: data.basics?.email || '',
+      github: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || '',
+      linkedin: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url || '',
+    }));
+    frag.appendChild(buildTabSelector());
+
     // Create sections container
     const sections = document.createElement('div');
     sections.className = 'sections';
-    
-    sections.appendChild(buildAbout(data.about));
-    sections.appendChild(buildEducation(data.education));
-    
-    const allProjects = await fetchAndMergeProjects(data.projects || [], githubUsername);
-    allProjectsData = allProjects;
-    sections.appendChild(buildProjects(allProjects));
-    
-    sections.appendChild(buildSkills(data.skills));
-    sections.appendChild(buildContact(data.contact));
-    
+
+    // About
+    sections.appendChild(buildAbout({
+      bio: text.bio ?? '',
+      philosophy: text.philosophy ?? '',
+      cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '',
+    }));
+
+    // Education
+    sections.appendChild(buildEducation((data.education || []).map(edu => ({
+      degree: edu.studyType + (edu.area ? ' in ' + edu.area : ''),
+      institution: edu.institution,
+      start_date: edu.startDate,
+      end_date: edu.endDate,
+      location: edu.location?.city || '',
+      notes: edu.score ? `GPA: ${edu.score}` : '',
+    }))));
+
+    // Projects
+    sections.appendChild(buildProjects((data.projects || []).map(proj => ({
+      name: proj.name,
+      description: proj.description,
+      technologies: proj.keywords || [],
+      github_link: proj.url || '',
+      live_link: proj.demo || '',
+      image: proj.image || '',
+    }))));
+
+    // Skills
+    sections.appendChild(buildSkills((data.skills || []).map(skill => ({
+      category: skill.name,
+      items: skill.keywords || [],
+    }))));
+
+    // Contact
+    sections.appendChild(buildContact({
+      message: text.contact_message ?? '',
+      email: data.basics?.email || '',
+      github: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || '',
+      linkedin: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url || '',
+    }));
+
     main.appendChild(buildNavbar());
     main.appendChild(sections);
-    
-    frag.appendChild(buildHeader(data.profile, data.contact));
-    frag.appendChild(buildTabSelector());
     frag.appendChild(main);
     frag.appendChild(buildFooter());
-    
     app.appendChild(frag);
-    
     setupThemeToggle();
   } catch (e) {
     console.error(e);
-    showError(e.message || 'Could not load portfolio data.');
+    showError(e.message || 'Could not load JSON Resume.');
   }
+}
+
+// Injects a <style> tag with CSS variables for the accent and derived palette
+function injectCustomAccent(accent) {
+  // Helper: calculate a contrasting color (black/white) for text
+  function getContrast(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+    const r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), b = parseInt(hex.substr(4,2),16);
+    // Luminance formula
+    const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
+    return luminance > 0.5 ? '#222' : '#fff';
+  }
+  // Helper: lighten/darken a hex color
+  function shade(hex, percent) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+    let r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), b = parseInt(hex.substr(4,2),16);
+    r = Math.min(255, Math.max(0, Math.round(r + (percent/100)*255)));
+    g = Math.min(255, Math.max(0, Math.round(g + (percent/100)*255)));
+    b = Math.min(255, Math.max(0, Math.round(b + (percent/100)*255)));
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  }
+  // Derive palette
+  const accentColor = accent;
+  const hoverColor = shade(accent, -15);
+  const backgroundColor = shade(accent, 80);
+  const primaryColor = getContrast(accent);
+  const secondaryColor = shade(accent, 60);
+  const surfaceColor = shade(accent, 95);
+  const borderColor = shade(accent, 70);
+  const codeColor = accent;
+  // Compose CSS
+  const css = `:root {\n  --accent-color: ${accentColor};\n  --hover-color: ${hoverColor};\n  --background-color: ${backgroundColor};\n  --primary-color: ${primaryColor};\n  --secondary-color: ${secondaryColor};\n  --surface-color: ${surfaceColor};\n  --border-color: ${borderColor};\n  --code-color: ${codeColor};\n}`;
+  // Remove any previous custom style
+  let styleTag = document.getElementById('mz-custom-accent');
+  if (styleTag) styleTag.remove();
+  styleTag = document.createElement('style');
+  styleTag.id = 'mz-custom-accent';
+  styleTag.innerText = css;
+  document.head.appendChild(styleTag);
 }
 
 function setupMetaTags() {

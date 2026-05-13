@@ -1,7 +1,0 @@
-- [x] Scaffold the Project in the correct folder
-- [ ] Design Twitter-like layout
-- [ ] Style layout with CSS
-- [ ] Create sample data.json
-- [ ] Implement JS data loading
-- [ ] Add images to assets
-- [ ] Test responsiveness and interactivity
