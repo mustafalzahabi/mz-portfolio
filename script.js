@@ -100,7 +100,8 @@ function showLoading() {
 }
 
 function showError(message) {
-  document.getElementById('app').innerHTML = `
+  const app = document.getElementById('app');
+  app.innerHTML = `
     <nav class="navbar">
       <div class="nav-container">
         <a href="#home" class="logo">MA</a>
@@ -109,15 +110,20 @@ function showError(message) {
     <div class="error-state" style="margin-top:40px;">
       <div class="error-icon">⚠️</div>
       <h2>Something went wrong</h2>
-      <p>${message}</p>
+      <p id="error-message"></p>
       <button class="retry-btn" onclick="location.reload()">Try Again</button>
     </div>
   `;
+  // Use textContent to prevent XSS from error message strings that may
+  // include user-supplied values such as the GitHub username.
+  const p = app.querySelector('#error-message');
+  if (p) p.textContent = message;
 }
 
 function showLandingPage() {
   document.title = 'GitHub Portfolio';
-  document.getElementById('app').innerHTML = `
+  const app = document.getElementById('app');
+  app.innerHTML = `
     <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;text-align:center;padding:24px;">
       <div style="font-size:56px;margin-bottom:16px;">🐙</div>
       <h1 style="font-size:32px;font-weight:700;margin-bottom:8px;">GitHub Portfolio</h1>
@@ -126,30 +132,28 @@ function showLandingPage() {
         They need a public gist named <code>resume.json</code> following the
         <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema.
       </p>
-      <div style="display:flex;gap:8px;max-width:420px;width:100%;flex-wrap:wrap;justify-content:center;">
+      <form onsubmit="navigateToUser(event)" style="display:flex;gap:8px;max-width:420px;width:100%;flex-wrap:wrap;justify-content:center;">
         <input
           id="username-input"
           type="text"
           placeholder="github-username"
           style="flex:1;min-width:180px;padding:12px 16px;border:2px solid var(--border-color,#ccc);border-radius:8px;font-size:16px;background:var(--surface-color,#fff);color:inherit;"
-          autocomplete="off"
+          autocomplete="username"
           spellcheck="false"
         />
         <button
-          onclick="navigateToUser()"
+          type="submit"
           style="padding:12px 28px;background:var(--accent-color,#0066cc);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;"
         >View</button>
-      </div>
+      </form>
     </div>
   `;
-  const input = document.getElementById('username-input');
-  if (input) {
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') navigateToUser(); });
-    input.focus();
-  }
+  const input = app.querySelector('#username-input');
+  if (input) input.focus();
 }
 
-function navigateToUser() {
+function navigateToUser(event) {
+  if (event) event.preventDefault();
   const input = document.getElementById('username-input');
   const username = input?.value.trim();
   if (username) {
@@ -1234,7 +1238,7 @@ async function loadDataThenRoute() {
       return;
     }
     const { resumeData: data, githubUsername } = result;
-    const manualProjects = (data.projects || []).map(proj => ({
+    const resumeProjects = (data.projects || []).map(proj => ({
       name: proj.name,
       description: proj.description,
       technologies: proj.keywords || [],
@@ -1242,7 +1246,7 @@ async function loadDataThenRoute() {
       live_link: proj.demo || '',
       image: proj.image || '',
     }));
-    allProjectsData = manualProjects;
+    allProjectsData = resumeProjects;
     
     // Now try the route again
     handleRoute();

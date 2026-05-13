@@ -10,8 +10,15 @@
     // we encode the extra path segments into the query string so that index.html
     // can restore the URL client-side via history.replaceState.
     //
-    // segmentCount = 1  →  keeps the first segment (/repo-name) in the base path.
-    // Set to 0 for a user/org GitHub Pages site (username.github.io).
+    // segmentCount controls how many leading path segments belong to the "base"
+    // (i.e. are NOT the user-supplied path):
+    //
+    //   segmentCount = 1  (default) →  project site: username.github.io/repo-name/...
+    //                                  keeps /repo-name/ in the base path.
+    //
+    //   segmentCount = 0            →  user/org site: username.github.io/...
+    //                                  the root IS the base; change to 0 if you deploy
+    //                                  to a user/org GitHub Pages site or a custom domain.
     var segmentCount = 1;
     var l = window.location;
     l.replace(
