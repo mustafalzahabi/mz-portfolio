@@ -5,7 +5,7 @@
   color-scheme: light dark;
   
   /* Colors */
-  --color-accent: light-dark(#b8860b, #e8c55f);
+  --accent-color: light-dark(#b8860b, #e8c55f);
   --hover-color: light-dark(#8b6914, #f0d974);
   --background-color: light-dark(#fef3c7, #705507);
   --primary-color: light-dark(#1a1a1a, #e0e0e0);
@@ -106,7 +106,7 @@ body {
   block-size: 0.75rem;
   border-radius: 50%;
   background: var(--surface-color);
-  border: 2px solid var(--color-accent);
+  border: 2px solid var(--accent-color);
   transition: all 0.2s;
   cursor: pointer;
 }
@@ -114,15 +114,15 @@ body {
 .nav-item:hover .nav-dot {
   inline-size: 1rem;
   block-size: 1rem;
-  background: var(--color-accent);
-  box-shadow: 0 0 0.5rem var(--color-accent);
+  background: var(--accent-color);
+  box-shadow: 0 0 0.5rem var(--accent-color);
 }
 
 .nav-item.active .nav-dot {
   inline-size: 1rem;
   block-size: 1rem;
-  background: var(--color-accent);
-  box-shadow: 0 0 0.75rem var(--color-accent);
+  background: var(--accent-color);
+  box-shadow: 0 0 0.75rem var(--accent-color);
 }
 
 .nav-label {
@@ -215,9 +215,9 @@ main {
 }
 
 .theme-toggle:hover {
-  background: var(--color-accent);
+  background: var(--accent-color);
   color: white;
-  border-color: var(--color-accent);
+  border-color: var(--accent-color);
   transform: translateY(-2px);
 }
 
@@ -259,11 +259,11 @@ main {
 }
 
 .theme-switch-track:hover {
-  border-color: var(--color-accent);
+  border-color: var(--accent-color);
 }
 
 .theme-switch-track:focus {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
@@ -289,8 +289,8 @@ main {
 
 .theme-icon {
   position: absolute;
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
   object-fit: contain;
   transition: opacity 0.2s, transform 0.2s, filter 0.2s;
   display: block;
@@ -303,7 +303,7 @@ main {
 /* default icon color uses the accent variable */
 .theme-switch-knob .theme-icon,
 .theme-switch-knob img {
-  color: var(--color-accent);
+  color: var(--accent-color);
   filter: none;
 }
 
@@ -357,13 +357,13 @@ main {
 
 /* Explicit modes: show icon in accent color */
 .theme-switch-knob[data-mode="light"] .theme-icon-sun {
-  color: var(--color-accent);
+  color: var(--accent-color);
   opacity: 1;
   transform: scale(1);
 }
 
 .theme-switch-knob[data-mode="dark"] .theme-icon-moon {
-  color: var(--color-accent);
+  color: var(--accent-color);
   opacity: 1;
   transform: scale(1);
 }
@@ -435,7 +435,7 @@ main {
 
 .profile-title {
   font-size: 1rem;
-  color: var(--color-accent);
+  color: var(--accent-color);
   font-weight: 600;
   margin-block-end: 0.5rem;
 }
@@ -476,12 +476,12 @@ main {
 }
 
 .tab-link:hover {
-  color: var(--color-accent);
+  color: var(--accent-color);
 }
 
 .tab-link.active {
-  color: var(--color-accent);
-  border-block-end-color: var(--color-accent);
+  color: var(--accent-color);
+  border-block-end-color: var(--accent-color);
 }
 
 /* ============================================================================
@@ -507,17 +507,17 @@ main {
 
 .cv-link {
   display: inline-block;
-  color: var(--color-accent);
+  color: var(--accent-color);
   text-decoration: none;
   font-weight: 600;
-  border: 2px solid var(--color-accent);
+  border: 2px solid var(--accent-color);
   padding: 0.75rem 1.5rem;
   border-radius: 0.375rem;
   transition: all 0.2s;
 }
 
 .cv-link:hover {
-  background: var(--color-accent);
+  background: var(--accent-color);
   color: white;
 }
 
@@ -535,7 +535,7 @@ main {
   background: var(--surface-color);
   padding: 1.5rem;
   border-radius: 0.5rem;
-  border-inline-start: 4px solid var(--color-accent);
+  border-inline-start: 4px solid var(--accent-color);
 }
 
 .education-card h3 {
@@ -545,7 +545,7 @@ main {
 }
 
 .education-card .institution {
-  color: var(--color-accent);
+  color: var(--accent-color);
   font-weight: 600;
   margin-block-end: 0.5rem;
 }
@@ -621,7 +621,7 @@ main {
 }
 
 .tech-tag {
-  background: var(--color-accent);
+  background: var(--accent-color);
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 1.25rem;
@@ -641,7 +641,7 @@ main {
 }
 
 .project-links a {
-  color: var(--color-accent);
+  color: var(--accent-color);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.8125rem;
@@ -672,7 +672,7 @@ main {
   font-size: 1.125rem;
   font-weight: 700;
   margin-block-end: 1rem;
-  color: var(--color-accent);
+  color: var(--accent-color);
 }
 
 .skill-category ul {
@@ -686,7 +686,7 @@ main {
 
 .skill-category li::before {
   content: '✓ ';
-  color: var(--color-accent);
+  color: var(--accent-color);
   font-weight: 700;
   margin-inline-end: 0.5rem;
 }
@@ -716,7 +716,7 @@ main {
 }
 
 .contact-links a {
-  color: var(--color-accent);
+  color: var(--accent-color);
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s;
@@ -754,7 +754,7 @@ main {
 
 .spinner {
   border: 4px solid var(--surface-color);
-  border-block-start-color: var(--color-accent);
+  border-block-start-color: var(--accent-color);
   border-radius: 50%;
   inline-size: 2.5rem;
   block-size: 2.5rem;
@@ -797,7 +797,7 @@ main {
 }
 
 .retry-btn {
-  background: var(--color-accent);
+  background: var(--accent-color);
   color: white;
   border: none;
   padding: 0.75rem 2rem;
@@ -819,7 +819,7 @@ main {
   display: inline-block;
   margin-block-start: 2rem;
   margin-block-end: 1rem;
-  color: var(--color-accent);
+  color: var(--accent-color);
   text-decoration: none;
   font-size: 1rem;
   font-weight: 600;
@@ -943,7 +943,7 @@ main {
 
 .project-detail-readme-content pre {
   background: var(--surface-color);
-  border-inline-start: 4px solid var(--color-accent);
+  border-inline-start: 4px solid var(--accent-color);
   padding: 1rem;
   border-radius: 0.5rem;
   margin-block: 1rem;
@@ -969,7 +969,7 @@ main {
 }
 
 .project-detail-readme-content a {
-  color: var(--color-accent);
+  color: var(--accent-color);
   text-decoration: none;
   font-weight: 600;
 }
