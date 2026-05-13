@@ -5,7 +5,7 @@ A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScr
 ## Features
 
 - ✅ **Dynamic Resume Loading** – Loads any user's resume from their public `resume.json` gist (JSON Resume format)
-- ✅ **User-Driven** – The GitHub username is taken from the URL (e.g. `example.com/github_username`)
+- ✅ **User-Driven** – The GitHub username is taken from the URL path or `?user=` query parameter
 - ✅ **Dark/Light Mode** – Modern CSS theme toggle, persists preference
 - ✅ **Modern CSS** – Responsive, semantic, accessible
 - ✅ **Error Handling** – Clear messages for missing users, gists, or schema errors
@@ -14,7 +14,7 @@ A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScr
 
 ## How It Works
 
-1. **User visits** `yourdomain.com/github_username`
+1. **User visits** `yourdomain.com/github_username` **or** `yourdomain.com/?user=github_username`
 2. **App fetches** the public gists for `github_username` via the GitHub API
 3. **Looks for** a gist file named `resume.json` (must be public, must use [JSON Resume schema](https://jsonresume.org/schema/))
 4. **Loads and renders** the resume dynamically
@@ -25,7 +25,9 @@ A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScr
 ### For End Users
 
 1. **Create a public gist** named `resume.json` in your GitHub account, using the [JSON Resume schema](https://jsonresume.org/schema/)
-2. **Share the site URL** as `yourdomain.com/your_github_username`
+2. **Share the site URL** as:
+   - `yourdomain.com/your_github_username` (path-based – works on GitHub Pages thanks to the built-in SPA redirect)
+   - `yourdomain.com/?user=your_github_username` (query-parameter – always works, recommended for local dev)
 3. **Your resume** will be loaded and displayed automatically
 
 ### For Developers
@@ -37,7 +39,10 @@ python -m http.server 8000
 # or
 python3 -m http.server 8000
 ```
-Then open `http://localhost:8000/github_username` in your browser.
+
+Then open `http://localhost:8000/?user=your_github_username` in your browser.
+
+> **Tip:** Path-based routing (e.g. `/github_username`) requires a server that redirects unknown paths to `index.html`. The included `404.html` handles this automatically on GitHub Pages. For local development, use the `?user=` query parameter instead.
 
 #### File Structure
 
@@ -47,7 +52,7 @@ Then open `http://localhost:8000/github_username` in your browser.
 ├── style.css            # Modern CSS with theme support
 ├── script.js            # All markup and data loading logic
 ├── error.html           # Fallback error page (if JS fails)
-├── 404.html             # 404 page for missing routes
+├── 404.html             # SPA redirect – sends unknown paths back to index.html
 └── README.md            # This file
 ```
 
@@ -79,6 +84,7 @@ See [jsonresume.org/schema/](https://jsonresume.org/schema/) for full details.
 - **No public `resume.json` gist**: Clear error if not found
 - **Invalid schema**: Error if `resume.json` is not valid JSON Resume
 - **API rate limits**: Error if GitHub API rate limit is hit
+- **No username**: Friendly landing page with a search input
 
 ## Browser Support
 
