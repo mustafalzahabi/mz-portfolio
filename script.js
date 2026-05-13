@@ -100,7 +100,8 @@ function showLoading() {
 }
 
 function showError(message) {
-  document.getElementById('app').innerHTML = `
+  const app = document.getElementById('app');
+  app.innerHTML = `
     <nav class="navbar">
       <div class="nav-container">
         <a href="#home" class="logo">MA</a>
@@ -109,10 +110,55 @@ function showError(message) {
     <div class="error-state" style="margin-top:40px;">
       <div class="error-icon">⚠️</div>
       <h2>Something went wrong</h2>
-      <p>${message}</p>
+      <p id="error-message"></p>
       <button class="retry-btn" onclick="location.reload()">Try Again</button>
     </div>
   `;
+  // Use textContent to prevent XSS from error message strings that may
+  // include user-supplied values such as the GitHub username.
+  const p = app.querySelector('#error-message');
+  if (p) p.textContent = message;
+}
+
+function showLandingPage() {
+  document.title = 'GitHub Portfolio';
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;text-align:center;padding:24px;">
+      <div style="font-size:56px;margin-bottom:16px;">🐙</div>
+      <h1 style="font-size:32px;font-weight:700;margin-bottom:8px;">GitHub Portfolio</h1>
+      <p style="color:var(--text-muted,#666);margin-bottom:28px;max-width:440px;">
+        Enter a GitHub username to view their portfolio.<br>
+        They need a public gist named <code>resume.json</code> following the
+        <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema.
+      </p>
+      <form onsubmit="navigateToUser(event)" style="display:flex;gap:8px;max-width:420px;width:100%;flex-wrap:wrap;justify-content:center;">
+        <input
+          id="username-input"
+          type="text"
+          placeholder="github-username"
+          style="flex:1;min-width:180px;padding:12px 16px;border:2px solid var(--border-color,#ccc);border-radius:8px;font-size:16px;background:var(--surface-color,#fff);color:inherit;"
+          autocomplete="username"
+          spellcheck="false"
+        />
+        <button
+          type="submit"
+          style="padding:12px 28px;background:var(--accent-color,#0066cc);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;"
+        >View</button>
+      </form>
+    </div>
+  `;
+  const input = app.querySelector('#username-input');
+  if (input) input.focus();
+}
+
+function navigateToUser(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById('username-input');
+  const username = input?.value.trim();
+  if (username) {
+    window.location.href = `?user=${encodeURIComponent(username)}`;
+  }
 }
 
 // ============================================================================
@@ -121,47 +167,94 @@ function showError(message) {
 
 
 async function getDynamicResume() {
-  // 1. Extract GitHub username from URL path
+  // 1. Restore path if redirected from 404.html (GitHub Pages SPA routing trick).
+  //    404.html encodes the intended path as "?/the/path" in the query string.
+  //    We decode it and replace the URL so the rest of the logic works normally.
+  if (window.location.search[1] === '/') {
+    const decoded = window.location.search
+      .slice(1)
+      .split('&')
+      .map(s => s.replace(/~and~/g, '&'))
+      .join('?');
+    window.history.replaceState(
+      null, null,
+      window.location.pathname.replace(/\/$/, '') + decoded + window.location.hash
+    );
+  }
+
+  // 2. Determine the GitHub username.
+  //    Priority: ?user= query param → URL path segment.
   let githubUsername = '';
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-  if (pathParts.length > 0) {
-    githubUsername = pathParts[pathParts.length - 1];
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('user')) {
+    githubUsername = params.get('user').trim();
   }
+
   if (!githubUsername) {
-    throw new Error("No username specified in the URL path.");
+    // Take the last non-empty path segment as the username.
+    // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
+    // so we need at least 2 segments.
+    // On a custom domain the path is just /username (1 segment is enough).
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const isGitHubPages = window.location.hostname.endsWith('.github.io');
+
+    if (isGitHubPages) {
+      // /repo-name/username → only accept when username segment is present
+      if (pathParts.length >= 2) {
+        githubUsername = pathParts[pathParts.length - 1];
+      }
+    } else {
+      // Custom domain or localhost: /username
+      if (pathParts.length >= 1) {
+        githubUsername = pathParts[pathParts.length - 1];
+      }
+    }
   }
-  try {
-    // 2. Fetch the user's gists list from GitHub API
-    const gistsResponse = await fetch(`https://api.github.com/users/${githubUsername}/gists`);
-    if (gistsResponse.status === 403) {
-      throw new Error("GitHub API rate limit exceeded. Please try again later.");
-    }
-    if (!gistsResponse.ok) {
-      throw new Error(`GitHub user \"${githubUsername}\" not found.`);
-    }
-    const gists = await gistsResponse.json();
-    // 3. Scan the array for a file called 'resume.json'
-    const resumeGist = gists.find(gist => gist.files && gist.files['resume.json']);
-    if (!resumeGist) {
-      throw new Error(`User \"${githubUsername}\" does not have a public gist named 'resume.json'.`);
-    }
-    // 4. Fetch the raw payload data from the found URL
-    const rawUrl = resumeGist.files['resume.json'].raw_url;
-    const resumeResponse = await fetch(rawUrl);
-    if (!resumeResponse.ok) {
-      throw new Error('Could not fetch resume.json from gist.');
-    }
-    const resumeData = await resumeResponse.json();
-    return { resumeData, githubUsername };
-  } catch (error) {
-    throw error;
+
+  if (!githubUsername) {
+    // No username anywhere – show the landing page instead of an error.
+    return null;
   }
+
+  // 3. Fetch the user's gists list from the GitHub API
+  const gistsResponse = await fetch(`https://api.github.com/users/${githubUsername}/gists`);
+  if (gistsResponse.status === 403) {
+    throw new Error("GitHub API rate limit exceeded. Please try again later.");
+  }
+  if (!gistsResponse.ok) {
+    throw new Error(`GitHub user "${githubUsername}" not found.`);
+  }
+  const gists = await gistsResponse.json();
+
+  // 4. Scan the gists for a file called 'resume.json'
+  const resumeGist = gists.find(gist => gist.files && gist.files['resume.json']);
+  if (!resumeGist) {
+    throw new Error(`User "${githubUsername}" does not have a public gist named 'resume.json'.`);
+  }
+
+  // 5. Fetch the raw JSON from that gist file
+  const rawUrl = resumeGist.files['resume.json'].raw_url;
+  const resumeResponse = await fetch(rawUrl);
+  if (!resumeResponse.ok) {
+    throw new Error('Could not fetch resume.json from gist.');
+  }
+  const resumeData = await resumeResponse.json();
+  return { resumeData, githubUsername };
 }
 
 async function loadData() {
   showLoading();
   try {
-    const { resumeData: data, githubUsername } = await getDynamicResume();
+    const result = await getDynamicResume();
+
+    // No username in URL → show the landing page
+    if (!result) {
+      showLandingPage();
+      return;
+    }
+
+    const { resumeData: data, githubUsername } = result;
 
     // --- Customization Section ---
 
@@ -261,7 +354,7 @@ async function loadData() {
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
-    frag.appendChild(buildFooter());
+    frag.appendChild(buildFooter(data.basics?.name || githubUsername));
     app.appendChild(frag);
     setupThemeToggle();
   } catch (e) {
@@ -883,11 +976,11 @@ function buildContact(contact) {
   return section;
 }
 
-function buildFooter() {
+function buildFooter(name) {
   const footer = document.createElement('footer');
   footer.className = 'footer';
   const p = document.createElement('p');
-  p.textContent = `© ${new Date().getFullYear()} Mustafa Alzahabi. All rights reserved.`;
+  p.textContent = `© ${new Date().getFullYear()} ${name || 'Portfolio'}. All rights reserved.`;
   footer.appendChild(p);
   return footer;
 }
@@ -1139,13 +1232,21 @@ async function loadDataThenRoute() {
   showLoading();
   
   try {
-    const res = await fetch('data.json');
-    if (!res.ok) throw new Error('Failed to load portfolio data');
-    const data = await res.json();
-    
-    const githubUsername = extractGithubUsername(data.profile.github) || 'mustafalzahabi';
-    const allProjects = await fetchAndMergeProjects(data.projects || [], githubUsername);
-    allProjectsData = allProjects;
+    const result = await getDynamicResume();
+    if (!result) {
+      showLandingPage();
+      return;
+    }
+    const { resumeData: data, githubUsername } = result;
+    const resumeProjects = (data.projects || []).map(proj => ({
+      name: proj.name,
+      description: proj.description,
+      technologies: proj.keywords || [],
+      github_link: proj.url || '',
+      live_link: proj.demo || '',
+      image: proj.image || '',
+    }));
+    allProjectsData = resumeProjects;
     
     // Now try the route again
     handleRoute();
