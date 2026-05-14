@@ -157,7 +157,11 @@ function navigateToUser(event) {
   const input = document.getElementById('username-input');
   const username = input?.value.trim();
   if (username) {
-    window.location.href = `?user=${encodeURIComponent(username)}`;
+    // Always navigate to /username (no query param)
+    const base = window.location.origin + (window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/');
+    // Remove any trailing slash before appending username
+    const cleanBase = base.replace(/\/+$/, '/');
+    window.location.href = cleanBase + encodeURIComponent(username);
   }
 }
 
@@ -182,33 +186,23 @@ async function getDynamicResume() {
     );
   }
 
-  // 2. Determine the GitHub username.
-  //    Priority: ?user= query param → URL path segment.
+  // 2. Determine the GitHub username from the path only (no query param support).
   let githubUsername = '';
+  // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
+  // so we need at least 2 segments.
+  // On a custom domain the path is just /username (1 segment is enough).
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const isGitHubPages = window.location.hostname.endsWith('.github.io');
 
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('user')) {
-    githubUsername = params.get('user').trim();
-  }
-
-  if (!githubUsername) {
-    // Take the last non-empty path segment as the username.
-    // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
-    // so we need at least 2 segments.
-    // On a custom domain the path is just /username (1 segment is enough).
-    const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const isGitHubPages = window.location.hostname.endsWith('.github.io');
-
-    if (isGitHubPages) {
-      // /repo-name/username → only accept when username segment is present
-      if (pathParts.length >= 2) {
-        githubUsername = pathParts[pathParts.length - 1];
-      }
-    } else {
-      // Custom domain or localhost: /username
-      if (pathParts.length >= 1) {
-        githubUsername = pathParts[pathParts.length - 1];
-      }
+  if (isGitHubPages) {
+    // /repo-name/username → only accept when username segment is present
+    if (pathParts.length >= 2) {
+      githubUsername = pathParts[pathParts.length - 1];
+    }
+  } else {
+    // Custom domain or localhost: /username
+    if (pathParts.length >= 1) {
+      githubUsername = pathParts[pathParts.length - 1];
     }
   }
 
