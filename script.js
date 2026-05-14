@@ -304,21 +304,34 @@ async function loadData() {
     const frag = document.createDocumentFragment();
     const main = document.createElement('main');
 
-    // Profile photo: custom > basics.image > github API > github static
+    // Profile photo selection order:
+    // 1. custom.profile.photo (base64 or link)
+    // 2. if 'gh' or 'github', get from GitHub
+    // 3. if not set, try basics.image
+    // 4. if not set, get from GitHub
+    // 5. if not found, hide image
     let profilePhoto = '';
+    let photoSource = '';
     if (profileCfg.photo) {
       if (profileCfg.photo === 'gh' || profileCfg.photo === 'github') {
-        // Try GitHub API for avatar
-        profilePhoto = await fetchGithubUserAvatar(githubUsername) || `https://github.com/${githubUsername}.png`;
+        // Explicitly request GitHub
+        profilePhoto = await fetchGithubUserAvatar(githubUsername);
+        photoSource = 'github';
       } else {
         profilePhoto = profileCfg.photo;
+        photoSource = 'custom';
       }
-    } else if (data.basics?.image) {
-      profilePhoto = data.basics.image;
-    } else {
-      // Try GitHub API for avatar
-      profilePhoto = await fetchGithubUserAvatar(githubUsername) || `https://github.com/${githubUsername}.png`;
     }
+    if (!profilePhoto && data.basics?.image) {
+      profilePhoto = data.basics.image;
+      photoSource = 'resume';
+    }
+    if (!profilePhoto && githubUsername) {
+      profilePhoto = await fetchGithubUserAvatar(githubUsername);
+      photoSource = 'github';
+    }
+    // If still not found, set to empty string (will hide)
+    if (!profilePhoto) photoSource = 'none';
 
     // Build header
     frag.appendChild(buildHeader({
@@ -771,14 +784,16 @@ function buildHeader(profile, contact, opts = {}) {
   profileInfo.className = 'profile-info';
   
   // Profile photo
-  const img = document.createElement('img');
-  img.src = profile.photo;
-  img.alt = profile.name;
-  img.className = 'profile-photo';
-  if (profile.photoShape === 'rounded') img.style.borderRadius = '1.5rem';
-  else if (profile.photoShape === 'square') img.style.borderRadius = '0';
-  // else default (circle)
-  profileInfo.appendChild(img);
+  if (profile.photo && profile.photo !== '' && profile.photo !== 'none') {
+    const img = document.createElement('img');
+    img.src = profile.photo;
+    img.alt = profile.name;
+    img.className = 'profile-photo';
+    if (profile.photoShape === 'rounded') img.style.borderRadius = '1.5rem';
+    else if (profile.photoShape === 'square') img.style.borderRadius = '0';
+    // else default (circle)
+    profileInfo.appendChild(img);
+  }
   
   // Profile details
   const details = document.createElement('div');
@@ -1379,7 +1394,7 @@ function renderProjectDetail(project) {
   // Left: Slideshow or image
   const leftCol = document.createElement('div');
   leftCol.className = 'project-detail-left';
-  if (project.allImages?.length > 0) {
+  if (project.allImages && project.allImages.length > 0) {
     leftCol.appendChild(buildSlideshow(project.allImages));
   } else if (project.image) {
     const img = document.createElement('img');
@@ -1438,6 +1453,46 @@ function renderProjectDetail(project) {
     readmeSection.append(readmeTitle, readmeContent);
     card.appendChild(readmeSection);
   }
+// Simple Markdown to HTML (for README rendering)
+function markdownToHtml(md) {
+  if (!md) return '';
+  // Basic replacements for demo purposes
+  return md
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/gim, '<b>$1</b>')
+    .replace(/\*(.*?)\*/gim, '<i>$1</i>')
+    .replace(/`([^`]+)`/gim, '<code>$1</code>')
+    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\n\n/g, '<br><br>');
+}
+
+// Simple image slideshow for project detail
+function buildSlideshow(images) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'project-slideshow';
+  if (!images || images.length === 0) return wrapper;
+  let idx = 0;
+  const img = document.createElement('img');
+  img.src = images[0];
+  img.alt = 'Project screenshot';
+  img.className = 'project-slideshow-img';
+  wrapper.appendChild(img);
+  if (images.length > 1) {
+    const prev = document.createElement('button');
+    prev.className = 'slideshow-btn prev';
+    prev.textContent = '‹';
+    const next = document.createElement('button');
+    next.className = 'slideshow-btn next';
+    next.textContent = '›';
+    prev.onclick = () => { idx = (idx - 1 + images.length) % images.length; img.src = images[idx]; };
+    next.onclick = () => { idx = (idx + 1) % images.length; img.src = images[idx]; };
+    wrapper.appendChild(prev);
+    wrapper.appendChild(next);
+  }
+  return wrapper;
+}
 
   main.appendChild(card);
   frag.appendChild(main);
