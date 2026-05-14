@@ -270,6 +270,29 @@ async function loadData() {
     }
     const theme = custom.theme || {};
     const text = custom.text || {};
+    const profileCfg = custom.profile || {};
+    const bannerCfg = custom.banner || {};
+    const themeToggleCfg = custom.themeToggle || {};
+    const projectsCfg = custom.projects || {};
+    const skillsCfg = custom.skills || {};
+    const sectionsCfg = custom.sections || {};
+    const animationCfg = custom.animation || {};
+
+    // Animation/transition CSS vars
+    if (animationCfg.transitionDuration || animationCfg.type || animationCfg.shadowOnHover !== undefined || animationCfg.glowOnHover !== undefined) {
+      let css = ':root {';
+      if (animationCfg.transitionDuration) css += `--mz-transition-duration: ${animationCfg.transitionDuration};`;
+      if (animationCfg.type) css += `--mz-animation-type: ${animationCfg.type};`;
+      if (animationCfg.shadowOnHover !== undefined) css += `--mz-shadow-hover: ${animationCfg.shadowOnHover ? '1' : '0'};`;
+      if (animationCfg.glowOnHover !== undefined) css += `--mz-glow-hover: ${animationCfg.glowOnHover ? '1' : '0'};`;
+      css += '}';
+      let styleTag = document.getElementById('mz-custom-anim');
+      if (styleTag) styleTag.remove();
+      styleTag = document.createElement('style');
+      styleTag.id = 'mz-custom-anim';
+      styleTag.innerText = css;
+      document.head.appendChild(styleTag);
+    }
 
     // 1. Apply custom accent color and derived palette if present
     if (theme.accent) {
@@ -285,9 +308,17 @@ async function loadData() {
     const frag = document.createDocumentFragment();
     const main = document.createElement('main');
 
-    // Profile photo: basics.image or fallback to GitHub avatar
-    let profilePhoto = data.basics?.image;
-    if (!profilePhoto && githubUsername) {
+    // Profile photo: custom > basics.image > github
+    let profilePhoto = '';
+    if (profileCfg.photo) {
+      if (profileCfg.photo === 'gh' || profileCfg.photo === 'github') {
+        profilePhoto = `https://github.com/${githubUsername}.png`;
+      } else {
+        profilePhoto = profileCfg.photo;
+      }
+    } else if (data.basics?.image) {
+      profilePhoto = data.basics.image;
+    } else {
       profilePhoto = `https://github.com/${githubUsername}.png`;
     }
 
@@ -297,59 +328,67 @@ async function loadData() {
       title: data.basics?.label || '',
       tagline: text.tagline ?? '',
       photo: profilePhoto,
+      photoShape: profileCfg.photoShape || 'circle',
       cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '',
       cta: text.cta ?? ''
     }, {
       email: data.basics?.email || '',
       github: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || '',
       linkedin: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url || '',
+    }, {
+      bannerHeight: bannerCfg.height || '200px',
+      themeToggleStyle: themeToggleCfg.style || 'icon'
     }));
     frag.appendChild(buildTabSelector());
+
+    // Section order and visibility
+    const defaultOrder = ['about', 'education', 'projects', 'skills', 'contact'];
+    const order = Array.isArray(sectionsCfg.order) ? sectionsCfg.order : defaultOrder;
+    const hide = Array.isArray(sectionsCfg.hide) ? sectionsCfg.hide : [];
+
+    // Section data
+    const sectionData = {
+      about: text.bio || text.philosophy ? { bio: text.bio ?? '', philosophy: text.philosophy ?? '', cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '' } : null,
+      education: (data.education && data.education.length) ? (data.education || []).map(edu => ({
+        degree: edu.studyType + (edu.area ? ' in ' + edu.area : ''),
+        institution: edu.institution,
+        start_date: edu.startDate,
+        end_date: edu.endDate,
+        location: edu.location?.city || '',
+        notes: edu.score ? `GPA: ${edu.score}` : '',
+      })) : null,
+      projects: (data.projects && data.projects.length) ? (data.projects || []).map(proj => ({
+        name: proj.name,
+        description: proj.description,
+        technologies: proj.keywords || [],
+        github_link: proj.url || '',
+        live_link: proj.demo || '',
+        image: proj.image || '',
+      })) : null,
+      skills: (data.skills && data.skills.length) ? (data.skills || []).map(skill => ({
+        category: skill.name,
+        items: skill.keywords || [],
+      })) : null,
+      contact: text.contact_message || data.basics?.email || (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url ? {
+        message: text.contact_message ?? '',
+        email: data.basics?.email || '',
+        github: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || '',
+        linkedin: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url || '',
+      } : null
+    };
 
     // Create sections container
     const sections = document.createElement('div');
     sections.className = 'sections';
-
-    // About
-    sections.appendChild(buildAbout({
-      bio: text.bio ?? '',
-      philosophy: text.philosophy ?? '',
-      cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '',
-    }));
-
-    // Education
-    sections.appendChild(buildEducation((data.education || []).map(edu => ({
-      degree: edu.studyType + (edu.area ? ' in ' + edu.area : ''),
-      institution: edu.institution,
-      start_date: edu.startDate,
-      end_date: edu.endDate,
-      location: edu.location?.city || '',
-      notes: edu.score ? `GPA: ${edu.score}` : '',
-    }))));
-
-    // Projects
-    sections.appendChild(buildProjects((data.projects || []).map(proj => ({
-      name: proj.name,
-      description: proj.description,
-      technologies: proj.keywords || [],
-      github_link: proj.url || '',
-      live_link: proj.demo || '',
-      image: proj.image || '',
-    }))));
-
-    // Skills
-    sections.appendChild(buildSkills((data.skills || []).map(skill => ({
-      category: skill.name,
-      items: skill.keywords || [],
-    }))));
-
-    // Contact
-    sections.appendChild(buildContact({
-      message: text.contact_message ?? '',
-      email: data.basics?.email || '',
-      github: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'github')?.url || '',
-      linkedin: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'linkedin')?.url || '',
-    }));
+    for (const key of order) {
+      if (hide.includes(key)) continue;
+      if (!sectionData[key]) continue;
+      if (key === 'about') sections.appendChild(buildAbout(sectionData.about));
+      if (key === 'education') sections.appendChild(buildEducation(sectionData.education));
+      if (key === 'projects') sections.appendChild(buildProjects(sectionData.projects, projectsCfg));
+      if (key === 'skills') sections.appendChild(buildSkills(sectionData.skills, skillsCfg));
+      if (key === 'contact') sections.appendChild(buildContact(sectionData.contact));
+    }
 
     main.appendChild(buildNavbar());
     main.appendChild(sections);
@@ -635,13 +674,14 @@ function updateActiveNavItem() {
   });
 }
 
-function buildHeader(profile, contact) {
+function buildHeader(profile, contact, opts = {}) {
   const header = document.createElement('header');
   header.id = 'header';
   
   // Background banner
   const banner = document.createElement('div');
   banner.className = 'profile-banner';
+  if (opts.bannerHeight) banner.style.height = opts.bannerHeight;
   
   // Theme toggle switch (top right) - draggable
   const themeSwitch = document.createElement('div');
@@ -735,6 +775,9 @@ function buildHeader(profile, contact) {
   img.src = profile.photo;
   img.alt = profile.name;
   img.className = 'profile-photo';
+  if (profile.photoShape === 'rounded') img.style.borderRadius = '1.5rem';
+  else if (profile.photoShape === 'square') img.style.borderRadius = '0';
+  // else default (circle)
   profileInfo.appendChild(img);
   
   // Profile details
@@ -833,11 +876,11 @@ function buildEducation(education) {
   return section;
 }
 
-function buildProjects(projects) {
+function buildProjects(projects, projectsCfg = {}) {
   const section = createSection('Projects', 'projects');
   const grid = document.createElement('div');
   grid.className = 'projects-grid';
-  
+  if (projectsCfg.layout === 'horizontal') grid.style.display = 'flex';
   projects.forEach(proj => {
     const card = document.createElement('div');
     card.className = 'project-card';
@@ -846,39 +889,32 @@ function buildProjects(projects) {
       allProjectsData = projects;
       window.location.hash = `#/project/${encodeURIComponent(proj.name)}`;
     };
-    
+    // Image position
+    let imgDiv = null;
     if (proj.image) {
-      const imgDiv = document.createElement('div');
+      imgDiv = document.createElement('div');
       imgDiv.className = 'project-image';
       const img = document.createElement('img');
       img.src = proj.image;
       img.alt = proj.name;
       img.onerror = () => imgDiv.style.display = 'none';
       imgDiv.appendChild(img);
-      card.appendChild(imgDiv);
     }
-    
     const content = document.createElement('div');
     content.className = 'project-content';
-    
     const h3 = document.createElement('h3');
     h3.textContent = proj.name;
-    
-    // Only create a description paragraph if project has one
     let desc = null;
     if (proj.description && proj.description.trim()) {
       desc = document.createElement('p');
       desc.textContent = proj.description;
     }
-    
     const techDiv = document.createElement('div');
     techDiv.className = 'project-tech';
-    
     proj.technologies.forEach(tech => {
       const tag = document.createElement('span');
       tag.className = 'tech-tag';
       tag.textContent = tech;
-      // Color tech tags by language if available; otherwise use CSS default
       const color = GITHUB_LANGUAGE_COLORS[tech];
       if (color) {
         tag.style.backgroundColor = color;
@@ -886,11 +922,9 @@ function buildProjects(projects) {
       }
       techDiv.appendChild(tag);
     });
-    
     const links = document.createElement('div');
     links.className = 'project-links';
     links.style.pointerEvents = 'auto';
-    
     if (proj.live_link) {
       const liveLink = document.createElement('a');
       liveLink.href = proj.live_link;
@@ -899,48 +933,91 @@ function buildProjects(projects) {
       liveLink.onclick = e => e.stopPropagation();
       links.appendChild(liveLink);
     }
-    
     const ghLink = document.createElement('a');
     ghLink.href = proj.github_link;
     ghLink.target = '_blank';
     ghLink.textContent = 'GitHub';
     ghLink.onclick = e => e.stopPropagation();
     links.appendChild(ghLink);
-    
-  // Append description only when it exists (avoids showing empty text)
-  if (desc) content.append(h3, desc, techDiv, links);
-  else content.append(h3, techDiv, links);
-    card.appendChild(content);
+    // Layout/image position
+    if (projectsCfg.layout === 'horizontal') {
+      card.style.display = 'flex';
+      if (projectsCfg.imagePosition === 'left' && imgDiv) card.appendChild(imgDiv);
+      card.appendChild(content);
+      if (projectsCfg.imagePosition === 'right' && imgDiv) card.appendChild(imgDiv);
+      if (!projectsCfg.imagePosition && imgDiv) card.appendChild(imgDiv);
+    } else {
+      if (projectsCfg.imagePosition === 'bottom' && imgDiv) {
+        content.append(h3, desc, techDiv, links);
+        card.appendChild(content);
+        card.appendChild(imgDiv);
+      } else {
+        if (imgDiv) card.appendChild(imgDiv);
+        content.append(h3, desc, techDiv, links);
+        card.appendChild(content);
+      }
+    }
     grid.appendChild(card);
   });
-  
   section.appendChild(grid);
   return section;
 }
 
-function buildSkills(skills) {
+function buildSkills(skills, skillsCfg = {}) {
   const section = createSection('Skills', 'skills');
   const grid = document.createElement('div');
   grid.className = 'skills-grid';
-  
   skills.forEach(group => {
     const category = document.createElement('div');
     category.className = 'skill-category';
-    
     const h3 = document.createElement('h3');
     h3.textContent = group.category;
-    
-    const ul = document.createElement('ul');
-    group.items.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item;
-      ul.appendChild(li);
-    });
-    
-    category.append(h3, ul);
+    if (skillsCfg.display === 'tags') {
+      const tagWrap = document.createElement('div');
+      tagWrap.style.display = 'flex';
+      tagWrap.style.flexWrap = 'wrap';
+      group.items.forEach(item => {
+        const tag = document.createElement('span');
+        tag.className = 'tech-tag';
+        tag.textContent = item;
+        tagWrap.appendChild(tag);
+      });
+      category.append(h3, tagWrap);
+    } else if (skillsCfg.display === 'progress') {
+      group.items.forEach(item => {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        const label = document.createElement('span');
+        label.textContent = item;
+        label.style.flex = '1';
+        const bar = document.createElement('div');
+        bar.style.flex = '2';
+        bar.style.height = '0.5rem';
+        bar.style.background = 'var(--border-color)';
+        bar.style.marginLeft = '0.5rem';
+        // Random fill for demo; in real use, allow user to specify
+        const fill = document.createElement('div');
+        fill.style.height = '100%';
+        fill.style.width = Math.floor(40 + Math.random()*60) + '%';
+        fill.style.background = 'var(--accent-color)';
+        bar.appendChild(fill);
+        wrap.appendChild(label);
+        wrap.appendChild(bar);
+        category.appendChild(wrap);
+      });
+      category.prepend(h3);
+    } else {
+      const ul = document.createElement('ul');
+      group.items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        ul.appendChild(li);
+      });
+      category.append(h3, ul);
+    }
     grid.appendChild(category);
   });
-  
   section.appendChild(grid);
   return section;
 }

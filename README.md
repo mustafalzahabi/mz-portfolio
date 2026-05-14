@@ -94,3 +94,61 @@ See [jsonresume.org/schema/](https://jsonresume.org/schema/) for full details.
 ## License
 
 Personal portfolio – feel free to fork, customize, and deploy.
+
+## Advanced Customization (meta.mz-portfolio-config)
+
+You can fully customize the design and text of your portfolio by adding a `meta.mz-portfolio-config` section to your `resume.json`. This allows you to override colors, layout, section order, and more—without editing any code.
+
+### Example
+
+```json
+{
+  "basics": { ... },
+  "projects": [ ... ],
+  "meta": {
+    "mz-portfolio-config": {
+      "accent": "#0077ff", // Main accent color
+      "theme": {
+        "dark": true
+      },
+      "text": {
+        "tagline": "Creative Developer",
+        "cta": "Download CV"
+      },
+      "profile": {
+        "photo": "gh", // or custom URL/base64
+        "photoShape": "circle" // circle | rounded | square
+      },
+      "banner": {
+        "height": "220px"
+      },
+      "themeToggle": {
+        "style": "icon" // icon | slider | switch
+      },
+      "projects": {
+        "layout": "horizontal", // vertical | horizontal
+        "imagePosition": "left" // top | left | right | bottom
+      },
+      "skills": {
+        "display": "tags" // list | tags | progress
+      },
+      "sections": {
+        "order": ["about", "projects", "skills", "education", "contact"],
+        "hide": ["education"]
+      },
+      "animation": {
+        "transitionDuration": "0.3s",
+        "type": "slide", // slide | fade | none
+        "shadowOnHover": true,
+        "glowOnHover": false
+      }
+    }
+  }
+}
+```
+
+- All options are optional. Defaults match the current design.
+- Section order and hide let you rearrange or remove sections.
+- Profile photo can be a URL, base64, or "gh"/"github" for your GitHub avatar.
+- All colors are derived from `accent` for a cohesive look.
+- See `script.js` for all supported options.
