@@ -186,23 +186,26 @@ async function getDynamicResume() {
     );
   }
 
-  // 2. Determine the GitHub username from the path only (no query param support).
+  // 2. Determine the GitHub username from the path or sessionStorage (404 rescue)
   let githubUsername = '';
-  // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
-  // so we need at least 2 segments.
-  // On a custom domain the path is just /username (1 segment is enough).
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-  const isGitHubPages = window.location.hostname.endsWith('.github.io');
-
-  if (isGitHubPages) {
-    // /repo-name/username → only accept when username segment is present
-    if (pathParts.length >= 2) {
-      githubUsername = pathParts[pathParts.length - 1];
-    }
+  // Rescue: If redirected from 404.html, use attempted_user from sessionStorage
+  if (window.location.pathname === '/' && sessionStorage.getItem('attempted_user')) {
+    githubUsername = sessionStorage.getItem('attempted_user');
+    sessionStorage.removeItem('attempted_user');
   } else {
-    // Custom domain or localhost: /username
-    if (pathParts.length >= 1) {
-      githubUsername = pathParts[pathParts.length - 1];
+    // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
+    // so we need at least 2 segments.
+    // On a custom domain the path is just /username (1 segment is enough).
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const isGitHubPages = window.location.hostname.endsWith('.github.io');
+    if (isGitHubPages) {
+      if (pathParts.length >= 2) {
+        githubUsername = pathParts[pathParts.length - 1];
+      }
+    } else {
+      if (pathParts.length >= 1) {
+        githubUsername = pathParts[pathParts.length - 1];
+      }
     }
   }
 

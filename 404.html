@@ -1,17 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>404 Not Found</title>
-  <style>
-    body { font-family: system-ui, sans-serif; color: #333; background: #fafbfc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    h1 { font-size: 3rem; margin-bottom: 0.5em; }
-    p { font-size: 1.25rem; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Not Found | 404</title>
+    <style>
+        :root { --text: #2d3436; --accent: #0984e3; --bg: #ffffff; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            color: var(--text); background: var(--bg); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            min-height: 100vh; margin: 0; text-align: center;
+        }
+        h1 { font-size: 5rem; margin: 0; color: #dfe6e9; position: absolute; z-index: -1; }
+        .content { z-index: 1; padding: 20px; }
+        p { font-size: 1.2rem; margin-bottom: 2rem; max-width: 400px; line-height: 1.5; }
+        a { 
+            text-decoration: none; color: white; background: var(--accent); 
+            padding: 12px 24px; border-radius: 8px; font-weight: 600; transition: opacity 0.2s;
+        }
+        a:hover { opacity: 0.8; }
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-  <h1>404</h1>
-  <p>Sorry, the page you requested was not found.</p>
+
+    <h1>404</h1>
+
+    <div class="content">
+        <p id="status-message">Searching for profile...</p>
+        <a href="/" id="home-link" class="hidden">Return to Portfolio</a>
+    </div>
+
+    <script>
+        (function() {
+            const url = new URL(window.location.href);
+            const msgElement = document.getElementById('status-message');
+            const homeLink = document.getElementById('home-link');
+
+            // If we were sent here via index.js because the GitHub API failed
+            if (url.searchParams.has('error')) {
+                const failedUser = url.searchParams.get('user');
+                msgElement.innerText = `The GitHub user "${failedUser || 'requested'}" could not be found.`;
+                homeLink.classList.remove('hidden');
+                return;
+            }
+
+            // Rescue: If the path looks like a username, store and redirect to root
+            const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'index.html' && p !== '404.html');
+            const potentialUsername = pathParts[0];
+            if (potentialUsername) {
+                sessionStorage.setItem('attempted_user', potentialUsername);
+                window.location.replace('/');
+                return;
+            }
+
+            // Otherwise, generic 404
+            msgElement.innerText = "The page you're looking for doesn't exist.";
+            homeLink.classList.remove('hidden');
+        })();
+    </script>
 </body>
 </html>
