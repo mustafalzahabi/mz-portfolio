@@ -1,3 +1,92 @@
+/* Project Detail Card Styles */
+.project-detail-card {
+  background: var(--surface-color);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 32px 0 rgba(0,0,0,0.10);
+  padding: 2.5rem 2rem 2rem 2rem;
+  margin: 2.5rem auto;
+  max-width: 900px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.project-detail-back {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+}
+.project-detail-back:hover {
+  color: var(--hover-color);
+}
+.project-detail-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+.project-detail-container {
+  display: flex;
+  gap: 2.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+.project-detail-left {
+  flex: 1 1 260px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.project-detail-image {
+  max-width: 320px;
+  width: 100%;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.08);
+  margin-bottom: 1.5rem;
+}
+.project-detail-right {
+  flex: 2 1 340px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.project-detail-section {
+  background: var(--background-color);
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 8px 0 rgba(0,0,0,0.04);
+}
+.project-detail-tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.project-detail-readme {
+  margin-top: 2.5rem;
+  background: var(--background-color);
+  border-radius: 1rem;
+  padding: 1.5rem 1.5rem 1.5rem 1.5rem;
+  box-shadow: 0 1px 8px 0 rgba(0,0,0,0.04);
+}
+.project-detail-readme-content {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+  line-height: 1.7;
+  word-break: break-word;
+}
+@media (max-width: 900px) {
+  .project-detail-card { padding: 1.5rem 0.5rem; }
+  .project-detail-container { flex-direction: column; gap: 1.5rem; }
+  .project-detail-left, .project-detail-right { min-width: 0; }
+}
 /* ============================================================================
    DESIGN TOKENS - COLOR PALETTE & TYPOGRAPHY
    ============================================================================ */

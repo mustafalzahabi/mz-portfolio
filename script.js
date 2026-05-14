@@ -304,18 +304,20 @@ async function loadData() {
     const frag = document.createDocumentFragment();
     const main = document.createElement('main');
 
-    // Profile photo: custom > basics.image > github
+    // Profile photo: custom > basics.image > github API > github static
     let profilePhoto = '';
     if (profileCfg.photo) {
       if (profileCfg.photo === 'gh' || profileCfg.photo === 'github') {
-        profilePhoto = `https://github.com/${githubUsername}.png`;
+        // Try GitHub API for avatar
+        profilePhoto = await fetchGithubUserAvatar(githubUsername) || `https://github.com/${githubUsername}.png`;
       } else {
         profilePhoto = profileCfg.photo;
       }
     } else if (data.basics?.image) {
       profilePhoto = data.basics.image;
     } else {
-      profilePhoto = `https://github.com/${githubUsername}.png`;
+      // Try GitHub API for avatar
+      profilePhoto = await fetchGithubUserAvatar(githubUsername) || `https://github.com/${githubUsername}.png`;
     }
 
     // Build header
@@ -1334,27 +1336,28 @@ async function loadDataThenRoute() {
 function renderProjectDetail(project) {
   const app = document.getElementById('app');
   const frag = document.createDocumentFragment();
-  
   const main = document.createElement('main');
-  
   main.appendChild(buildNavbar());
-  
+
+  // Card wrapper for project detail
+  const card = document.createElement('div');
+  card.className = 'project-detail-card';
+
   // Back button
   const backBtn = document.createElement('a');
   backBtn.href = '#';
   backBtn.className = 'project-detail-back';
   backBtn.textContent = '← Back to Projects';
-  main.appendChild(backBtn);
-  
+  card.appendChild(backBtn);
+
   // Title and links
   const h1 = document.createElement('h1');
   h1.className = 'project-detail-title';
   h1.textContent = project.name;
-  main.appendChild(h1);
-  
+  card.appendChild(h1);
+
   const links = document.createElement('div');
   links.className = 'project-links';
-  
   if (project.live_link) {
     const a = document.createElement('a');
     a.href = project.live_link;
@@ -1362,59 +1365,54 @@ function renderProjectDetail(project) {
     a.textContent = '🔗 Live Demo';
     links.appendChild(a);
   }
-  
   const ghLink = document.createElement('a');
   ghLink.href = project.github_link;
   ghLink.target = '_blank';
   ghLink.textContent = '🐙 GitHub';
   links.appendChild(ghLink);
-  main.appendChild(links);
-  
-  // Flex container: slideshow left, about/tech right
+  card.appendChild(links);
+
+  // Responsive flex container: slideshow left, about/tech right
   const container = document.createElement('div');
   container.className = 'project-detail-container';
-  
-  // Left: Slideshow (smaller)
+
+  // Left: Slideshow or image
   const leftCol = document.createElement('div');
   leftCol.className = 'project-detail-left';
-  
   if (project.allImages?.length > 0) {
     leftCol.appendChild(buildSlideshow(project.allImages));
+  } else if (project.image) {
+    const img = document.createElement('img');
+    img.src = project.image;
+    img.alt = project.name;
+    img.className = 'project-detail-image';
+    leftCol.appendChild(img);
   }
-  
+
   // Right: About + Technologies
   const rightCol = document.createElement('div');
   rightCol.className = 'project-detail-right';
-  
-  if (project.readmeDescription) {
+  if (project.readmeDescription || project.description) {
     const desc = document.createElement('div');
     desc.className = 'project-detail-section';
-    
     const h2 = document.createElement('h2');
     h2.textContent = 'About';
-    
     const p = document.createElement('p');
-    p.textContent = project.readmeDescription;
-    
+    p.textContent = project.readmeDescription || project.description;
     desc.append(h2, p);
     rightCol.appendChild(desc);
   }
-  
   if (project.technologies?.length > 0) {
     const tech = document.createElement('div');
     tech.className = 'project-detail-section';
-    
     const h2 = document.createElement('h2');
     h2.textContent = 'Technologies';
-    
     const tags = document.createElement('div');
     tags.className = 'project-detail-tech';
-    
     project.technologies.forEach(t => {
       const tag = document.createElement('span');
       tag.className = 'tech-tag';
       tag.textContent = t;
-      // Color tech tags by language if available; otherwise use CSS default
       const color = GITHUB_LANGUAGE_COLORS[t];
       if (color) {
         tag.style.backgroundColor = color;
@@ -1422,39 +1420,31 @@ function renderProjectDetail(project) {
       }
       tags.appendChild(tag);
     });
-    
     tech.append(h2, tags);
     rightCol.appendChild(tech);
   }
-  
   container.append(leftCol, rightCol);
-  main.appendChild(container);
-  
+  card.appendChild(container);
+
   // Full-width README section below
   if (project.fullReadme) {
     const readmeSection = document.createElement('section');
     readmeSection.className = 'project-detail-readme';
-    
     const readmeTitle = document.createElement('h2');
     readmeTitle.textContent = 'README';
-    
     const readmeContent = document.createElement('div');
     readmeContent.className = 'project-detail-readme-content';
     readmeContent.innerHTML = markdownToHtml(project.fullReadme);
-    
     readmeSection.append(readmeTitle, readmeContent);
-    main.appendChild(readmeSection);
+    card.appendChild(readmeSection);
   }
-  
+
+  main.appendChild(card);
   frag.appendChild(main);
   frag.appendChild(buildFooter());
-  
   app.innerHTML = '';
   app.appendChild(frag);
-  
   setupThemeToggle();
-  
-  // Scroll to top of page
   window.scrollTo(0, 0);
 }
 
