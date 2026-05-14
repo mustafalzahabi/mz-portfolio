@@ -3,32 +3,87 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Not Found | 404</title>
+    <title>Loading Profile...</title>
     <style>
-        :root { --text: #2d3436; --accent: #0984e3; --bg: #ffffff; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            color: var(--text); background: var(--bg); 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            min-height: 100vh; margin: 0; text-align: center;
+        :root {
+            --accent-color: #b8860b;
+            --hover-color: #8b6914;
+            --background-color: #fef3c7;
+            --primary-color: #1a1a1a;
+            --secondary-color: #666;
+            --surface-color: #f2f2f2;
+            --border-color: #e5d4b1;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
-        h1 { font-size: 5rem; margin: 0; color: #dfe6e9; position: absolute; z-index: -1; }
-        .content { z-index: 1; padding: 20px; }
-        p { font-size: 1.2rem; margin-bottom: 2rem; max-width: 400px; line-height: 1.5; }
-        a { 
-            text-decoration: none; color: white; background: var(--accent); 
-            padding: 12px 24px; border-radius: 8px; font-weight: 600; transition: opacity 0.2s;
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --accent-color: #e8c55f;
+                --hover-color: #f0d974;
+                --background-color: #705507;
+                --primary-color: #e0e0e0;
+                --secondary-color: #aaa;
+                --surface-color: #2a2a2a;
+                --border-color: #5a4a30;
+            }
         }
-        a:hover { opacity: 0.8; }
+        body {
+            font-family: var(--font-family);
+            color: var(--primary-color);
+            background: var(--surface-color);
+            line-height: 1.6;
+            transition: background 0.3s, color 0.3s;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        h1 {
+            font-size: 5rem;
+            margin: 0;
+            color: #dfe6e9;
+            position: absolute;
+            z-index: -1;
+        }
+        .content {
+            z-index: 1;
+            padding: 32px 24px;
+            background: var(--background-color);
+            border-radius: 18px;
+            box-shadow: 0 2px 24px 0 rgba(0,0,0,0.07);
+            border: 1px solid var(--border-color);
+            min-width: 320px;
+            max-width: 90vw;
+        }
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            max-width: 400px;
+            line-height: 1.5;
+            color: var(--secondary-color);
+        }
+        a {
+            text-decoration: none;
+            color: white;
+            background: var(--accent-color);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.2s, background 0.2s;
+            box-shadow: 0 2px 8px 0 rgba(0,0,0,0.07);
+        }
+        a:hover {
+            opacity: 0.8;
+            background: var(--hover-color);
+        }
         .hidden { display: none; }
     </style>
 </head>
 <body>
-
-    <h1>404</h1>
-
     <div class="content">
-        <p id="status-message">Searching for profile...</p>
+        <p id="status-message">Loading profile...</p>
         <a href="/" id="home-link" class="hidden">Return to Portfolio</a>
     </div>
 
@@ -38,7 +93,7 @@
             const msgElement = document.getElementById('status-message');
             const homeLink = document.getElementById('home-link');
 
-            // If we were sent here via index.js because the GitHub API failed
+            // 1. Check for explicit errors from your API
             if (url.searchParams.has('error')) {
                 const failedUser = url.searchParams.get('user');
                 msgElement.innerText = `The GitHub user "${failedUser || 'requested'}" could not be found.`;
@@ -46,18 +101,21 @@
                 return;
             }
 
-            // Rescue: If the path looks like a username, store and redirect to root
+            // 2. Rescue Logic: Capture path and redirect to home
             const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'index.html' && p !== '404.html');
             const potentialUsername = pathParts[0];
-            if (potentialUsername) {
-                sessionStorage.setItem('attempted_user', potentialUsername);
-                window.location.replace('/');
-                return;
-            }
 
-            // Otherwise, generic 404
-            msgElement.innerText = "The page you're looking for doesn't exist.";
-            homeLink.classList.remove('hidden');
+            if (potentialUsername) {
+                // Store username in sessionStorage
+                sessionStorage.setItem('attempted_user', potentialUsername);
+                
+                // Redirect to root, but keep the current path as a fallback
+                // This ensures index.html knows exactly what was requested
+                window.location.replace('/');
+            } else {
+                msgElement.innerText = "The page you're looking for doesn't exist.";
+                homeLink.classList.remove('hidden');
+            }
         })();
     </script>
 </body>
