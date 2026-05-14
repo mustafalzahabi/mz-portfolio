@@ -170,10 +170,18 @@ function navigateToUser(event) {
 // ============================================================================
 
 
+// --- Username rescue and URL rewrite logic ---
+(function() {
+  const attemptedUser = sessionStorage.getItem('attempted_user');
+  if (attemptedUser) {
+    sessionStorage.removeItem('attempted_user');
+    window.history.replaceState(null, '', `/${attemptedUser}`);
+    // Optionally, you could trigger loadData here, but the normal flow will pick up the username from the path
+  }
+})();
+
 async function getDynamicResume() {
   // 1. Restore path if redirected from 404.html (GitHub Pages SPA routing trick).
-  //    404.html encodes the intended path as "?/the/path" in the query string.
-  //    We decode it and replace the URL so the rest of the logic works normally.
   if (window.location.search[1] === '/') {
     const decoded = window.location.search
       .slice(1)
@@ -186,26 +194,17 @@ async function getDynamicResume() {
     );
   }
 
-  // 2. Determine the GitHub username from the path or sessionStorage (404 rescue)
+  // 2. Determine the GitHub username from the path
   let githubUsername = '';
-  // Rescue: If redirected from 404.html, use attempted_user from sessionStorage
-  if (window.location.pathname === '/' && sessionStorage.getItem('attempted_user')) {
-    githubUsername = sessionStorage.getItem('attempted_user');
-    sessionStorage.removeItem('attempted_user');
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const isGitHubPages = window.location.hostname.endsWith('.github.io');
+  if (isGitHubPages) {
+    if (pathParts.length >= 2) {
+      githubUsername = pathParts[pathParts.length - 1];
+    }
   } else {
-    // On GitHub Pages (*.github.io) the path looks like /repo-name/username,
-    // so we need at least 2 segments.
-    // On a custom domain the path is just /username (1 segment is enough).
-    const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const isGitHubPages = window.location.hostname.endsWith('.github.io');
-    if (isGitHubPages) {
-      if (pathParts.length >= 2) {
-        githubUsername = pathParts[pathParts.length - 1];
-      }
-    } else {
-      if (pathParts.length >= 1) {
-        githubUsername = pathParts[pathParts.length - 1];
-      }
+    if (pathParts.length >= 1) {
+      githubUsername = pathParts[pathParts.length - 1];
     }
   }
 
@@ -344,6 +343,8 @@ async function loadData() {
     const hide = Array.isArray(sectionsCfg.hide) ? sectionsCfg.hide : [];
 
     // Section data
+    // Merge manual projects with GitHub repos
+    const mergedProjects = await fetchAndMergeProjects(data.projects, githubUsername);
     const sectionData = {
       about: text.bio || text.philosophy ? { bio: text.bio ?? '', philosophy: text.philosophy ?? '', cv_link: (data.basics?.profiles || []).find(p => p.network?.toLowerCase() === 'cv')?.url || '' } : null,
       education: (data.education && data.education.length) ? (data.education || []).map(edu => ({
@@ -354,12 +355,12 @@ async function loadData() {
         location: edu.location?.city || '',
         notes: edu.score ? `GPA: ${edu.score}` : '',
       })) : null,
-      projects: (data.projects && data.projects.length) ? (data.projects || []).map(proj => ({
+      projects: (mergedProjects && mergedProjects.length) ? mergedProjects.map(proj => ({
         name: proj.name,
         description: proj.description,
-        technologies: proj.keywords || [],
-        github_link: proj.url || '',
-        live_link: proj.demo || '',
+        technologies: proj.technologies || proj.keywords || [],
+        github_link: proj.github_link || proj.url || '',
+        live_link: proj.live_link || proj.demo || '',
         image: proj.image || '',
       })) : null,
       skills: (data.skills && data.skills.length) ? (data.skills || []).map(skill => ({
