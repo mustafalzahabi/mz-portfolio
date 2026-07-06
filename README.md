@@ -1,5 +1,8 @@
 # Portfolio (JSON Resume, Pure HTML/CSS/JS)
 
+<img width="960" height="438" alt="image" src="https://github.com/user-attachments/assets/edc1f6ba-4d5a-49e6-a894-6de04ad1e440" />
+
+
 A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScript. All content is loaded dynamically from a public [JSON Resume](https://jsonresume.org/) (`resume.json`) GitHub gist for any user.
 
 ## Features
