@@ -43,8 +43,6 @@ python -m http.server 8000
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000/?user=your_github_username` in your browser.
-
 > **Tip:** Path-based routing (e.g. `/github_username`) requires a server that redirects unknown paths to `index.html`. The included `404.html` handles this automatically on GitHub Pages. For local development, use the `?user=` query parameter instead.
 
 #### File Structure
