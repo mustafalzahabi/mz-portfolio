@@ -1115,8 +1115,7 @@ function buildFooter(name) {
   const footer = document.createElement('footer');
   footer.className = 'footer';
   const p = document.createElement('p');
-  p.innerHTML = `© ${new Date().getFullYear()} ${name || 'Portfolio'}. All rights reserved. Built using <strong>mz-portfolio</strong> by Mustafa Alzahabi. <a href="/" target="_blank">Make yours today.</a>`;
-  footer.appendChild(p);
+  p.innerHTML = `© ${new Date().getFullYear()} ${name || 'Portfolio'}. All rights reserved. Built using <strong>mz-portfolio</strong>${name === "Mustafa Alzahabi" ? "" : " by Mustafa Alzahabi"}. <a href="/">Make yours today.</a>`;  footer.appendChild(p);
   return footer;
 }
 
