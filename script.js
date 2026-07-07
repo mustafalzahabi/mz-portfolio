@@ -124,29 +124,72 @@ function showLandingPage() {
   document.title = 'GitHub Portfolio';
   const app = document.getElementById('app');
   app.innerHTML = `
-    <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;text-align:center;padding:24px;">
-      <div style="font-size:56px;margin-bottom:16px;">🐙</div>
-      <h1 style="font-size:32px;font-weight:700;margin-bottom:8px;">GitHub Portfolio</h1>
-      <p style="color:var(--text-muted,#666);margin-bottom:28px;max-width:440px;">
-        Enter a GitHub username to view their portfolio.<br>
-        They need a public gist named <code>resume.json</code> following the
-        <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema.
-      </p>
-      <form onsubmit="navigateToUser(event)" style="display:flex;gap:8px;max-width:420px;width:100%;flex-wrap:wrap;justify-content:center;">
+    <div class="homepage-container">
+  <!-- Hero Section -->
+  <header class="hero-section">
+    <div class="brand-badge">⚡ mz-portfolio</div>
+    <h1 class="hero-title">Your GitHub Gist.<br>Your Instant Portfolio.</h1>
+    <p class="hero-subtitle">
+      Transform a simple <code>resume.json</code> public gist into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
+    </p>
+
+    <!-- Interactive Form -->
+    <form onsubmit="navigateToUser(event)" class="search-form">
+      <div class="input-wrapper">
+        <span class="input-prefix">github.com/</span>
         <input
           id="username-input"
           type="text"
-          placeholder="github-username"
-          style="flex:1;min-width:180px;padding:12px 16px;border:2px solid var(--border-color,#ccc);border-radius:8px;font-size:16px;background:var(--surface-color,#fff);color:inherit;"
+          placeholder="username"
           autocomplete="username"
           spellcheck="false"
+          required
         />
-        <button
-          type="submit"
-          style="padding:12px 28px;background:var(--accent-color,#0066cc);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:600;"
-        >View</button>
-      </form>
+      </div>
+      <button type="submit" class="cta-button">Generate Portfolio</button>
+    </form>
+  </header>
+
+  <!-- Features Grid -->
+  <section class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">✨</div>
+      <h3>Dynamic Rendering</h3>
+      <p>Fetches data directly from your public GitHub gists on the fly. Update your gist, your portfolio updates instantly.</p>
     </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🎨</div>
+      <h3>Advanced Meta Config</h3>
+      <p>Fine-tune accent colors, toggle themes, inject custom tags, or reorder/hide layout sections directly from your JSON.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Pure Vanilla Power</h3>
+      <p>Built with raw HTML, CSS, and JS. No heavy frameworks, zero bloat, lightning-fast load times, and native light/dark mode.</p>
+    </div>
+  </section>
+
+  <!-- Quick Setup Instructions Guide -->
+  <section class="setup-section">
+    <h2>Get Started in 60 Seconds</h2>
+    <div class="steps-container">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <p>Create a public GitHub gist named <strong><code>resume.json</code></strong>.</p>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <p>Structure your data using the standard <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> specification.</p>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <p>Drop your username above or share your custom link with the world.</p>
+      </div>
+    </div>
+  </section>
+</div>
   `;
   const input = app.querySelector('#username-input');
   if (input) input.focus();
@@ -1072,7 +1115,7 @@ function buildFooter(name) {
   const footer = document.createElement('footer');
   footer.className = 'footer';
   const p = document.createElement('p');
-  p.textContent = `© ${new Date().getFullYear()} ${name || 'Portfolio'}. All rights reserved.`;
+  p.innerHTML = `© ${new Date().getFullYear()} ${name || 'Portfolio'}. All rights reserved. Built using <strong>mz-portfolio</strong> by Mustafa Alzahabi. <a href="/" target="_blank">Make yours today.</a>`;
   footer.appendChild(p);
   return footer;
 }
