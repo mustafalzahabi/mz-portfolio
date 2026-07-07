@@ -1567,3 +1567,15 @@ main {
       gap: 50px;
     }
   }
+
+  footer a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+footer a:hover {
+  color: var(--hover-color);
+  text-decoration: underline; /* Optional: only shows up when they hover */
+}
