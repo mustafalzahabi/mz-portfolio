@@ -128,7 +128,7 @@ export function buildHeader(profile, contact, opts = {}) {
     resumeLink.href = profile.cv_link;
     resumeLink.target = "_blank";
     resumeLink.className = "banner-link-item";
-    resumeLink.textContent = "Resume";
+      resumeLink.textContent = "Resume";
     bannerLinks.appendChild(resumeLink);
   }
 
@@ -615,7 +615,7 @@ export function renderProjectDetail(project) {
   const backBtn = document.createElement("a");
   backBtn.href = "#";
   backBtn.className = "project-detail-back";
-  backBtn.textContent = "Back to Projects";
+  backBtn.textContent = "\u2190 Back to Projects";
   page.appendChild(backBtn);
 
   // -- Project header --
@@ -642,7 +642,7 @@ export function renderProjectDetail(project) {
   if (project.stars != null && project.stars > 0) {
     const starBadge = document.createElement("span");
     starBadge.className = "project-detail-badge";
-    starBadge.textContent = `${project.stars} stars`;
+      starBadge.textContent = `${project.stars}`;
     badges.appendChild(starBadge);
   }
   if (project.isGitHubRepo) {
