@@ -162,29 +162,43 @@ async function fetchReadmeData(username, repoName, branch) {
 }
 
 function extractImages(readme, username, repoName, branch) {
-  const imageRegex = /!\[.*?\]\((.*?)\)/g;
   const images = [];
-  let match;
+  const seen = new Set();
 
-  while ((match = imageRegex.exec(readme))) {
-    const url = match[1];
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      // Absolute URL - use as-is
-      images.push(url);
-    } else if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
+  const pushUnique = (url) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    images.push(url);
+  };
+
+  // 1. Markdown image syntax: ![alt](url)
+  const mdRegex = /!\[[^\]]*\]\(([^)\s]+)\)/g;
+  let match;
+  while ((match = mdRegex.exec(readme))) {
+    pushUnique(match[1].trim());
+  }
+
+  // 2. HTML <img> tags: <img src="..."> or <img src='...'>
+  const htmlRegex = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+  while ((match = htmlRegex.exec(readme))) {
+    pushUnique(match[1].trim());
+  }
+
+  // Resolve each candidate to a usable URL
+  return images
+    .map((url) => {
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return url; // absolute URL - use as-is
+      }
       // Relative path - resolve to raw GitHub URL
       const normalized = url.startsWith("./")
         ? url.slice(2)
         : url.startsWith("/")
           ? url.slice(1)
           : url;
-      images.push(
-        `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`,
-      );
-    }
-  }
-
-  return images;
+      return `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`;
+    })
+    .filter(Boolean);
 }
 
 function extractDescription(readme) {
