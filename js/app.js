@@ -35,7 +35,7 @@ export function showError(message) {
       </div>
     </nav>
     <div class="error-state" style="margin-top:40px;">
-      <div class="error-icon">\u26A0\uFE0F</div>
+      <div class="error-icon">!</div>
       <h2>Something went wrong</h2>
       <p id="error-message"></p>
       <button class="retry-btn" onclick="location.reload()">Try Again</button>
@@ -52,7 +52,7 @@ export function showLandingPage() {
     <div class="home-container">
   <!-- Hero Section -->
   <header class="hero-section">
-    <div class="brand-badge">\u26A1 mz-portfolio</div>
+    <div class="brand-badge">mz-portfolio</div>
     <h1 class="hero-title">Your GitHub Gist.<br>Your Instant Portfolio.</h1>
     <p class="hero-subtitle">
       Transform a simple <code>resume.json</code> public gist into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
@@ -78,19 +78,19 @@ export function showLandingPage() {
   <!-- Features Grid -->
   <section class="features-grid">
     <div class="feature-card">
-      <div class="feature-icon">\u2728</div>
+      <div class="feature-icon"></div>
       <h3>Dynamic Rendering</h3>
       <p>Fetches data directly from your public GitHub gists on the fly. Update your gist, your portfolio updates instantly.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">\uD83C\uDFA8</div>
+      <div class="feature-icon"></div>
       <h3>Advanced Meta Config</h3>
       <p>Fine-tune accent colors, toggle themes, inject custom tags, or reorder/hide layout sections directly from your JSON.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">\u26A1</div>
+      <div class="feature-icon"></div>
       <h3>Pure Vanilla Power</h3>
       <p>Built with raw HTML, CSS, and JS. No heavy frameworks, zero bloat, lightning-fast load times, and native light/dark mode.</p>
     </div>
@@ -137,136 +137,8 @@ window.navigateToUser = function (event) {
 };
 
 // ============================================================================
-// MAIN PAGE LOADING
+// URL USERNAME EXTRACTION
 // ============================================================================
-
-async function getDynamicResume() {
-  // 1. Restore path if redirected from 404.html
-  if (window.location.search[1] === "/") {
-    const decoded = window.location.search
-      .slice(1)
-      .split("&")
-      .map((s) => s.replace(/~and~/g, "&"))
-      .join("?");
-    window.history.replaceState(
-      null,
-      null,
-      window.location.pathname.replace(/\/$/, "") +
-        decoded +
-        window.location.hash,
-    );
-  }
-
-  // 2. Determine the GitHub username from the path
-  const githubUsername = getGithubUsername();
-  console.log("[getDynamicResume] extracted username:", githubUsername);
-  if (!githubUsername) {
-    return null;
-  }
-
-  // 3. Try to fetch resume.json from gists (optional)
-  try {
-    const gistUrl = `https://api.github.com/users/${githubUsername}/gists`;
-    console.log("[getDynamicResume] fetching gists:", gistUrl);
-    const gistsResponse = await fetch(gistUrl);
-    console.log("[getDynamicResume] gist response status:", gistsResponse.status);
-    if (gistsResponse.status === 403) {
-      console.warn(
-        "GitHub API rate limit exceeded. Resume data may not load.",
-      );
-    } else if (!gistsResponse.ok) {
-      console.warn(
-        `GitHub user "${githubUsername}" not found via gist API.`,
-      );
-    } else {
-      const gists = await gistsResponse.json();
-      const resumeGist = gists.find(
-        (gist) =>
-          gist.files &&
-          Object.keys(gist.files).some(
-            (name) => name.toLowerCase() === "resume.json",
-          ),
-      );
-      if (resumeGist) {
-        const gistId = resumeGist.id;
-        const resumeFile = Object.keys(resumeGist.files).find(
-          (name) => name.toLowerCase() === "resume.json",
-        );
-
-        // 1) Try inline content from list endpoint (usually absent, but check)
-        if (resumeGist.files[resumeFile]?.content) {
-          try {
-            const resumeData = JSON.parse(resumeGist.files[resumeFile].content);
-            console.log("[getDynamicResume] resume.json loaded from inline content. Sections:", {
-              hasName: !!resumeData?.basics?.name,
-              hasSummary: !!resumeData?.basics?.summary,
-              hasEducation: !!(resumeData?.education?.length),
-              hasSkills: !!(resumeData?.skills?.length),
-              hasProjects: !!(resumeData?.projects?.length),
-            });
-            return { resumeData, githubUsername };
-          } catch (e) {
-            console.warn("[getDynamicResume] inline parse failed:", e.message);
-          }
-        }
-
-        // 2) Fetch the single gist by ID — this endpoint includes the content field
-        try {
-          const singleUrl = `https://api.github.com/gists/${gistId}`;
-          console.log("[getDynamicResume] fetching single gist:", singleUrl);
-          const singleRes = await fetch(singleUrl);
-          if (singleRes.ok) {
-            const singleGist = await singleRes.json();
-            const fileKey = Object.keys(singleGist.files).find(
-              (name) => name.toLowerCase() === "resume.json",
-            );
-            if (fileKey && singleGist.files[fileKey]?.content) {
-              const resumeData = JSON.parse(singleGist.files[fileKey].content);
-              console.log("[getDynamicResume] resume.json loaded from single-gist endpoint. Sections:", {
-                hasName: !!resumeData?.basics?.name,
-                hasSummary: !!resumeData?.basics?.summary,
-                hasEducation: !!(resumeData?.education?.length),
-                hasSkills: !!(resumeData?.skills?.length),
-                hasProjects: !!(resumeData?.projects?.length),
-              });
-              return { resumeData, githubUsername };
-            }
-          } else {
-            console.warn("[getDynamicResume] single-gist fetch returned", singleRes.status);
-          }
-        } catch (e) {
-          console.warn("[getDynamicResume] single-gist fetch error:", e.message);
-        }
-
-        // 3) Final fallback: raw_url (may be rate-limited)
-        const rawUrl = resumeGist.files[resumeFile].raw_url;
-        console.log("[getDynamicResume] fetching resume.json from raw_url:", rawUrl);
-        const resumeResponse = await fetch(rawUrl);
-        if (resumeResponse.ok) {
-          const resumeData = await resumeResponse.json();
-          console.log("[getDynamicResume] resume.json loaded from raw_url. Sections:", {
-            hasName: !!resumeData?.basics?.name,
-            hasSummary: !!resumeData?.basics?.summary,
-            hasEducation: !!(resumeData?.education?.length),
-            hasSkills: !!(resumeData?.skills?.length),
-            hasProjects: !!(resumeData?.projects?.length),
-          });
-          return { resumeData, githubUsername };
-        } else {
-          console.warn("[getDynamicResume] raw_url fetch returned", resumeResponse.status);
-        }
-      } else {
-        console.log("[getDynamicResume] no resume.json gist found");
-      }
-    }
-  } catch (e) {
-    console.warn("[getDynamicResume] Could not fetch resume.json:", e.message);
-  }
-
-  // 4. No resume.json found - return just the username so GitHub repos can be used
-  console.log("[getDynamicResume] returning username only:", githubUsername);
-  return { resumeData: null, githubUsername };
-}
 
 function getGithubUsername() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -287,6 +159,7 @@ import {
   buildContact,
   buildNavbar,
   buildFooter,
+  buildChatBubble,
   setProjectsDataRef,
   renderProjectDetail,
 } from "./components.js";
@@ -294,9 +167,10 @@ import {
 import {
   fetchGithubUserAvatar,
   fetchGithubUserProfile,
-  fetchAndMergeProjects,
   initializeLanguageColors,
 } from "./api.js";
+
+import { collectPortfolioData } from "./data.js";
 
 import { setupThemeToggle } from "./theme.js";
 
@@ -408,38 +282,39 @@ export async function loadData(projectName) {
   console.log("[loadData] started, projectName:", projectName);
   showLoading();
   try {
-    const result = await getDynamicResume();
-    console.log("[loadData] getDynamicResume result:", result);
-
-    // No username in URL -> show the landing page
-    if (!result) {
+    // 1. Determine username from URL
+    const githubUsername = getGithubUsername();
+    if (!githubUsername) {
       showLandingPage();
       return;
     }
 
-    const { resumeData: data, githubUsername } = result;
+    // 2. Collect all data from resume.json + GitHub into a unified structure
+    const d = await collectPortfolioData(githubUsername);
+    console.log("[loadData] unified data:", {
+      name: d.basics.name,
+      hasEducation: !!d.education?.length,
+      hasSkills: !!d.skills?.length,
+      hasProjects: !!d.projects?.length,
+      contactLinks: d.basics.profiles.length,
+    });
 
-    // If navigating directly to a project, fetch full data and render
-    if (projectName) {
-      const mergedProjects = await fetchAndMergeProjects(
-        data?.projects,
-        githubUsername,
-      );
-      allProjectsData = mergedProjects;
-      const project = mergedProjects.find((p) => p.name === projectName);
+    // 3. If navigating directly to a project, find and render it
+    if (projectName && d.projects) {
+      const project = d.projects.find((p) => p.name === projectName);
       if (project) {
+        allProjectsData = d.projects;
         currentPage = "project-detail";
         renderProjectDetail(project);
         return;
       }
-      // Project not found, fall through to normal load
     }
 
-    // --- Customization Section (only if resume.json exists) ---
-    const custom = data?.meta?.["mz-portfolio-config"]
-      ? Array.isArray(data.meta["mz-portfolio-config"])
-        ? data.meta["mz-portfolio-config"][0] || {}
-        : data.meta["mz-portfolio-config"]
+    // 4. Customization config (from resume.json meta)
+    const custom = d.meta?.["mz-portfolio-config"]
+      ? Array.isArray(d.meta["mz-portfolio-config"])
+        ? d.meta["mz-portfolio-config"][0] || {}
+        : d.meta["mz-portfolio-config"]
       : {};
     const theme = custom.theme || {};
     const text = custom.text || {};
@@ -476,22 +351,18 @@ export async function loadData(projectName) {
       document.head.appendChild(styleTag);
     }
 
-    // 1. Apply custom accent color and derived palette if present
     if (theme.accent) {
       injectCustomAccent(theme.accent);
     }
 
-    document.title = data
-      ? `${data.basics?.name || githubUsername} - ${data.basics?.label || ""}`
-      : `${githubUsername} - Portfolio`;
+    document.title = `${d.basics.name} - ${d.basics.label || "Portfolio"}`;
     setupMetaTags();
 
     const app = document.getElementById("app");
-
     const frag = document.createDocumentFragment();
     const main = document.createElement("main");
 
-    // Profile photo selection order
+    // Profile photo: custom config > unified image > GitHub avatar
     let profilePhoto = "";
     if (profileCfg.photo) {
       if (profileCfg.photo === "gh" || profileCfg.photo === "github") {
@@ -500,38 +371,39 @@ export async function loadData(projectName) {
         profilePhoto = profileCfg.photo;
       }
     }
-    if (!profilePhoto && data?.basics?.image) {
-      profilePhoto = data.basics.image;
+    if (!profilePhoto && d.basics.image) {
+      profilePhoto = d.basics.image;
     }
-    if (!profilePhoto && githubUsername) {
+    if (!profilePhoto) {
       profilePhoto = await fetchGithubUserAvatar(githubUsername);
     }
 
-    // Build header
+    // Build header with all profiles
+    const cvProfile = d.basics.profiles.find(
+      (p) => p.network?.toLowerCase() === "cv",
+    );
+    const ghProfileEntry = d.basics.profiles.find(
+      (p) => p.network?.toLowerCase() === "github",
+    );
+    const liProfileEntry = d.basics.profiles.find(
+      (p) => p.network?.toLowerCase() === "linkedin",
+    );
+
     frag.appendChild(
       buildHeader(
         {
-          name: data?.basics?.name || githubUsername,
-          title: data?.basics?.label || "",
-          tagline: text.tagline ?? "",
+          name: d.basics.name,
+          title: d.basics.label || "",
+          tagline: text.tagline || d.basics.summary || "",
           photo: profilePhoto,
           photoShape: profileCfg.photoShape || "circle",
-          cv_link:
-            (data?.basics?.profiles || []).find(
-              (p) => p.network?.toLowerCase() === "cv",
-            )?.url || "",
+          cv_link: cvProfile?.url || "",
           cta: text.cta ?? "",
         },
         {
-          email: data?.basics?.email || "",
-          github:
-            (data?.basics?.profiles || []).find(
-              (p) => p.network?.toLowerCase() === "github",
-            )?.url || "",
-          linkedin:
-            (data?.basics?.profiles || []).find(
-              (p) => p.network?.toLowerCase() === "linkedin",
-            )?.url || "",
+          email: d.basics.email || "",
+          github: ghProfileEntry?.url || "",
+          linkedin: liProfileEntry?.url || "",
         },
         {
           bannerHeight: bannerCfg.height || "200px",
@@ -554,26 +426,19 @@ export async function loadData(projectName) {
       : defaultOrder;
     const hide = Array.isArray(sectionsCfg.hide) ? sectionsCfg.hide : [];
 
-    // Section data
-    const mergedProjects = await fetchAndMergeProjects(
-      data?.projects,
-      githubUsername,
-    );
+    // Build section data from unified data
     const sectionData = {
       about:
-        text.bio || text.philosophy || data?.basics?.summary
+        text.bio || text.philosophy || d.basics.summary
           ? {
-              bio: text.bio || data?.basics?.summary || "",
+              bio: text.bio || d.basics.summary || "",
               philosophy: text.philosophy ?? "",
-              cv_link:
-                (data?.basics?.profiles || []).find(
-                  (p) => p.network?.toLowerCase() === "cv",
-                )?.url || "",
+              cv_link: cvProfile?.url || "",
             }
           : null,
       education:
-        data?.education && data.education.length
-          ? (data.education || []).map((edu) => ({
+        d.education && d.education.length
+          ? d.education.map((edu) => ({
               degree: edu.studyType + (edu.area ? " in " + edu.area : ""),
               institution: edu.institution,
               start_date: edu.startDate,
@@ -583,10 +448,10 @@ export async function loadData(projectName) {
             }))
           : null,
       projects:
-        mergedProjects && mergedProjects.length
-          ? mergedProjects.map((proj) => ({
+        d.projects && d.projects.length
+          ? d.projects.map((proj) => ({
               name: proj.name,
-              description: proj.description,
+              description: proj.readmeDescription || proj.description || "",
               technologies: proj.technologies || proj.keywords || [],
               github_link: proj.github_link || proj.url || "",
               live_link: proj.live_link || proj.demo || "",
@@ -598,44 +463,33 @@ export async function loadData(projectName) {
               isGitHubRepo: proj.isGitHubRepo || false,
             }))
           : null,
-      skills:
-        data?.skills && data.skills.length
-          ? (data.skills || []).map((skill) => ({
-              category: skill.name,
-              items: skill.keywords || [],
-            }))
-          : null,
-      contact:
-        text.contact_message ||
-        data?.basics?.email ||
-        (data?.basics?.profiles || []).find(
-          (p) => p.network?.toLowerCase() === "github",
-        )?.url ||
-        (data?.basics?.profiles || []).find(
-          (p) => p.network?.toLowerCase() === "linkedin",
-        )?.url
-          ? {
-              message: text.contact_message ?? "",
-              email: data?.basics?.email || "",
-              github:
-                (data?.basics?.profiles || []).find(
-                  (p) => p.network?.toLowerCase() === "github",
-                )?.url || "",
-              linkedin:
-                (data?.basics?.profiles || []).find(
-                  (p) => p.network?.toLowerCase() === "linkedin",
-                )?.url || "",
-            }
-          : null,
+      skills: d.skills || null,
+      contact: (() => {
+        const email = d.basics.email || "";
+        const github = ghProfileEntry?.url || `https://github.com/${githubUsername}`;
+        const linkedin = liProfileEntry?.url || "";
+        // Collect all unique profile URLs for the contact links
+        const websiteProfiles = d.basics.profiles.filter(
+          (p) =>
+            !["github", "linkedin", "cv"].includes(p.network?.toLowerCase()) &&
+            p.url,
+        );
+        const message = text.contact_message || d.basics.summary || "";
+        if (email || github || linkedin || websiteProfiles.length || message) {
+          return {
+            message,
+            email,
+            github,
+            linkedin,
+            profiles: websiteProfiles,
+          };
+        }
+        return null;
+      })(),
     };
 
-    // Fetch GitHub profile for display name (fallback if resume.json basics.name is missing)
-    const ghProfile = await fetchGithubUserProfile(githubUsername);
-    const displayName =
-      data?.basics?.name || ghProfile?.name || githubUsername;
-
-    // Store full project data for routing (with all fields)
-    allProjectsData = mergedProjects || [];
+    // Store full project data for routing
+    allProjectsData = d.projects || [];
     setProjectsDataRef(sectionData.projects || []);
 
     // Create sections container
@@ -657,13 +511,16 @@ export async function loadData(projectName) {
         sections.appendChild(buildContact(sectionData.contact));
     }
 
-    console.log("[loadData] sectionData keys present:", Object.entries(sectionData).filter(([,v]) => v).map(([k]) => k));
+    console.log(
+      "[loadData] sections rendered:",
+      Object.entries(sectionData)
+        .filter(([, v]) => v)
+        .map(([k]) => k),
+    );
 
     // Show fallback when no data sections rendered
     if (!hasAnySection) {
-      console.warn(
-        "[loadData] No sections rendered — gist and/or repo data may be empty or rate-limited",
-      );
+      console.warn("[loadData] No sections rendered");
       const emptyMsg = document.createElement("div");
       emptyMsg.style.cssText =
         "text-align:center;padding:4rem 2rem;color:var(--secondary-color);";
@@ -678,14 +535,17 @@ export async function loadData(projectName) {
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
-    frag.appendChild(buildFooter(displayName));
+    frag.appendChild(buildFooter(d.basics.name));
     console.log("[loadData] appending content to DOM");
     app.innerHTML = "";
     app.appendChild(frag);
+    // Chat bubble (fixed position, appended outside the content flow)
+    document.querySelectorAll(".chat-bubble-wrapper").forEach((el) => el.remove());
+    document.body.appendChild(buildChatBubble(d.basics.name));
     setupThemeToggle();
   } catch (e) {
     console.error(e);
-    showError(e.message || "Could not load JSON Resume.");
+    showError(e.message || "Could not load portfolio data.");
   }
 }
 

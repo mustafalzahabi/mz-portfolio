@@ -5,6 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
+import { loadModel, chat, isModelReady, getModelError } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -128,7 +129,7 @@ export function buildHeader(profile, contact, opts = {}) {
     resumeLink.href = profile.cv_link;
     resumeLink.target = "_blank";
     resumeLink.className = "banner-link-item";
-    resumeLink.textContent = "\uD83D\uDCC4 Resume";
+      resumeLink.textContent = "Resume";
     bannerLinks.appendChild(resumeLink);
   }
 
@@ -137,7 +138,7 @@ export function buildHeader(profile, contact, opts = {}) {
       const emailLink = document.createElement("a");
       emailLink.href = `mailto:${contact.email}`;
       emailLink.className = "banner-link-item";
-      emailLink.textContent = "\u2709\uFE0F Email";
+      emailLink.textContent = "Email";
       bannerLinks.appendChild(emailLink);
     }
 
@@ -146,7 +147,7 @@ export function buildHeader(profile, contact, opts = {}) {
       ghLink.href = contact.github;
       ghLink.target = "_blank";
       ghLink.className = "banner-link-item";
-      ghLink.textContent = "\uD83D\uDC19 GitHub";
+      ghLink.textContent = "GitHub";
       bannerLinks.appendChild(ghLink);
     }
 
@@ -155,7 +156,7 @@ export function buildHeader(profile, contact, opts = {}) {
       liLink.href = contact.linkedin;
       liLink.target = "_blank";
       liLink.className = "banner-link-item";
-      liLink.textContent = "\uD83D\uDCBC LinkedIn";
+      liLink.textContent = "LinkedIn";
       bannerLinks.appendChild(liLink);
     }
   }
@@ -426,28 +427,55 @@ export function buildContact(contact) {
   const container = document.createElement("div");
   container.className = "contact-container";
 
-  const msg = document.createElement("p");
-  msg.textContent = contact.message;
+  if (contact.message) {
+    const msg = document.createElement("p");
+    msg.textContent = contact.message;
+    container.appendChild(msg);
+  }
 
   const links = document.createElement("div");
   links.className = "contact-links";
 
-  const emailLink = document.createElement("a");
-  emailLink.href = `mailto:${contact.email}`;
-  emailLink.textContent = "Email";
+  if (contact.email) {
+    const emailLink = document.createElement("a");
+    emailLink.href = `mailto:${contact.email}`;
+    emailLink.textContent = "Email";
+    links.appendChild(emailLink);
+  }
 
-  const ghLink = document.createElement("a");
-  ghLink.href = contact.github;
-  ghLink.target = "_blank";
-  ghLink.textContent = "GitHub";
+  if (contact.github) {
+    const ghLink = document.createElement("a");
+    ghLink.href = contact.github;
+    ghLink.target = "_blank";
+    ghLink.textContent = "GitHub";
+    links.appendChild(ghLink);
+  }
 
-  const liLink = document.createElement("a");
-  liLink.href = contact.linkedin;
-  liLink.target = "_blank";
-  liLink.textContent = "LinkedIn";
+  if (contact.linkedin) {
+    const liLink = document.createElement("a");
+    liLink.href = contact.linkedin;
+    liLink.target = "_blank";
+    liLink.textContent = "LinkedIn";
+    links.appendChild(liLink);
+  }
 
-  links.append(emailLink, ghLink, liLink);
-  container.append(msg, links);
+  // Additional profile links (website, blog, etc.)
+  if (Array.isArray(contact.profiles)) {
+    for (const profile of contact.profiles) {
+      const a = document.createElement("a");
+      a.href = profile.url;
+      a.target = "_blank";
+      a.textContent =
+        profile.network?.charAt(0).toUpperCase() +
+          profile.network?.slice(1) ||
+        profile.url;
+      links.appendChild(a);
+    }
+  }
+
+  if (links.children.length > 0) {
+    container.appendChild(links);
+  }
   section.appendChild(container);
   return section;
 }
@@ -459,6 +487,189 @@ export function buildFooter(name) {
   p.innerHTML = `\u00A9 ${new Date().getFullYear()} ${name || "Portfolio"}. All rights reserved.${name === "Mustafa Alzahabi" ? "" : '<br>Built using <strong>mz-portfolio</strong> by Mustafa Alzahabi. <a href="/">Make yours today.</a>'}`;
   footer.appendChild(p);
   return footer;
+}
+
+// ============================================================================
+// CHAT BUBBLE
+// ============================================================================
+
+export function buildChatBubble(displayName) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-bubble-wrapper";
+
+  const chatHistory = [];
+  let isGenerating = false;
+
+  // --- Floating trigger button ---
+  const trigger = document.createElement("button");
+  trigger.className = "chat-bubble-trigger";
+  trigger.setAttribute("aria-label", "Open chat");
+  trigger.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+  // --- Chat window ---
+  const chatWindow = document.createElement("div");
+  chatWindow.className = "chat-window";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "chat-header";
+
+  const headerInfo = document.createElement("div");
+  headerInfo.className = "chat-header-info";
+
+  const avatar = document.createElement("div");
+  avatar.className = "chat-avatar";
+  avatar.textContent = (displayName || "AI").charAt(0).toUpperCase();
+
+  const headerText = document.createElement("div");
+
+  const nameEl = document.createElement("div");
+  nameEl.className = "chat-header-name";
+  nameEl.textContent = displayName || "Portfolio Owner";
+
+  const statusEl = document.createElement("div");
+  statusEl.className = "chat-header-status";
+  statusEl.textContent = "Loading model...";
+
+  headerText.append(nameEl, statusEl);
+  headerInfo.append(avatar, headerText);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "chat-close";
+  closeBtn.setAttribute("aria-label", "Close chat");
+  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  header.append(headerInfo, closeBtn);
+
+  // Messages area
+  const messages = document.createElement("div");
+  messages.className = "chat-messages";
+
+  // Welcome message
+  const welcome = document.createElement("div");
+  welcome.className = "chat-msg bot";
+  welcome.textContent = "Hi! Ask me anything about this portfolio.";
+  messages.appendChild(welcome);
+
+  // Typing indicator
+  const typing = document.createElement("div");
+  typing.className = "chat-typing";
+  typing.style.display = "none";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  messages.appendChild(typing);
+
+  // Input area
+  const inputArea = document.createElement("div");
+  inputArea.className = "chat-input-area";
+
+  const input = document.createElement("input");
+  input.className = "chat-input";
+  input.type = "text";
+  input.placeholder = "Loading model...";
+  input.disabled = true;
+
+  const sendBtn = document.createElement("button");
+  sendBtn.className = "chat-send";
+  sendBtn.setAttribute("aria-label", "Send message");
+  sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+
+  inputArea.append(input, sendBtn);
+  chatWindow.append(header, messages, inputArea);
+
+  // --- Helpers ---
+  function addMessage(role, text) {
+    const msg = document.createElement("div");
+    msg.className = `chat-msg ${role}`;
+    msg.textContent = text;
+    messages.insertBefore(msg, typing);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function setLoading(loading) {
+    isGenerating = loading;
+    input.disabled = loading;
+    sendBtn.disabled = loading;
+    input.placeholder = loading ? "Thinking..." : "Type a message...";
+    typing.style.display = loading ? "flex" : "none";
+    if (loading) messages.scrollTop = messages.scrollHeight;
+  }
+
+  function setInputReady(ready) {
+    input.disabled = !ready;
+    sendBtn.disabled = !ready;
+    input.placeholder = ready ? "Type a message..." : "Loading model...";
+  }
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text || isGenerating) return;
+
+    input.value = "";
+    addMessage("user", text);
+    chatHistory.push({ role: "user", content: text });
+
+    setLoading(true);
+
+    try {
+      const reply = await chat(chatHistory);
+      chatHistory.push({ role: "assistant", content: reply });
+      addMessage("bot", reply);
+    } catch (e) {
+      console.warn("[chat] inference error:", e);
+      addMessage("bot", "Sorry, something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // --- Events ---
+  sendBtn.addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  trigger.addEventListener("click", () => {
+    chatWindow.classList.toggle("open");
+    const isOpen = chatWindow.classList.contains("open");
+    trigger.setAttribute("aria-label", isOpen ? "Close chat" : "Open chat");
+
+    // Load model on first open
+    if (isOpen && !isModelReady()) {
+      setLoading(true);
+      statusEl.textContent = "Loading model...";
+
+      loadModel((stage, progress) => {
+        if (stage === "downloading") {
+          statusEl.textContent = `Loading model... ${Math.round(progress)}%`;
+        } else if (stage === "ready") {
+          statusEl.textContent = "Online";
+          setInputReady(true);
+        }
+      }).then((ok) => {
+        if (ok) {
+          statusEl.textContent = "Online";
+          setInputReady(true);
+        } else {
+          statusEl.textContent = "Offline";
+          input.placeholder = "Model unavailable";
+          const err = getModelError();
+          console.error("[chat] Model load error:", err);
+          addMessage("bot", `AI model could not load. ${err || "Check console for details."}`);
+        }
+      });
+    }
+  });
+
+  closeBtn.addEventListener("click", () => {
+    chatWindow.classList.remove("open");
+    trigger.setAttribute("aria-label", "Open chat");
+  });
+
+  wrapper.append(trigger, chatWindow);
+  return wrapper;
 }
 
 // ============================================================================
@@ -500,101 +711,124 @@ export function buildSlideshow(images) {
   const container = document.createElement("div");
   container.className = "slideshow";
 
-  let currentIndex = 0;
-
   // Main image area
   const mainArea = document.createElement("div");
   mainArea.className = "slideshow-main";
 
   const img = document.createElement("img");
   img.className = "slideshow-img";
-  img.src = images[0];
-  img.alt = "Project screenshot 1";
 
   const counter = document.createElement("div");
   counter.className = "slideshow-counter";
-  counter.textContent = `1 / ${images.length}`;
 
-  mainArea.append(img, counter);
+  const placeholder = document.createElement("div");
+  placeholder.className = "slideshow-placeholder";
+  placeholder.textContent = "No images available";
 
-  // Navigation buttons
-  if (images.length > 1) {
-    const prevBtn = document.createElement("button");
-    prevBtn.className = "slideshow-nav-btn slideshow-prev";
-    prevBtn.innerHTML = "&#10094;";
-    prevBtn.setAttribute("aria-label", "Previous image");
+  mainArea.append(img, counter, placeholder);
 
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "slideshow-nav-btn slideshow-next";
-    nextBtn.innerHTML = "&#10095;";
-    nextBtn.setAttribute("aria-label", "Next image");
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "slideshow-nav-btn slideshow-prev";
+  prevBtn.innerHTML = "&#10094;";
+  prevBtn.setAttribute("aria-label", "Previous image");
 
-    mainArea.append(prevBtn, nextBtn);
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "slideshow-nav-btn slideshow-next";
+  nextBtn.innerHTML = "&#10095;";
+  nextBtn.setAttribute("aria-label", "Next image");
 
-    const goTo = (newIndex) => {
-      if (newIndex === currentIndex) return;
-      img.classList.add("slideshow-fade-out");
-      setTimeout(() => {
-        currentIndex = newIndex;
-        img.src = images[currentIndex];
-        img.alt = `Project screenshot ${currentIndex + 1}`;
-        counter.textContent = `${currentIndex + 1} / ${images.length}`;
-        updateThumbnails();
-        img.classList.remove("slideshow-fade-out");
-        img.classList.add("slideshow-fade-in");
-        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
-      }, 200);
-    };
-
-    prevBtn.onclick = () =>
-      goTo((currentIndex - 1 + images.length) % images.length);
-    nextBtn.onclick = () =>
-      goTo((currentIndex + 1) % images.length);
-
-    // Keyboard navigation
-    container.tabIndex = 0;
-    container.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft")
-        goTo((currentIndex - 1 + images.length) % images.length);
-      if (e.key === "ArrowRight")
-        goTo((currentIndex + 1) % images.length);
-    });
-  }
-
-  // Thumbnail strip
   const thumbs = document.createElement("div");
   thumbs.className = "slideshow-thumbs";
 
-  const thumbEls = images.map((src, i) => {
-    const thumb = document.createElement("button");
-    thumb.className = "slideshow-thumb" + (i === 0 ? " active" : "");
-    const thumbImg = document.createElement("img");
-    thumbImg.src = src;
-    thumbImg.alt = `Thumbnail ${i + 1}`;
-    thumb.appendChild(thumbImg);
-    thumb.onclick = () => {
-      if (i === currentIndex) return;
-      img.classList.add("slideshow-fade-out");
-      setTimeout(() => {
-        currentIndex = i;
-        img.src = images[currentIndex];
-        img.alt = `Project screenshot ${currentIndex + 1}`;
-        counter.textContent = `${currentIndex + 1} / ${images.length}`;
-        updateThumbnails();
-        img.classList.remove("slideshow-fade-out");
-        img.classList.add("slideshow-fade-in");
-        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
-      }, 200);
-    };
-    return thumb;
-  });
+  let validImages = [];
+  let currentIndex = 0;
+  let thumbEls = [];
 
-  function updateThumbnails() {
+  function updateView() {
+    if (validImages.length === 0) {
+      img.style.display = "none";
+      counter.style.display = "none";
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+      thumbs.style.display = "none";
+      placeholder.style.display = "";
+      return;
+    }
+
+    placeholder.style.display = "none";
+    img.style.display = "";
+    counter.style.display = validImages.length > 1 ? "" : "none";
+    prevBtn.style.display = validImages.length > 1 ? "" : "none";
+    nextBtn.style.display = validImages.length > 1 ? "" : "none";
+    thumbs.style.display = validImages.length > 1 ? "" : "none";
+
+    img.src = validImages[currentIndex];
+    img.alt = `Project screenshot ${currentIndex + 1}`;
+    counter.textContent = `${currentIndex + 1} / ${validImages.length}`;
     thumbEls.forEach((t, i) => t.classList.toggle("active", i === currentIndex));
   }
 
-  thumbs.append(...thumbEls);
+  function goTo(newIndex) {
+    if (newIndex === currentIndex || validImages.length === 0) return;
+    img.classList.add("slideshow-fade-out");
+    setTimeout(() => {
+      currentIndex = newIndex;
+      updateView();
+      img.classList.remove("slideshow-fade-out");
+      img.classList.add("slideshow-fade-in");
+      setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
+    }, 200);
+  }
+
+  prevBtn.onclick = () =>
+    goTo((currentIndex - 1 + validImages.length) % validImages.length);
+  nextBtn.onclick = () =>
+    goTo((currentIndex + 1) % validImages.length);
+
+  container.tabIndex = 0;
+  container.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft")
+      goTo((currentIndex - 1 + validImages.length) % validImages.length);
+    if (e.key === "ArrowRight")
+      goTo((currentIndex + 1) % validImages.length);
+  });
+
+  mainArea.append(prevBtn, nextBtn);
   container.append(mainArea, thumbs);
+
+  // Preload images and filter out broken ones
+  Promise.all(
+    images.map(
+      (url) =>
+        new Promise((resolve) => {
+          const testImg = new Image();
+          testImg.onload = () => resolve({ url, ok: true });
+          testImg.onerror = () => {
+            console.warn("[slideshow] Broken image:", url);
+            resolve({ url, ok: false });
+          };
+          testImg.src = url;
+        }),
+    ),
+  ).then((results) => {
+    validImages = results.filter((r) => r.ok).map((r) => r.url);
+
+    // Build thumbnails
+    thumbEls = validImages.map((src, i) => {
+      const thumb = document.createElement("button");
+      thumb.className = "slideshow-thumb" + (i === 0 ? " active" : "");
+      const thumbImg = document.createElement("img");
+      thumbImg.src = src;
+      thumbImg.alt = `Thumbnail ${i + 1}`;
+      thumb.appendChild(thumbImg);
+      thumb.onclick = () => goTo(i);
+      return thumb;
+    });
+
+    thumbs.append(...thumbEls);
+    updateView();
+  });
+
   return container;
 }
 
@@ -642,7 +876,7 @@ export function renderProjectDetail(project) {
   if (project.stars != null && project.stars > 0) {
     const starBadge = document.createElement("span");
     starBadge.className = "project-detail-badge";
-    starBadge.textContent = `\u2B50 ${project.stars}`;
+      starBadge.textContent = `${project.stars}`;
     badges.appendChild(starBadge);
   }
   if (project.isGitHubRepo) {
@@ -661,14 +895,14 @@ export function renderProjectDetail(project) {
     liveBtn.href = project.live_link;
     liveBtn.target = "_blank";
     liveBtn.className = "project-detail-btn primary";
-    liveBtn.innerHTML = "\uD83D\uDD17 Live Demo";
+    liveBtn.innerHTML = "Live Demo";
     actions.appendChild(liveBtn);
   }
   const ghBtn = document.createElement("a");
   ghBtn.href = project.github_link;
   ghBtn.target = "_blank";
   ghBtn.className = "project-detail-btn secondary";
-  ghBtn.innerHTML = "\uD83D\uDC19 View on GitHub";
+  ghBtn.innerHTML = "View on GitHub";
   actions.appendChild(ghBtn);
   if (actions.children.length > 0) header.appendChild(actions);
 
@@ -764,7 +998,7 @@ export function renderProjectDetail(project) {
       ghLink.href = project.github_link;
       ghLink.target = "_blank";
       ghLink.className = "project-detail-link-item";
-      ghLink.innerHTML = "\uD83D\uDCC1 Repository";
+      ghLink.innerHTML = "Repository";
       linksList.appendChild(ghLink);
     }
     if (project.live_link) {
@@ -772,7 +1006,7 @@ export function renderProjectDetail(project) {
       liveLink.href = project.live_link;
       liveLink.target = "_blank";
       liveLink.className = "project-detail-link-item";
-      liveLink.innerHTML = "\uD83C\uDF10 Live Demo";
+      liveLink.innerHTML = "Live Demo";
       linksList.appendChild(liveLink);
     }
     linksSection.append(linksTitle, linksList);
