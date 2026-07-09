@@ -170,13 +170,47 @@ async function fetchReadmeData(username, repoName, branch) {
 }
 
 function extractImages(readme, username, repoName, branch) {
-  const imageRegex = /!\[.*?\]\((.*?)\)/g;
   const images = [];
-  let match;
+  const seen = new Set();
 
-  while ((match = imageRegex.exec(readme))) {
-    const url = match[1];
-    if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
+  // Skip badge/icon services
+  const skipPatterns = [
+    "shields.io",
+    "img.shields.io",
+    "badge",
+    "badges.",
+    "travis-ci",
+    "circleci.com",
+    "codecov.io",
+    "coveralls.io",
+    "david-dm.org",
+    "snyk.io",
+    "devops",
+    "gitter.im",
+    "discord",
+    "chat.badge",
+    "stars",
+    "forks",
+    "issues",
+    "license",
+    "npm",
+    "pypi",
+    "crates.io",
+    ".svg?",  // often tiny badges
+  ];
+
+  function shouldSkip(url) {
+    const lower = url.toLowerCase();
+    return skipPatterns.some((p) => lower.includes(p));
+  }
+
+  function addImage(url, alt) {
+    if (!url || seen.has(url)) return;
+    if (shouldSkip(url)) return;
+    seen.add(url);
+
+    // Resolve relative URLs
+    if (url.startsWith("./") || url.startsWith("/") || (!url.includes("://") && !url.startsWith("data:"))) {
       const normalized = url.startsWith("./")
         ? url.slice(2)
         : url.startsWith("/")
@@ -185,9 +219,22 @@ function extractImages(readme, username, repoName, branch) {
       images.push(
         `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`,
       );
-    } else {
+    } else if (url.includes("://")) {
       images.push(url);
     }
+  }
+
+  // Markdown images: ![alt](url)
+  const mdRegex = /!\[(.*?)\]\((.*?)\)/g;
+  let match;
+  while ((match = mdRegex.exec(readme))) {
+    addImage(match[2], match[1]);
+  }
+
+  // HTML images: <img src="url" ...>  or  <img src='url' ...>
+  const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
+  while ((match = htmlRegex.exec(readme))) {
+    addImage(match[1], "");
   }
 
   return images;
