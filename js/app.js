@@ -35,7 +35,6 @@ export function showError(message) {
       </div>
     </nav>
     <div class="error-state" style="margin-top:40px;">
-      <div class="error-icon">\u26A0\uFE0F</div>
       <h2>Something went wrong</h2>
       <p id="error-message"></p>
       <button class="retry-btn" onclick="location.reload()">Try Again</button>
@@ -52,7 +51,7 @@ export function showLandingPage() {
     <div class="home-container">
   <!-- Hero Section -->
   <header class="hero-section">
-    <div class="brand-badge">\u26A1 mz-portfolio</div>
+    <div class="brand-badge">mz-portfolio</div>
     <h1 class="hero-title">Your GitHub Gist.<br>Your Instant Portfolio.</h1>
     <p class="hero-subtitle">
       Transform a simple <code>resume.json</code> public gist into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
@@ -78,19 +77,16 @@ export function showLandingPage() {
   <!-- Features Grid -->
   <section class="features-grid">
     <div class="feature-card">
-      <div class="feature-icon">\u2728</div>
       <h3>Dynamic Rendering</h3>
       <p>Fetches data directly from your public GitHub gists on the fly. Update your gist, your portfolio updates instantly.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">\uD83C\uDFA8</div>
       <h3>Advanced Meta Config</h3>
       <p>Fine-tune accent colors, toggle themes, inject custom tags, or reorder/hide layout sections directly from your JSON.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">\u26A1</div>
       <h3>Pure Vanilla Power</h3>
       <p>Built with raw HTML, CSS, and JS. No heavy frameworks, zero bloat, lightning-fast load times, and native light/dark mode.</p>
     </div>
@@ -482,8 +478,8 @@ export async function loadData(projectName) {
     }
 
     document.title = data
-      ? `${data.basics?.name || githubUsername} - ${data.basics?.label || ""}`
-      : `${githubUsername} - Portfolio`;
+      ? `${data.basics?.name || ghProfile?.name || githubUsername} - ${data.basics?.label || ""}`
+      : `${ghProfile?.name || githubUsername} - Portfolio`;
     setupMetaTags();
 
     const app = document.getElementById("app");
@@ -507,13 +503,16 @@ export async function loadData(projectName) {
       profilePhoto = await fetchGithubUserAvatar(githubUsername);
     }
 
+    // Fetch GitHub profile early — used as fallback for name, bio, contact
+    const ghProfile = await fetchGithubUserProfile(githubUsername);
+
     // Build header
     frag.appendChild(
       buildHeader(
         {
-          name: data?.basics?.name || githubUsername,
+          name: data?.basics?.name || ghProfile?.name || githubUsername,
           title: data?.basics?.label || "",
-          tagline: text.tagline ?? "",
+          tagline: text.tagline ?? ghProfile?.bio ?? "",
           photo: profilePhoto,
           photoShape: profileCfg.photoShape || "circle",
           cv_link:
@@ -527,7 +526,7 @@ export async function loadData(projectName) {
           github:
             (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "github",
-            )?.url || "",
+            )?.url || `https://github.com/${githubUsername}`,
           linkedin:
             (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "linkedin",
@@ -586,7 +585,7 @@ export async function loadData(projectName) {
         mergedProjects && mergedProjects.length
           ? mergedProjects.map((proj) => ({
               name: proj.name,
-              description: proj.description,
+              description: proj.description || proj.readmeDescription,
               technologies: proj.technologies || proj.keywords || [],
               github_link: proj.github_link || proj.url || "",
               live_link: proj.live_link || proj.demo || "",
@@ -606,21 +605,21 @@ export async function loadData(projectName) {
             }))
           : null,
       contact:
-        text.contact_message ||
         data?.basics?.email ||
+        ghProfile?.email ||
+        ghProfile?.blog ||
         (data?.basics?.profiles || []).find(
           (p) => p.network?.toLowerCase() === "github",
         )?.url ||
-        (data?.basics?.profiles || []).find(
-          (p) => p.network?.toLowerCase() === "linkedin",
-        )?.url
+        `https://github.com/${githubUsername}` ||
+        text.contact_message
           ? {
               message: text.contact_message ?? "",
-              email: data?.basics?.email || "",
+              email: data?.basics?.email || ghProfile?.email || "",
               github:
                 (data?.basics?.profiles || []).find(
                   (p) => p.network?.toLowerCase() === "github",
-                )?.url || "",
+                )?.url || `https://github.com/${githubUsername}`,
               linkedin:
                 (data?.basics?.profiles || []).find(
                   (p) => p.network?.toLowerCase() === "linkedin",
@@ -629,8 +628,6 @@ export async function loadData(projectName) {
           : null,
     };
 
-    // Fetch GitHub profile for display name (fallback if resume.json basics.name is missing)
-    const ghProfile = await fetchGithubUserProfile(githubUsername);
     const displayName =
       data?.basics?.name || ghProfile?.name || githubUsername;
 

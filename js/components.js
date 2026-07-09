@@ -128,7 +128,7 @@ export function buildHeader(profile, contact, opts = {}) {
     resumeLink.href = profile.cv_link;
     resumeLink.target = "_blank";
     resumeLink.className = "banner-link-item";
-    resumeLink.textContent = "\uD83D\uDCC4 Resume";
+    resumeLink.textContent = "Resume";
     bannerLinks.appendChild(resumeLink);
   }
 
@@ -137,7 +137,7 @@ export function buildHeader(profile, contact, opts = {}) {
       const emailLink = document.createElement("a");
       emailLink.href = `mailto:${contact.email}`;
       emailLink.className = "banner-link-item";
-      emailLink.textContent = "\u2709\uFE0F Email";
+      emailLink.textContent = "Email";
       bannerLinks.appendChild(emailLink);
     }
 
@@ -146,7 +146,7 @@ export function buildHeader(profile, contact, opts = {}) {
       ghLink.href = contact.github;
       ghLink.target = "_blank";
       ghLink.className = "banner-link-item";
-      ghLink.textContent = "\uD83D\uDC19 GitHub";
+      ghLink.textContent = "GitHub";
       bannerLinks.appendChild(ghLink);
     }
 
@@ -155,7 +155,7 @@ export function buildHeader(profile, contact, opts = {}) {
       liLink.href = contact.linkedin;
       liLink.target = "_blank";
       liLink.className = "banner-link-item";
-      liLink.textContent = "\uD83D\uDCBC LinkedIn";
+      liLink.textContent = "LinkedIn";
       bannerLinks.appendChild(liLink);
     }
   }
@@ -615,7 +615,7 @@ export function renderProjectDetail(project) {
   const backBtn = document.createElement("a");
   backBtn.href = "#";
   backBtn.className = "project-detail-back";
-  backBtn.textContent = "\u2190 Back to Projects";
+  backBtn.textContent = "Back to Projects";
   page.appendChild(backBtn);
 
   // -- Project header --
@@ -642,7 +642,7 @@ export function renderProjectDetail(project) {
   if (project.stars != null && project.stars > 0) {
     const starBadge = document.createElement("span");
     starBadge.className = "project-detail-badge";
-    starBadge.textContent = `\u2B50 ${project.stars}`;
+    starBadge.textContent = `${project.stars} stars`;
     badges.appendChild(starBadge);
   }
   if (project.isGitHubRepo) {
@@ -661,14 +661,14 @@ export function renderProjectDetail(project) {
     liveBtn.href = project.live_link;
     liveBtn.target = "_blank";
     liveBtn.className = "project-detail-btn primary";
-    liveBtn.innerHTML = "\uD83D\uDD17 Live Demo";
+    liveBtn.innerHTML = "Live Demo";
     actions.appendChild(liveBtn);
   }
   const ghBtn = document.createElement("a");
   ghBtn.href = project.github_link;
   ghBtn.target = "_blank";
   ghBtn.className = "project-detail-btn secondary";
-  ghBtn.innerHTML = "\uD83D\uDC19 View on GitHub";
+  ghBtn.innerHTML = "View on GitHub";
   actions.appendChild(ghBtn);
   if (actions.children.length > 0) header.appendChild(actions);
 
@@ -764,7 +764,7 @@ export function renderProjectDetail(project) {
       ghLink.href = project.github_link;
       ghLink.target = "_blank";
       ghLink.className = "project-detail-link-item";
-      ghLink.innerHTML = "\uD83D\uDCC1 Repository";
+      ghLink.innerHTML = "Repository";
       linksList.appendChild(ghLink);
     }
     if (project.live_link) {
@@ -772,7 +772,7 @@ export function renderProjectDetail(project) {
       liveLink.href = project.live_link;
       liveLink.target = "_blank";
       liveLink.className = "project-detail-link-item";
-      liveLink.innerHTML = "\uD83C\uDF10 Live Demo";
+      liveLink.innerHTML = "Live Demo";
       linksList.appendChild(liveLink);
     }
     linksSection.append(linksTitle, linksList);
