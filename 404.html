@@ -103,7 +103,7 @@
 
             // 2. Rescue Logic: Capture path and redirect to home
             const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'index.html' && p !== '404.html');
-            const potentialUsername = pathParts[0];
+            const potentialUsername = pathParts[pathParts.length - 1];
 
             if (potentialUsername) {
                 // Store username in sessionStorage
