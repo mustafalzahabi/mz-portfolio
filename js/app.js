@@ -188,44 +188,72 @@ async function getDynamicResume() {
           ),
       );
       if (resumeGist) {
+        const gistId = resumeGist.id;
         const resumeFile = Object.keys(resumeGist.files).find(
           (name) => name.toLowerCase() === "resume.json",
         );
-        const fileData = resumeGist.files[resumeFile];
-        // Use inline content from the gist API response (avoids a second fetch that may be rate-limited)
-        if (fileData.content) {
+
+        // 1) Try inline content from list endpoint (usually absent, but check)
+        if (resumeGist.files[resumeFile]?.content) {
           try {
-            const resumeData = JSON.parse(fileData.content);
-            console.log("[getDynamicResume] resume.json loaded from gist API inline content. Sections found:", {
+            const resumeData = JSON.parse(resumeGist.files[resumeFile].content);
+            console.log("[getDynamicResume] resume.json loaded from inline content. Sections:", {
               hasName: !!resumeData?.basics?.name,
               hasSummary: !!resumeData?.basics?.summary,
               hasEducation: !!(resumeData?.education?.length),
               hasSkills: !!(resumeData?.skills?.length),
               hasProjects: !!(resumeData?.projects?.length),
-              hasCustomConfig: !!resumeData?.meta?.["mz-portfolio-config"],
             });
             return { resumeData, githubUsername };
-          } catch (parseErr) {
-            console.warn("[getDynamicResume] failed to parse inline resume.json content:", parseErr.message);
+          } catch (e) {
+            console.warn("[getDynamicResume] inline parse failed:", e.message);
           }
         }
-        // Fallback: fetch raw content from raw_url
-        const rawUrl = fileData.raw_url;
+
+        // 2) Fetch the single gist by ID — this endpoint includes the content field
+        try {
+          const singleUrl = `https://api.github.com/gists/${gistId}`;
+          console.log("[getDynamicResume] fetching single gist:", singleUrl);
+          const singleRes = await fetch(singleUrl);
+          if (singleRes.ok) {
+            const singleGist = await singleRes.json();
+            const fileKey = Object.keys(singleGist.files).find(
+              (name) => name.toLowerCase() === "resume.json",
+            );
+            if (fileKey && singleGist.files[fileKey]?.content) {
+              const resumeData = JSON.parse(singleGist.files[fileKey].content);
+              console.log("[getDynamicResume] resume.json loaded from single-gist endpoint. Sections:", {
+                hasName: !!resumeData?.basics?.name,
+                hasSummary: !!resumeData?.basics?.summary,
+                hasEducation: !!(resumeData?.education?.length),
+                hasSkills: !!(resumeData?.skills?.length),
+                hasProjects: !!(resumeData?.projects?.length),
+              });
+              return { resumeData, githubUsername };
+            }
+          } else {
+            console.warn("[getDynamicResume] single-gist fetch returned", singleRes.status);
+          }
+        } catch (e) {
+          console.warn("[getDynamicResume] single-gist fetch error:", e.message);
+        }
+
+        // 3) Final fallback: raw_url (may be rate-limited)
+        const rawUrl = resumeGist.files[resumeFile].raw_url;
         console.log("[getDynamicResume] fetching resume.json from raw_url:", rawUrl);
         const resumeResponse = await fetch(rawUrl);
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
-          console.log("[getDynamicResume] resume.json loaded successfully. Sections found:", {
+          console.log("[getDynamicResume] resume.json loaded from raw_url. Sections:", {
             hasName: !!resumeData?.basics?.name,
             hasSummary: !!resumeData?.basics?.summary,
             hasEducation: !!(resumeData?.education?.length),
             hasSkills: !!(resumeData?.skills?.length),
             hasProjects: !!(resumeData?.projects?.length),
-            hasCustomConfig: !!resumeData?.meta?.["mz-portfolio-config"],
           });
           return { resumeData, githubUsername };
         } else {
-          console.warn("[getDynamicResume] raw_url fetch returned", resumeResponse.status, "- inline content also unavailable");
+          console.warn("[getDynamicResume] raw_url fetch returned", resumeResponse.status);
         }
       } else {
         console.log("[getDynamicResume] no resume.json gist found");
