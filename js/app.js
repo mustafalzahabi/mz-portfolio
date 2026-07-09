@@ -181,15 +181,29 @@ async function getDynamicResume() {
     } else {
       const gists = await gistsResponse.json();
       const resumeGist = gists.find(
-        (gist) => gist.files && gist.files["resume.json"],
+        (gist) =>
+          gist.files &&
+          Object.keys(gist.files).some(
+            (name) => name.toLowerCase() === "resume.json",
+          ),
       );
       if (resumeGist) {
-        const rawUrl = resumeGist.files["resume.json"].raw_url;
+        const resumeFile = Object.keys(resumeGist.files).find(
+          (name) => name.toLowerCase() === "resume.json",
+        );
+        const rawUrl = resumeGist.files[resumeFile].raw_url;
         console.log("[getDynamicResume] fetching resume.json from:", rawUrl);
         const resumeResponse = await fetch(rawUrl);
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
-          console.log("[getDynamicResume] resume.json loaded successfully");
+          console.log("[getDynamicResume] resume.json loaded successfully. Sections found:", {
+            hasName: !!resumeData?.basics?.name,
+            hasSummary: !!resumeData?.basics?.summary,
+            hasEducation: !!(resumeData?.education?.length),
+            hasSkills: !!(resumeData?.skills?.length),
+            hasProjects: !!(resumeData?.projects?.length),
+            hasCustomConfig: !!resumeData?.meta?.["mz-portfolio-config"],
+          });
           return { resumeData, githubUsername };
         }
       } else {
@@ -498,9 +512,9 @@ export async function loadData(projectName) {
     );
     const sectionData = {
       about:
-        text.bio || text.philosophy
+        text.bio || text.philosophy || data?.basics?.summary
           ? {
-              bio: text.bio ?? "",
+              bio: text.bio || data?.basics?.summary || "",
               philosophy: text.philosophy ?? "",
               cv_link:
                 (data?.basics?.profiles || []).find(
@@ -593,6 +607,8 @@ export async function loadData(projectName) {
       if (key === "contact")
         sections.appendChild(buildContact(sectionData.contact));
     }
+
+    console.log("[loadData] sectionData keys present:", Object.entries(sectionData).filter(([,v]) => v).map(([k]) => k));
 
     // Show fallback when no data sections rendered
     if (!hasAnySection) {
