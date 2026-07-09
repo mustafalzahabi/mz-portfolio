@@ -1,0 +1,87 @@
+/* ============================================================================
+   NAVBAR
+   ============================================================================ */
+
+.navbar {
+  position: sticky;
+  inset-inline-start: 0;
+  inset-block-start: 20vh;
+  block-size: 60vh;
+  margin-block: 20vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  justify-self: start;
+  padding-inline: 1.5rem;
+  z-index: 9;
+  background: transparent;
+  gap: 2.5rem;
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-block-end: 0;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  inline-size: .5ch;
+  background: var(--border-color);
+  z-index: 0;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1;
+}
+
+.nav-item a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.nav-dot {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: 50%;
+  background: var(--surface-color);
+  border: 2px solid var(--accent-color);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.nav-item:hover .nav-dot {
+  inline-size: 1rem;
+  block-size: 1rem;
+  background: var(--accent-color);
+  box-shadow: 0 0 0.5rem var(--accent-color);
+}
+
+.nav-item.active .nav-dot {
+  inline-size: 1rem;
+  block-size: 1rem;
+  background: var(--accent-color);
+  box-shadow: 0 0 0.75rem var(--accent-color);
+}
+
+.nav-label {
+  position: absolute;
+  inset-inline-start: 2rem;
+  white-space: nowrap;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.nav-item:hover .nav-label {
+  opacity: 1;
+}
