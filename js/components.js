@@ -729,6 +729,14 @@ export async function renderProjectDetail(project) {
     img.onerror = () => (singleImg.style.display = "none");
     singleImg.appendChild(img);
     page.appendChild(singleImg);
+  } else if (project.isGitHubRepo) {
+    // Surface diagnostic so we can see why no images were extracted
+    window.__mzShowDebug?.({
+      project: project.name,
+      note: "No images extracted from README.",
+      github_link: project.github_link,
+      readmeLength: (project.fullReadme || "").length,
+    });
   }
 
   // -- Content grid --
