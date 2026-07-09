@@ -1,0 +1,36 @@
+/* ============================================================================
+   ABOUT SECTION
+   ============================================================================ */
+
+.about-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 3rem;
+}
+
+.about-text h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-block-end: 1rem;
+}
+
+.about-text p {
+  color: var(--secondary-color);
+  margin-block-end: 1rem;
+}
+
+.cv-link {
+  display: inline-block;
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+  border: 2px solid var(--accent-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.cv-link:hover {
+  background: var(--accent-color);
+  color: white;
+}

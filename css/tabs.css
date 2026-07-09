@@ -1,0 +1,35 @@
+/* ============================================================================
+   TAB SELECTOR
+   ============================================================================ */
+
+.tab-selector {
+  display: flex;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 10;
+  background: var(--surface-color);
+  border-block-end: 1px solid var(--border-color);
+  padding-inline: 1.5rem;
+}
+
+.tab-link {
+  padding-inline: 1.5rem;
+  padding-block: 1rem;
+  color: var(--secondary-color);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-block-end: 3px solid transparent;
+  transition: color 0.2s, border-block-end 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-link:hover {
+  color: var(--accent-color);
+}
+
+.tab-link.active {
+  color: var(--accent-color);
+  border-block-end-color: var(--accent-color);
+}

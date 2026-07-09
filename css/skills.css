@@ -1,0 +1,38 @@
+/* ============================================================================
+   SKILLS SECTION
+   ============================================================================ */
+
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.skill-category {
+  background: var(--surface-color);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.skill-category h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-block-end: 1rem;
+  color: var(--accent-color);
+}
+
+.skill-category ul {
+  list-style: none;
+}
+
+.skill-category li {
+  padding-block: 0.5rem;
+  color: var(--secondary-color);
+}
+
+.skill-category li::before {
+  content: '\2713 ';
+  color: var(--accent-color);
+  font-weight: 700;
+  margin-inline-end: 0.5rem;
+}
