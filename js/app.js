@@ -35,6 +35,7 @@ export function showError(message) {
       </div>
     </nav>
     <div class="error-state" style="margin-top:40px;">
+      <div class="error-icon">!</div>
       <h2>Something went wrong</h2>
       <p id="error-message"></p>
       <button class="retry-btn" onclick="location.reload()">Try Again</button>
@@ -77,16 +78,19 @@ export function showLandingPage() {
   <!-- Features Grid -->
   <section class="features-grid">
     <div class="feature-card">
+      <div class="feature-icon"></div>
       <h3>Dynamic Rendering</h3>
       <p>Fetches data directly from your public GitHub gists on the fly. Update your gist, your portfolio updates instantly.</p>
     </div>
 
     <div class="feature-card">
+      <div class="feature-icon"></div>
       <h3>Advanced Meta Config</h3>
       <p>Fine-tune accent colors, toggle themes, inject custom tags, or reorder/hide layout sections directly from your JSON.</p>
     </div>
 
     <div class="feature-card">
+      <div class="feature-icon"></div>
       <h3>Pure Vanilla Power</h3>
       <p>Built with raw HTML, CSS, and JS. No heavy frameworks, zero bloat, lightning-fast load times, and native light/dark mode.</p>
     </div>
@@ -503,7 +507,7 @@ export async function loadData(projectName) {
       profilePhoto = await fetchGithubUserAvatar(githubUsername);
     }
 
-    // Fetch GitHub profile early — used as fallback for name, bio, contact
+    // Fetch GitHub profile for display name and bio fallback
     const ghProfile = await fetchGithubUserProfile(githubUsername);
 
     // Build header
@@ -512,7 +516,7 @@ export async function loadData(projectName) {
         {
           name: data?.basics?.name || ghProfile?.name || githubUsername,
           title: data?.basics?.label || "",
-          tagline: text.tagline ?? ghProfile?.bio ?? "",
+          tagline: text.tagline || data?.basics?.summary || ghProfile?.bio || "",
           photo: profilePhoto,
           photoShape: profileCfg.photoShape || "circle",
           cv_link:
@@ -522,11 +526,11 @@ export async function loadData(projectName) {
           cta: text.cta ?? "",
         },
         {
-          email: data?.basics?.email || "",
+          email: data?.basics?.email || ghProfile?.email || "",
           github:
             (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "github",
-            )?.url || `https://github.com/${githubUsername}`,
+            )?.url || "",
           linkedin:
             (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "linkedin",
@@ -585,7 +589,7 @@ export async function loadData(projectName) {
         mergedProjects && mergedProjects.length
           ? mergedProjects.map((proj) => ({
               name: proj.name,
-              description: proj.description || proj.readmeDescription,
+              description: proj.readmeDescription || proj.description || "",
               technologies: proj.technologies || proj.keywords || [],
               github_link: proj.github_link || proj.url || "",
               live_link: proj.live_link || proj.demo || "",
@@ -604,28 +608,34 @@ export async function loadData(projectName) {
               items: skill.keywords || [],
             }))
           : null,
-      contact:
-        data?.basics?.email ||
-        ghProfile?.email ||
-        ghProfile?.blog ||
-        (data?.basics?.profiles || []).find(
-          (p) => p.network?.toLowerCase() === "github",
-        )?.url ||
-        `https://github.com/${githubUsername}` ||
-        text.contact_message
-          ? {
-              message: text.contact_message ?? "",
-              email: data?.basics?.email || ghProfile?.email || "",
-              github:
-                (data?.basics?.profiles || []).find(
-                  (p) => p.network?.toLowerCase() === "github",
-                )?.url || `https://github.com/${githubUsername}`,
-              linkedin:
-                (data?.basics?.profiles || []).find(
-                  (p) => p.network?.toLowerCase() === "linkedin",
-                )?.url || "",
-            }
-          : null,
+      contact: (() => {
+        // Resume.json contact
+        const rEmail = data?.basics?.email || "";
+        const rGithub =
+          (data?.basics?.profiles || []).find(
+            (p) => p.network?.toLowerCase() === "github",
+          )?.url || "";
+        const rLinkedin =
+          (data?.basics?.profiles || []).find(
+            (p) => p.network?.toLowerCase() === "linkedin",
+          )?.url || "";
+        const rMessage = text.contact_message ?? "";
+
+        // Fallback: GitHub profile data
+        const ghEmail = ghProfile?.email || "";
+        const ghBio = ghProfile?.bio || "";
+        const ghUrl = `https://github.com/${githubUsername}`;
+
+        const email = rEmail || ghEmail;
+        const github = rGithub || ghUrl;
+        const linkedin = rLinkedin || "";
+        const message = rMessage || ghBio || "";
+
+        if (email || github || linkedin || message) {
+          return { message, email, github, linkedin };
+        }
+        return null;
+      })(),
     };
 
     const displayName =
