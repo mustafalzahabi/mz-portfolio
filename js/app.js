@@ -191,8 +191,27 @@ async function getDynamicResume() {
         const resumeFile = Object.keys(resumeGist.files).find(
           (name) => name.toLowerCase() === "resume.json",
         );
-        const rawUrl = resumeGist.files[resumeFile].raw_url;
-        console.log("[getDynamicResume] fetching resume.json from:", rawUrl);
+        const fileData = resumeGist.files[resumeFile];
+        // Use inline content from the gist API response (avoids a second fetch that may be rate-limited)
+        if (fileData.content) {
+          try {
+            const resumeData = JSON.parse(fileData.content);
+            console.log("[getDynamicResume] resume.json loaded from gist API inline content. Sections found:", {
+              hasName: !!resumeData?.basics?.name,
+              hasSummary: !!resumeData?.basics?.summary,
+              hasEducation: !!(resumeData?.education?.length),
+              hasSkills: !!(resumeData?.skills?.length),
+              hasProjects: !!(resumeData?.projects?.length),
+              hasCustomConfig: !!resumeData?.meta?.["mz-portfolio-config"],
+            });
+            return { resumeData, githubUsername };
+          } catch (parseErr) {
+            console.warn("[getDynamicResume] failed to parse inline resume.json content:", parseErr.message);
+          }
+        }
+        // Fallback: fetch raw content from raw_url
+        const rawUrl = fileData.raw_url;
+        console.log("[getDynamicResume] fetching resume.json from raw_url:", rawUrl);
         const resumeResponse = await fetch(rawUrl);
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
@@ -205,6 +224,8 @@ async function getDynamicResume() {
             hasCustomConfig: !!resumeData?.meta?.["mz-portfolio-config"],
           });
           return { resumeData, githubUsername };
+        } else {
+          console.warn("[getDynamicResume] raw_url fetch returned", resumeResponse.status, "- inline content also unavailable");
         }
       } else {
         console.log("[getDynamicResume] no resume.json gist found");
