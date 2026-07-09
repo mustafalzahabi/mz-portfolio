@@ -11,12 +11,11 @@ let modelReady = false;
 let loadError = null;
 
 // ---------------------------------------------------------------------------
-// Model configuration
+// Model configuration — use a small, fully-public model
 // ---------------------------------------------------------------------------
 
-const MODEL_ID = "Xenova/Qwen2-0.5B-Instruct";
+const MODEL_ID = "Xenova/TinyLlama-1.1B-Chat-v1.0";
 const CDN_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
-const DTYPES = ["q4", "q8", "fp32"];
 
 // ---------------------------------------------------------------------------
 // Detect WebGPU support
@@ -107,7 +106,7 @@ async function getTransformers() {
     transformersModule = await import(CDN_URL);
     return transformersModule;
   } catch (e) {
-    throw new Error(`Failed to load Transformers.js library: ${e.message}`);
+    throw new Error(`Failed to load Transformers.js: ${e.message}`);
   }
 }
 
@@ -118,6 +117,7 @@ async function getTransformers() {
 async function tryLoad(device, dtype, onProgress) {
   const { pipeline, env } = await getTransformers();
   env.allowLocalModels = false;
+  env.useBrowserCache = true;
 
   onProgress?.("downloading", 0);
 
@@ -163,7 +163,7 @@ export async function loadModel(onProgress) {
 
   // Step 3: Try each device + dtype combination
   for (const device of devices) {
-    for (const dtype of DTYPES) {
+    for (const dtype of ["q8", "fp32"]) {
       try {
         console.log(`[slm] Trying ${device} / ${dtype}`);
         onProgress?.("loading", 0);
@@ -178,7 +178,6 @@ export async function loadModel(onProgress) {
       } catch (e) {
         console.warn(`[slm] ${device}/${dtype} failed:`, e.message);
         loadError = `${device}/${dtype}: ${e.message}`;
-        // Continue to next combo
       }
     }
   }
