@@ -136,25 +136,6 @@ window.navigateToUser = function (event) {
   }
 };
 
-// Lightweight debug overlay (only shown when something is off, or ?debug=1)
-export function showDebug(info) {
-  if (!window.location.search.includes("debug=1") && !info) return;
-  let panel = document.getElementById("mz-debug");
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "mz-debug";
-    panel.style.cssText =
-      "position:fixed;bottom:12px;left:12px;z-index:9999;max-width:360px;" +
-      "background:rgba(0,0,0,0.82);color:#fff;font:12px/1.5 monospace;" +
-      "padding:10px 12px;border-radius:8px;white-space:pre-wrap;max-height:50vh;overflow:auto;";
-    document.body.appendChild(panel);
-  }
-  const text = info
-    ? JSON.stringify(info, null, 2)
-    : JSON.stringify(window.__mzDebug || {}, null, 2);
-  panel.textContent = "mz-debug\n" + text;
-}
-
 // ============================================================================
 // MAIN PAGE LOADING
 // ============================================================================
@@ -183,68 +164,37 @@ async function getDynamicResume() {
   }
 
   // 3. Try to fetch resume.json from gists (optional)
-  const debug = {
-    username: githubUsername,
-    gistsStatus: null,
-    gistFilenames: [],
-    resumeFound: false,
-    resumeRawStatus: null,
-    error: null,
-  };
-  window.__mzDebug = debug;
-
   try {
     const gistsResponse = await fetch(
-      `https://api.github.com/users/${githubUsername}/gists?per_page=100`,
+      `https://api.github.com/users/${githubUsername}/gists`,
     );
-    debug.gistsStatus = gistsResponse.status;
     if (gistsResponse.status === 403) {
-      debug.error = "GitHub API rate limit (403). Try again later or use a token.";
-      console.warn("GitHub API rate limit exceeded while fetching gists.");
-    }
-    if (gistsResponse.ok) {
-      const gists = await gistsResponse.json();
-      debug.gistFilenames = (gists || []).flatMap((g) =>
-        g.files ? Object.keys(g.files) : [],
+      console.warn(
+        "GitHub API rate limit exceeded. Resume data may not load.",
       );
-      // Case-insensitive match for "resume.json" (also accept "resume")
-      const resumeGist = gists.find((gist) => {
-        if (!gist.files) return false;
-        return Object.keys(gist.files).some((name) => {
-          const lower = name.toLowerCase();
-          return lower === "resume.json" || lower === "resume";
-        });
-      });
+    } else if (!gistsResponse.ok) {
+      console.warn(
+        `GitHub user "${githubUsername}" not found via gist API.`,
+      );
+    } else {
+      const gists = await gistsResponse.json();
+      const resumeGist = gists.find(
+        (gist) => gist.files && gist.files["resume.json"],
+      );
       if (resumeGist) {
-        debug.resumeFound = true;
-        // Find the actual filename (case may differ)
-        const fileName = Object.keys(resumeGist.files).find((name) => {
-          const lower = name.toLowerCase();
-          return lower === "resume.json" || lower === "resume";
-        });
-        const rawUrl = resumeGist.files[fileName].raw_url;
+        const rawUrl = resumeGist.files["resume.json"].raw_url;
         const resumeResponse = await fetch(rawUrl);
-        debug.resumeRawStatus = resumeResponse.status;
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
           return { resumeData, githubUsername };
-        } else {
-          console.warn("Failed to fetch resume.json raw content:", resumeResponse.status);
         }
-      } else {
-        debug.error = "No gist named 'resume.json' found.";
-        console.warn(`No gist named "resume.json" found for user "${githubUsername}".`);
       }
     }
   } catch (e) {
-    debug.error = "Network error: " + e.message;
     console.warn("Could not fetch resume.json:", e.message);
   }
 
-  // 4. No resume.json found - show debug (if something looks off) and use repos
-  if (debug.error || debug.gistsStatus !== 200) {
-    showDebug(debug);
-  }
+  // 4. No resume.json found - return just the username so GitHub repos can be used
   return { resumeData: null, githubUsername };
 }
 
@@ -280,7 +230,7 @@ import {
 
 import {
   fetchGithubUserAvatar,
-  fetchGithubUserName,
+  fetchGithubUserProfile,
   fetchAndMergeProjects,
   initializeLanguageColors,
 } from "./api.js";
@@ -615,6 +565,11 @@ export async function loadData(projectName) {
           : null,
     };
 
+    // Fetch GitHub profile for display name (fallback if resume.json basics.name is missing)
+    const ghProfile = await fetchGithubUserProfile(githubUsername);
+    const displayName =
+      data?.basics?.name || ghProfile?.name || githubUsername;
+
     // Store full project data for routing (with all fields)
     allProjectsData = mergedProjects || [];
     setProjectsDataRef(sectionData.projects || []);
@@ -639,10 +594,7 @@ export async function loadData(projectName) {
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
-
-    // Footer: prefer resume name, then GitHub full name, then username
-    const footerName = data?.basics?.name || (await fetchGithubUserName(githubUsername)) || githubUsername;
-    frag.appendChild(buildFooter(footerName));
+    frag.appendChild(buildFooter(displayName));
     app.appendChild(frag);
     setupThemeToggle();
   } catch (e) {
@@ -664,9 +616,6 @@ export function init() {
     sessionStorage.removeItem("attempted_user");
     window.history.replaceState(null, "", `/${attemptedUser}`);
   }
-
-  // Expose debug helper for use from other modules without import cycles
-  window.__mzShowDebug = showDebug;
 
   initDarkMode();
   initializeLanguageColors();

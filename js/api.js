@@ -8,29 +8,26 @@ export function extractGithubUsername(url) {
   return match ? match[1] : null;
 }
 
-export async function fetchGithubUserAvatar(username) {
+let githubUserCache = {};
+
+export async function fetchGithubUserProfile(username) {
+  if (githubUserCache[username]) return githubUserCache[username];
   try {
     const url = `https://api.github.com/users/${username}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const user = await res.json();
-    return user.avatar_url || null;
+    githubUserCache[username] = user;
+    return user;
   } catch (e) {
-    console.warn("Could not fetch GitHub user avatar:", e.message);
+    console.warn("Could not fetch GitHub user profile:", e.message);
     return null;
   }
 }
 
-export async function fetchGithubUserName(username) {
-  try {
-    const url = `https://api.github.com/users/${username}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const user = await res.json();
-    return user.name || null;
-  } catch (e) {
-    return null;
-  }
+export async function fetchGithubUserAvatar(username) {
+  const user = await fetchGithubUserProfile(username);
+  return user?.avatar_url || null;
 }
 
 export async function fetchAndMergeProjects(manualProjects, githubUsername) {
@@ -67,7 +64,7 @@ export async function fetchAndMergeProjects(manualProjects, githubUsername) {
           allImages: readmeData?.allImages || [],
           readmeDescription: displayDescription,
           fullReadme: readmeData?.fullText || "",
-          live_link: repo.homepage || null,
+          live_link: repo.home || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
           isGitHubRepo: true,
@@ -162,43 +159,27 @@ async function fetchReadmeData(username, repoName, branch) {
 }
 
 function extractImages(readme, username, repoName, branch) {
+  const imageRegex = /!\[.*?\]\((.*?)\)/g;
   const images = [];
-  const seen = new Set();
-
-  const pushUnique = (url) => {
-    if (!url || seen.has(url)) return;
-    seen.add(url);
-    images.push(url);
-  };
-
-  // 1. Markdown image syntax: ![alt](url)
-  const mdRegex = /!\[[^\]]*\]\(([^)\s]+)\)/g;
   let match;
-  while ((match = mdRegex.exec(readme))) {
-    pushUnique(match[1].trim());
-  }
 
-  // 2. HTML <img> tags: <img src="..."> or <img src='...'>
-  const htmlRegex = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
-  while ((match = htmlRegex.exec(readme))) {
-    pushUnique(match[1].trim());
-  }
-
-  // Resolve each candidate to a usable URL
-  return images
-    .map((url) => {
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        return url; // absolute URL - use as-is
-      }
-      // Relative path - resolve to raw GitHub URL
+  while ((match = imageRegex.exec(readme))) {
+    const url = match[1];
+    if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
       const normalized = url.startsWith("./")
         ? url.slice(2)
         : url.startsWith("/")
           ? url.slice(1)
           : url;
-      return `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`;
-    })
-    .filter(Boolean);
+      images.push(
+        `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`,
+      );
+    } else {
+      images.push(url);
+    }
+  }
+
+  return images;
 }
 
 function extractDescription(readme) {
