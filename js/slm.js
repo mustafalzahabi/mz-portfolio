@@ -17,6 +17,20 @@ let loadError = null;
 const MODEL_ID = "Xenova/Qwen2-0.5B-Instruct";
 
 // ---------------------------------------------------------------------------
+// Detect WebGPU support (including Android Chrome)
+// ---------------------------------------------------------------------------
+
+async function hasWebGPU() {
+  try {
+    if (!navigator.gpu) return false;
+    const adapter = await navigator.gpu.requestAdapter();
+    return !!adapter;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Build system prompt from portfolio data (grounding)
 // ---------------------------------------------------------------------------
 
@@ -85,7 +99,35 @@ function buildSystemPrompt() {
 }
 
 // ---------------------------------------------------------------------------
-// Model loading
+// Try loading with a specific device
+// ---------------------------------------------------------------------------
+
+async function tryLoad(device, onProgress) {
+  const { pipeline, env } = await import(
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3"
+  );
+
+  env.allowLocalModels = false;
+
+  onProgress?.("downloading", 0);
+
+  const pipe = await pipeline("text-generation", MODEL_ID, {
+    dtype: "q4",
+    device,
+    progress_callback: (progress) => {
+      if (progress.status === "progress") {
+        onProgress?.("downloading", progress.progress || 0);
+      } else if (progress.status === "done") {
+        onProgress?.("ready", 100);
+      }
+    },
+  });
+
+  return pipe;
+}
+
+// ---------------------------------------------------------------------------
+// Model loading (WebGPU → WASM fallback chain)
 // ---------------------------------------------------------------------------
 
 export async function loadModel(onProgress) {
@@ -96,60 +138,33 @@ export async function loadModel(onProgress) {
   modelLoading = true;
   loadError = null;
 
-  try {
-    // Dynamically import Transformers.js
-    const { pipeline, env } = await import(
-      "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3"
-    );
+  const gpuAvailable = await hasWebGPU();
+  console.log("[slm] WebGPU available:", gpuAvailable);
 
-    // Disable local model caching (use HuggingFace Hub + IndexedDB)
-    env.allowLocalModels = false;
+  // Try WebGPU first, then WASM
+  const devices = gpuAvailable ? ["webgpu", "wasm"] : ["wasm"];
 
-    onProgress?.("downloading", 0);
+  for (const device of devices) {
+    try {
+      console.log(`[slm] Trying device: ${device}`);
+      onProgress?.("loading", 0);
 
-    generator = await pipeline("text-generation", MODEL_ID, {
-      dtype: "q4",
-      device: "webgpu",
-      progress_callback: (progress) => {
-        if (progress.status === "progress") {
-          onProgress?.("downloading", progress.progress || 0);
-        } else if (progress.status === "done") {
-          onProgress?.("ready", 100);
-        }
-      },
-    });
+      generator = await tryLoad(device, onProgress);
 
-    modelReady = true;
-    modelLoading = false;
-    return true;
-  } catch (e) {
-    console.warn("[slm] Model load failed:", e.message);
-    loadError = e.message;
-    modelLoading = false;
-
-    // Try WASM fallback if WebGPU failed
-    if (e.message?.includes("webgpu") || e.message?.includes("WebGPU")) {
-      try {
-        const { pipeline, env } = await import(
-          "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3"
-        );
-        env.allowLocalModels = false;
-
-        generator = await pipeline("text-generation", MODEL_ID, {
-          dtype: "q4",
-          device: "wasm",
-        });
-
-        modelReady = true;
-        loadError = null;
-        return true;
-      } catch (e2) {
-        console.warn("[slm] WASM fallback also failed:", e2.message);
-        loadError = e2.message;
-      }
+      modelReady = true;
+      modelLoading = false;
+      console.log(`[slm] Model loaded on ${device}`);
+      return true;
+    } catch (e) {
+      console.warn(`[slm] ${device} failed:`, e.message);
+      loadError = e.message;
+      // Continue to next device
     }
-    return false;
   }
+
+  modelLoading = false;
+  console.error("[slm] All devices failed");
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +176,6 @@ export async function chat(messages) {
 
   const systemPrompt = buildSystemPrompt();
 
-  // Format as chat messages for the model
   const formattedMessages = [
     { role: "system", content: systemPrompt },
     ...messages.map((m) => ({
@@ -177,7 +191,6 @@ export async function chat(messages) {
     do_sample: true,
   });
 
-  // Extract the assistant's reply
   const reply = output[0]?.generated_text?.slice(-1)?.[0]?.content || "";
   return reply.trim();
 }
