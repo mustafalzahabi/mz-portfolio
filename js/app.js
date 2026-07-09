@@ -166,8 +166,11 @@ async function getDynamicResume() {
   // 3. Try to fetch resume.json from gists (optional)
   try {
     const gistsResponse = await fetch(
-      `https://api.github.com/users/${githubUsername}/gists`,
+      `https://api.github.com/users/${githubUsername}/gists?per_page=100`,
     );
+    if (gistsResponse.status === 403) {
+      console.warn("GitHub API rate limit exceeded while fetching gists.");
+    }
     if (gistsResponse.ok) {
       const gists = await gistsResponse.json();
       const resumeGist = gists.find(
@@ -179,7 +182,11 @@ async function getDynamicResume() {
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
           return { resumeData, githubUsername };
+        } else {
+          console.warn("Failed to fetch resume.json raw content:", resumeResponse.status);
         }
+      } else {
+        console.warn(`No gist named "resume.json" found for user "${githubUsername}".`);
       }
     }
   } catch (e) {
@@ -222,6 +229,7 @@ import {
 
 import {
   fetchGithubUserAvatar,
+  fetchGithubUserName,
   fetchAndMergeProjects,
   initializeLanguageColors,
 } from "./api.js";
@@ -580,7 +588,10 @@ export async function loadData(projectName) {
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
-    frag.appendChild(buildFooter(data?.basics?.name || githubUsername));
+
+    // Footer: prefer resume name, then GitHub full name, then username
+    const footerName = data?.basics?.name || (await fetchGithubUserName(githubUsername)) || githubUsername;
+    frag.appendChild(buildFooter(footerName));
     app.appendChild(frag);
     setupThemeToggle();
   } catch (e) {
