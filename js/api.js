@@ -8,27 +8,45 @@ export function extractGithubUsername(url) {
   return match ? match[1] : null;
 }
 
-export async function fetchGithubUserAvatar(username) {
+let githubUserCache = {};
+
+export async function fetchGithubUserProfile(username) {
+  if (githubUserCache[username]) return githubUserCache[username];
   try {
     const url = `https://api.github.com/users/${username}`;
+    console.log("[fetchGithubUserProfile] fetching:", url);
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[fetchGithubUserProfile] returned ${res.status} for ${username}`);
+      return null;
+    }
     const user = await res.json();
-    return user.avatar_url || null;
+    githubUserCache[username] = user;
+    return user;
   } catch (e) {
-    console.warn("Could not fetch GitHub user avatar:", e.message);
+    console.warn("[fetchGithubUserProfile] Could not fetch GitHub user profile:", e.message);
     return null;
   }
+}
+
+export async function fetchGithubUserAvatar(username) {
+  const user = await fetchGithubUserProfile(username);
+  return user?.avatar_url || null;
 }
 
 export async function fetchAndMergeProjects(manualProjects, githubUsername) {
   try {
     const url = `https://api.github.com/users/${githubUsername}/repos?type=public&sort=stars&per_page=100`;
+    console.log("[fetchAndMergeProjects] fetching repos:", url);
     const res = await fetch(url);
-    if (!res.ok) throw new Error("GitHub API error");
+    if (!res.ok) {
+      console.warn(`[fetchAndMergeProjects] GitHub API returned ${res.status} for ${githubUsername}`);
+      throw new Error("GitHub API error");
+    }
 
     let repos = await res.json();
     repos = repos.filter((repo) => !repo.fork);
+    console.log(`[fetchAndMergeProjects] found ${repos.length} non-fork repos`);
 
     const reposWithData = await Promise.all(
       repos.map(async (repo) => {
@@ -63,9 +81,11 @@ export async function fetchAndMergeProjects(manualProjects, githubUsername) {
       }),
     );
 
-    return [...(manualProjects || []), ...reposWithData];
+    const result = [...(manualProjects || []), ...reposWithData];
+    console.log(`[fetchAndMergeProjects] total ${result.length} projects (${manualProjects?.length || 0} manual + ${reposWithData.length} repos)`);
+    return result;
   } catch (e) {
-    console.warn("Could not fetch GitHub repos:", e.message);
+    console.warn("[fetchAndMergeProjects] Could not fetch GitHub repos:", e.message);
     return manualProjects || [];
   }
 }
@@ -165,6 +185,8 @@ function extractImages(readme, username, repoName, branch) {
       images.push(
         `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`,
       );
+    } else {
+      images.push(url);
     }
   }
 
