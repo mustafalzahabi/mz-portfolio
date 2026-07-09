@@ -11,10 +11,13 @@ let modelReady = false;
 let loadError = null;
 
 // ---------------------------------------------------------------------------
-// Model configuration — use a small, fully-public model
+// Model configuration — try in order, first one that works wins
 // ---------------------------------------------------------------------------
 
-const MODEL_ID = "Xenova/TinyLlama-1.1B-Chat-v1.0";
+const MODELS = [
+  { id: "Xenova/TinyLlama-1.1B-Chat-v1.0", dtypes: ["q8", "fp32"] },
+  { id: "Xenova/SmolLM-135M-Instruct", dtypes: ["q8", "fp32"] },
+];
 const CDN_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
 
 // ---------------------------------------------------------------------------
@@ -111,17 +114,17 @@ async function getTransformers() {
 }
 
 // ---------------------------------------------------------------------------
-// Try loading with a specific device and dtype
+// Try loading with a specific model, device, and dtype
 // ---------------------------------------------------------------------------
 
-async function tryLoad(device, dtype, onProgress) {
+async function tryLoad(modelId, device, dtype, onProgress) {
   const { pipeline, env } = await getTransformers();
   env.allowLocalModels = false;
   env.useBrowserCache = true;
 
   onProgress?.("downloading", 0);
 
-  return pipeline("text-generation", MODEL_ID, {
+  return pipeline("text-generation", modelId, {
     dtype,
     device,
     progress_callback: (progress) => {
@@ -135,7 +138,7 @@ async function tryLoad(device, dtype, onProgress) {
 }
 
 // ---------------------------------------------------------------------------
-// Model loading (device x dtype fallback chain)
+// Model loading (model -> device -> dtype fallback chain)
 // ---------------------------------------------------------------------------
 
 export async function loadModel(onProgress) {
@@ -146,7 +149,6 @@ export async function loadModel(onProgress) {
   modelLoading = true;
   loadError = null;
 
-  // Step 1: Check if Transformers.js can even be loaded
   try {
     await getTransformers();
   } catch (e) {
@@ -156,34 +158,34 @@ export async function loadModel(onProgress) {
     return false;
   }
 
-  // Step 2: Determine device order
   const gpuAvailable = await hasWebGPU();
   console.log("[slm] WebGPU available:", gpuAvailable);
   const devices = gpuAvailable ? ["webgpu", "wasm"] : ["wasm"];
 
-  // Step 3: Try each device + dtype combination
-  for (const device of devices) {
-    for (const dtype of ["q8", "fp32"]) {
-      try {
-        console.log(`[slm] Trying ${device} / ${dtype}`);
-        onProgress?.("loading", 0);
+  for (const model of MODELS) {
+    for (const device of devices) {
+      for (const dtype of model.dtypes) {
+        try {
+          console.log(`[slm] Trying ${model.id} / ${device} / ${dtype}`);
+          onProgress?.("loading", 0);
 
-        generator = await tryLoad(device, dtype, onProgress);
+          generator = await tryLoad(model.id, device, dtype, onProgress);
 
-        modelReady = true;
-        modelLoading = false;
-        loadError = null;
-        console.log(`[slm] Model loaded on ${device} / ${dtype}`);
-        return true;
-      } catch (e) {
-        console.warn(`[slm] ${device}/${dtype} failed:`, e.message);
-        loadError = `${device}/${dtype}: ${e.message}`;
+          modelReady = true;
+          modelLoading = false;
+          loadError = null;
+          console.log(`[slm] Loaded: ${model.id} / ${device} / ${dtype}`);
+          return true;
+        } catch (e) {
+          console.warn(`[slm] ${model.id}/${device}/${dtype} failed:`, e.message);
+          loadError = `${device}/${dtype}: ${e.message}`;
+        }
       }
     }
   }
 
   modelLoading = false;
-  console.error("[slm] All device/dtype combos failed. Last error:", loadError);
+  console.error("[slm] All combos failed. Last error:", loadError);
   return false;
 }
 
