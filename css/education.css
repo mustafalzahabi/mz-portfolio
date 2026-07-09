@@ -1,0 +1,40 @@
+/* ============================================================================
+   EDUCATION SECTION
+   ============================================================================ */
+
+.education-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.education-card {
+  background: var(--surface-color);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border-inline-start: 4px solid var(--accent-color);
+}
+
+.education-card h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-block-end: 0.5rem;
+}
+
+.education-card .institution {
+  color: var(--accent-color);
+  font-weight: 600;
+  margin-block-end: 0.5rem;
+}
+
+.education-card .dates {
+  color: var(--secondary-color);
+  font-size: 0.8125rem;
+  margin-block-end: 0.75rem;
+}
+
+.education-card .notes {
+  color: var(--secondary-color);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
