@@ -2,7 +2,7 @@
 // DOM BUILDERS
 // ============================================================================
 
-import { getContrastTextColor, markdownToHtml } from "./utils.js";
+import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
 
@@ -510,9 +510,6 @@ export function buildSlideshow(images) {
   img.className = "slideshow-img";
   img.src = images[0];
   img.alt = "Project screenshot 1";
-  img.onerror = () => {
-    container.style.display = "none";
-  };
 
   const counter = document.createElement("div");
   counter.className = "slideshow-counter";
@@ -574,7 +571,6 @@ export function buildSlideshow(images) {
     const thumbImg = document.createElement("img");
     thumbImg.src = src;
     thumbImg.alt = `Thumbnail ${i + 1}`;
-    thumbImg.onerror = () => (thumb.style.display = "none");
     thumb.appendChild(thumbImg);
     thumb.onclick = () => {
       if (i === currentIndex) return;
@@ -606,45 +602,7 @@ export function buildSlideshow(images) {
 // PROJECT DETAIL PAGE
 // ============================================================================
 
-function stripImagesFromMarkdown(md) {
-  if (!md) return "";
-  const lines = md.split("\n");
-  const result = [];
-  let inCodeBlock = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Toggle code block state
-    if (trimmed.startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
-      continue;
-    }
-
-    // Skip lines inside code blocks
-    if (inCodeBlock) continue;
-
-    // Skip image lines: ![...](...)
-    if (/^!\[.*?\]\(.*?\)/.test(trimmed)) continue;
-
-    // Skip HTML img tags
-    if (/^<img\s/i.test(trimmed)) continue;
-
-    // Skip inline code blocks: `code`
-    // Keep the line but strip inline code for readability
-    result.push(line);
-  }
-
-  return result.join("\n").trim();
-}
-
-function extractUsernameFromGithubUrl(url) {
-  if (!url) return null;
-  const match = url.match(/github\.com\/([^/]+)/);
-  return match ? match[1] : null;
-}
-
-export async function renderProjectDetail(project) {
+export function renderProjectDetail(project) {
   const app = document.getElementById("app");
   const frag = document.createDocumentFragment();
   const main = document.createElement("main");
@@ -726,38 +684,28 @@ export async function renderProjectDetail(project) {
     const img = document.createElement("img");
     img.src = project.image;
     img.alt = project.name;
-    img.onerror = () => (singleImg.style.display = "none");
     singleImg.appendChild(img);
     page.appendChild(singleImg);
-  } else if (project.isGitHubRepo) {
-    // Surface diagnostic so we can see why no images were extracted
-    window.__mzShowDebug?.({
-      project: project.name,
-      note: "No images extracted from README.",
-      github_link: project.github_link,
-      readmeLength: (project.fullReadme || "").length,
-    });
   }
 
   // -- Content grid --
   const contentGrid = document.createElement("div");
   contentGrid.className = "project-detail-content";
 
-  // Left: About + README (without images)
+  // Left: About + README
   const leftCol = document.createElement("div");
   leftCol.className = "project-detail-content-left";
 
-  const readmeText = project.fullReadme
-    ? stripImagesFromMarkdown(project.fullReadme)
-    : "";
-  if (readmeText) {
+  if (project.fullReadme) {
     const readmeSection = document.createElement("div");
     readmeSection.className = "project-detail-readme";
     const readmeTitle = document.createElement("h2");
     readmeTitle.textContent = "About This Project";
     const readmeContent = document.createElement("div");
     readmeContent.className = "project-detail-readme-content";
-    readmeContent.innerHTML = markdownToHtml(readmeText);
+    // Strip images from README (they're shown in the slideshow)
+    const simplified = stripImagesFromMarkdown(project.fullReadme);
+    readmeContent.innerHTML = markdownToHtml(simplified);
     readmeSection.append(readmeTitle, readmeContent);
     leftCol.appendChild(readmeSection);
   } else if (desc) {
@@ -872,25 +820,7 @@ export async function renderProjectDetail(project) {
 
   main.appendChild(page);
   frag.appendChild(main);
-
-  // Footer: fetch GitHub full name for the footer
-  const ghUsername = extractUsernameFromGithubUrl(project.github_link);
-  let footerName = "Portfolio";
-  if (ghUsername) {
-    try {
-      const res = await fetch(`https://api.github.com/users/${ghUsername}`);
-      if (res.ok) {
-        const user = await res.json();
-        footerName = user.name || ghUsername;
-      } else {
-        footerName = ghUsername;
-      }
-    } catch {
-      footerName = ghUsername;
-    }
-  }
-  frag.appendChild(buildFooter(footerName));
-
+  frag.appendChild(buildFooter());
   app.innerHTML = "";
   app.appendChild(frag);
   setupThemeToggle();

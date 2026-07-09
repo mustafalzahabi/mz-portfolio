@@ -20,6 +20,10 @@ export function getContrastTextColor(hexColor) {
   return luminance > 0.5 ? "#000000" : "#ffffff";
 }
 
+export function stripImagesFromMarkdown(markdown) {
+  return markdown.replace(/!\[.*?\]\(.*?\)/g, "");
+}
+
 // ============================================================================
 // MARKDOWN TO HTML CONVERTER
 // ============================================================================
