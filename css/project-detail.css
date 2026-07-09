@@ -1,0 +1,200 @@
+/* ============================================================================
+   PROJECT DETAIL PAGE
+   ============================================================================ */
+
+.project-detail-card {
+  background: var(--surface-color);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 32px 0 rgba(0,0,0,0.10);
+  padding: 2.5rem 2rem 2rem 2rem;
+  margin: 2.5rem auto;
+  max-width: 900px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.project-detail-back {
+  display: inline-block;
+  margin-block-start: 2rem;
+  margin-block-end: 1rem;
+  color: var(--accent-color);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.project-detail-back:hover {
+  text-decoration: underline;
+  color: var(--hover-color);
+}
+
+.project-detail-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-block-end: 1rem;
+  color: var(--primary-color);
+}
+
+.project-detail-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  margin-block: 2rem;
+}
+
+.project-detail-left {
+  flex: 0 0 45%;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.project-detail-image {
+  max-width: 320px;
+  width: 100%;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.08);
+  margin-bottom: 1.5rem;
+}
+
+.project-detail-right {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.project-detail-section {
+  background: var(--background-color);
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 8px 0 rgba(0,0,0,0.04);
+}
+
+.project-detail-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-block-end: 1rem;
+  color: var(--primary-color);
+}
+
+.project-detail-section p {
+  color: var(--secondary-color);
+  line-height: 1.8;
+}
+
+.project-detail-tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.project-detail-readme {
+  margin-block-start: 3rem;
+  padding-block-start: 2rem;
+  border-block-start: 1px solid var(--border-color);
+}
+
+.project-detail-readme h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-block-end: 1rem;
+  color: var(--primary-color);
+}
+
+.project-detail-readme-content {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.project-detail-readme-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-block-start: 2rem;
+  margin-block-end: 1rem;
+  color: var(--primary-color);
+}
+
+.project-detail-readme-content h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-block-start: 1.5rem;
+  margin-block-end: 0.75rem;
+  color: var(--primary-color);
+}
+
+.project-detail-readme-content h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-block-start: 1rem;
+  margin-block-end: 0.5rem;
+  color: var(--primary-color);
+}
+
+.project-detail-readme-content p {
+  margin-block-end: 1rem;
+}
+
+.project-detail-readme-content strong {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.project-detail-readme-content em {
+  font-style: italic;
+}
+
+.project-detail-readme-content code {
+  background: var(--surface-color);
+  color: var(--code-color);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-family-mono);
+  font-size: 0.8125rem;
+}
+
+.project-detail-readme-content pre {
+  background: var(--surface-color);
+  border-inline-start: 4px solid var(--accent-color);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-block: 1rem;
+  overflow-x: auto;
+}
+
+.project-detail-readme-content pre code {
+  background: none;
+  color: var(--primary-color);
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.project-detail-readme-content ul {
+  list-style-position: inside;
+  margin-block-end: 1rem;
+  margin-inline-start: 1rem;
+}
+
+.project-detail-readme-content li {
+  margin-block-end: 0.5rem;
+  line-height: 1.8;
+}
+
+.project-detail-readme-content a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.project-detail-readme-content a:hover {
+  text-decoration: underline;
+}
