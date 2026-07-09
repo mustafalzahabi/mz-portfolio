@@ -21,6 +21,18 @@ export async function fetchGithubUserAvatar(username) {
   }
 }
 
+export async function fetchGithubUserName(username) {
+  try {
+    const url = `https://api.github.com/users/${username}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const user = await res.json();
+    return user.name || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function fetchAndMergeProjects(manualProjects, githubUsername) {
   try {
     const url = `https://api.github.com/users/${githubUsername}/repos?type=public&sort=stars&per_page=100`;
@@ -55,7 +67,7 @@ export async function fetchAndMergeProjects(manualProjects, githubUsername) {
           allImages: readmeData?.allImages || [],
           readmeDescription: displayDescription,
           fullReadme: readmeData?.fullText || "",
-          live_link: repo.home || null,
+          live_link: repo.homepage || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
           isGitHubRepo: true,
@@ -156,7 +168,11 @@ function extractImages(readme, username, repoName, branch) {
 
   while ((match = imageRegex.exec(readme))) {
     const url = match[1];
-    if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      // Absolute URL - use as-is
+      images.push(url);
+    } else if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
+      // Relative path - resolve to raw GitHub URL
       const normalized = url.startsWith("./")
         ? url.slice(2)
         : url.startsWith("/")
