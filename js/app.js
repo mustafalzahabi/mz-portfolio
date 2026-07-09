@@ -481,6 +481,9 @@ export async function loadData(projectName) {
       injectCustomAccent(theme.accent);
     }
 
+    // Fetch GitHub profile early — used for title, header, and section fallbacks
+    const ghProfile = await fetchGithubUserProfile(githubUsername);
+
     document.title = data
       ? `${data.basics?.name || ghProfile?.name || githubUsername} - ${data.basics?.label || ""}`
       : `${ghProfile?.name || githubUsername} - Portfolio`;
@@ -506,9 +509,6 @@ export async function loadData(projectName) {
     if (!profilePhoto && githubUsername) {
       profilePhoto = await fetchGithubUserAvatar(githubUsername);
     }
-
-    // Fetch GitHub profile for display name and bio fallback
-    const ghProfile = await fetchGithubUserProfile(githubUsername);
 
     // Build header
     frag.appendChild(

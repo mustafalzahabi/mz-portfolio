@@ -21,7 +21,9 @@ export function getContrastTextColor(hexColor) {
 }
 
 export function stripImagesFromMarkdown(markdown) {
-  return markdown.replace(/!\[.*?\]\(.*?\)/g, "");
+  return markdown
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/<img\s+[^>]*>/gi, "");
 }
 
 // ============================================================================
