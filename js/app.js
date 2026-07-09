@@ -158,53 +158,51 @@ async function getDynamicResume() {
   }
 
   // 2. Determine the GitHub username from the path
-  let githubUsername = "";
-  const pathParts = window.location.pathname.split("/").filter(Boolean);
-  const isGitHubPages = window.location.hostname.endsWith(".github.io");
-  if (isGitHubPages) {
-    if (pathParts.length >= 2) {
-      githubUsername = pathParts[pathParts.length - 1];
-    }
-  } else {
-    if (pathParts.length >= 1) {
-      githubUsername = pathParts[pathParts.length - 1];
-    }
-  }
-
+  const githubUsername = getGithubUsername();
   if (!githubUsername) {
     return null;
   }
 
-  // 3. Fetch the user's gists list from the GitHub API
-  const gistsResponse = await fetch(
-    `https://api.github.com/users/${githubUsername}/gists`,
-  );
-  if (gistsResponse.status === 403) {
-    throw new Error("GitHub API rate limit exceeded. Please try again later.");
-  }
-  if (!gistsResponse.ok) {
-    throw new Error(`GitHub user "${githubUsername}" not found.`);
-  }
-  const gists = await gistsResponse.json();
-
-  // 4. Scan the gists for a file called 'resume.json'
-  const resumeGist = gists.find(
-    (gist) => gist.files && gist.files["resume.json"],
-  );
-  if (!resumeGist) {
-    throw new Error(
-      `User "${githubUsername}" does not have a public gist named 'resume.json'.`,
+  // 3. Try to fetch resume.json from gists (optional)
+  try {
+    const gistsResponse = await fetch(
+      `https://api.github.com/users/${githubUsername}/gists`,
     );
+    if (gistsResponse.ok) {
+      const gists = await gistsResponse.json();
+      const resumeGist = gists.find(
+        (gist) => gist.files && gist.files["resume.json"],
+      );
+      if (resumeGist) {
+        const rawUrl = resumeGist.files["resume.json"].raw_url;
+        const resumeResponse = await fetch(rawUrl);
+        if (resumeResponse.ok) {
+          const resumeData = await resumeResponse.json();
+          return { resumeData, githubUsername };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch resume.json:", e.message);
   }
 
-  // 5. Fetch the raw JSON from that gist file
-  const rawUrl = resumeGist.files["resume.json"].raw_url;
-  const resumeResponse = await fetch(rawUrl);
-  if (!resumeResponse.ok) {
-    throw new Error("Could not fetch resume.json from gist.");
+  // 4. No resume.json found - return just the username so GitHub repos can be used
+  return { resumeData: null, githubUsername };
+}
+
+function getGithubUsername() {
+  const pathParts = window.location.pathname.split("/").filter(Boolean);
+  const isGitHubPages = window.location.hostname.endsWith(".github.io");
+  if (isGitHubPages) {
+    if (pathParts.length >= 2) {
+      return pathParts[pathParts.length - 1];
+    }
+  } else {
+    if (pathParts.length >= 1) {
+      return pathParts[pathParts.length - 1];
+    }
   }
-  const resumeData = await resumeResponse.json();
-  return { resumeData, githubUsername };
+  return "";
 }
 
 // Import component builders
@@ -310,9 +308,9 @@ function handleRoute() {
 
     if (project) {
       currentPage = "project-detail";
-      renderProjectDetail(project, allProjectsData);
+      renderProjectDetail(project);
     } else {
-      loadDataThenRoute();
+      loadDataThenRoute(projectName);
     }
   } else {
     currentPage = "home";
@@ -320,27 +318,10 @@ function handleRoute() {
   }
 }
 
-async function loadDataThenRoute() {
-  showLoading();
-
+async function loadDataThenRoute(projectName) {
   try {
-    const result = await getDynamicResume();
-    if (!result) {
-      showLandingPage();
-      return;
-    }
-    const { resumeData: data, githubUsername } = result;
-    const resumeProjects = (data.projects || []).map((proj) => ({
-      name: proj.name,
-      description: proj.description,
-      technologies: proj.keywords || [],
-      github_link: proj.url || "",
-      live_link: proj.demo || "",
-      image: proj.image || "",
-    }));
-
-    allProjectsData = resumeProjects;
-    handleRoute();
+    // Try to load the full portfolio data (includes GitHub repos)
+    await loadData(projectName);
   } catch (e) {
     console.error(e);
     showError(e.message || "Could not load portfolio data.");
@@ -351,7 +332,7 @@ async function loadDataThenRoute() {
 // MAIN LOAD DATA
 // ============================================================================
 
-export async function loadData() {
+export async function loadData(projectName) {
   showLoading();
   try {
     const result = await getDynamicResume();
@@ -364,15 +345,28 @@ export async function loadData() {
 
     const { resumeData: data, githubUsername } = result;
 
-    // --- Customization Section ---
-    let custom = {};
-    if (data.meta && data.meta["mz-portfolio-config"]) {
-      if (Array.isArray(data.meta["mz-portfolio-config"])) {
-        custom = data.meta["mz-portfolio-config"][0] || {};
-      } else {
-        custom = data.meta["mz-portfolio-config"];
+    // If navigating directly to a project, fetch full data and render
+    if (projectName) {
+      const mergedProjects = await fetchAndMergeProjects(
+        data?.projects,
+        githubUsername,
+      );
+      allProjectsData = mergedProjects;
+      const project = mergedProjects.find((p) => p.name === projectName);
+      if (project) {
+        currentPage = "project-detail";
+        renderProjectDetail(project);
+        return;
       }
+      // Project not found, fall through to normal load
     }
+
+    // --- Customization Section (only if resume.json exists) ---
+    const custom = data?.meta?.["mz-portfolio-config"]
+      ? Array.isArray(data.meta["mz-portfolio-config"])
+        ? data.meta["mz-portfolio-config"][0] || {}
+        : data.meta["mz-portfolio-config"]
+      : {};
     const theme = custom.theme || {};
     const text = custom.text || {};
     const profileCfg = custom.profile || {};
@@ -413,7 +407,9 @@ export async function loadData() {
       injectCustomAccent(theme.accent);
     }
 
-    document.title = `${data.basics?.name || githubUsername} - ${data.basics?.label || ""}`;
+    document.title = data
+      ? `${data.basics?.name || githubUsername} - ${data.basics?.label || ""}`
+      : `${githubUsername} - Portfolio`;
     setupMetaTags();
 
     const app = document.getElementById("app");
@@ -424,49 +420,43 @@ export async function loadData() {
 
     // Profile photo selection order
     let profilePhoto = "";
-    let photoSource = "";
     if (profileCfg.photo) {
       if (profileCfg.photo === "gh" || profileCfg.photo === "github") {
         profilePhoto = await fetchGithubUserAvatar(githubUsername);
-        photoSource = "github";
       } else {
         profilePhoto = profileCfg.photo;
-        photoSource = "custom";
       }
     }
-    if (!profilePhoto && data.basics?.image) {
+    if (!profilePhoto && data?.basics?.image) {
       profilePhoto = data.basics.image;
-      photoSource = "resume";
     }
     if (!profilePhoto && githubUsername) {
       profilePhoto = await fetchGithubUserAvatar(githubUsername);
-      photoSource = "github";
     }
-    if (!profilePhoto) photoSource = "none";
 
     // Build header
     frag.appendChild(
       buildHeader(
         {
-          name: data.basics?.name || githubUsername,
-          title: data.basics?.label || "",
+          name: data?.basics?.name || githubUsername,
+          title: data?.basics?.label || "",
           tagline: text.tagline ?? "",
           photo: profilePhoto,
           photoShape: profileCfg.photoShape || "circle",
           cv_link:
-            (data.basics?.profiles || []).find(
+            (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "cv",
             )?.url || "",
           cta: text.cta ?? "",
         },
         {
-          email: data.basics?.email || "",
+          email: data?.basics?.email || "",
           github:
-            (data.basics?.profiles || []).find(
+            (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "github",
             )?.url || "",
           linkedin:
-            (data.basics?.profiles || []).find(
+            (data?.basics?.profiles || []).find(
               (p) => p.network?.toLowerCase() === "linkedin",
             )?.url || "",
         },
@@ -493,7 +483,7 @@ export async function loadData() {
 
     // Section data
     const mergedProjects = await fetchAndMergeProjects(
-      data.projects,
+      data?.projects,
       githubUsername,
     );
     const sectionData = {
@@ -503,13 +493,13 @@ export async function loadData() {
               bio: text.bio ?? "",
               philosophy: text.philosophy ?? "",
               cv_link:
-                (data.basics?.profiles || []).find(
+                (data?.basics?.profiles || []).find(
                   (p) => p.network?.toLowerCase() === "cv",
                 )?.url || "",
             }
           : null,
       education:
-        data.education && data.education.length
+        data?.education && data.education.length
           ? (data.education || []).map((edu) => ({
               degree: edu.studyType + (edu.area ? " in " + edu.area : ""),
               institution: edu.institution,
@@ -528,10 +518,15 @@ export async function loadData() {
               github_link: proj.github_link || proj.url || "",
               live_link: proj.live_link || proj.demo || "",
               image: proj.image || "",
+              allImages: proj.allImages || [],
+              readmeDescription: proj.readmeDescription || "",
+              fullReadme: proj.fullReadme || "",
+              stars: proj.stars ?? null,
+              isGitHubRepo: proj.isGitHubRepo || false,
             }))
           : null,
       skills:
-        data.skills && data.skills.length
+        data?.skills && data.skills.length
           ? (data.skills || []).map((skill) => ({
               category: skill.name,
               items: skill.keywords || [],
@@ -539,32 +534,31 @@ export async function loadData() {
           : null,
       contact:
         text.contact_message ||
-        data.basics?.email ||
-        (data.basics?.profiles || []).find(
+        data?.basics?.email ||
+        (data?.basics?.profiles || []).find(
           (p) => p.network?.toLowerCase() === "github",
         )?.url ||
-        (data.basics?.profiles || []).find(
+        (data?.basics?.profiles || []).find(
           (p) => p.network?.toLowerCase() === "linkedin",
         )?.url
           ? {
               message: text.contact_message ?? "",
-              email: data.basics?.email || "",
+              email: data?.basics?.email || "",
               github:
-                (data.basics?.profiles || []).find(
+                (data?.basics?.profiles || []).find(
                   (p) => p.network?.toLowerCase() === "github",
                 )?.url || "",
               linkedin:
-                (data.basics?.profiles || []).find(
+                (data?.basics?.profiles || []).find(
                   (p) => p.network?.toLowerCase() === "linkedin",
                 )?.url || "",
             }
           : null,
     };
 
-    // Store projects for routing
-    const projectsForRouting = sectionData.projects || [];
-    allProjectsData = projectsForRouting;
-    setProjectsDataRef(projectsForRouting);
+    // Store full project data for routing (with all fields)
+    allProjectsData = mergedProjects || [];
+    setProjectsDataRef(sectionData.projects || []);
 
     // Create sections container
     const sections = document.createElement("div");
@@ -586,7 +580,7 @@ export async function loadData() {
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
-    frag.appendChild(buildFooter(data.basics?.name || githubUsername));
+    frag.appendChild(buildFooter(data?.basics?.name || githubUsername));
     app.appendChild(frag);
     setupThemeToggle();
   } catch (e) {

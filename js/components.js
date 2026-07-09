@@ -2,7 +2,7 @@
 // DOM BUILDERS
 // ============================================================================
 
-import { getContrastTextColor } from "./utils.js";
+import { getContrastTextColor, markdownToHtml } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
 
@@ -493,75 +493,112 @@ function createTextBlock(title, text) {
 }
 
 // ============================================================================
-// SLIDESHOW
+// SLIDESHOW (with thumbnails)
 // ============================================================================
 
 export function buildSlideshow(images) {
   const container = document.createElement("div");
-  container.className = "slideshow-container";
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "slideshow-wrapper";
+  container.className = "slideshow";
 
   let currentIndex = 0;
+
+  // Main image area
+  const mainArea = document.createElement("div");
+  mainArea.className = "slideshow-main";
 
   const img = document.createElement("img");
   img.className = "slideshow-img";
   img.src = images[0];
-  img.alt = "Project screenshot";
-  img.onerror = () => (img.style.display = "none");
+  img.alt = "Project screenshot 1";
+  img.onerror = () => {
+    img.style.display = "none";
+  };
 
   const counter = document.createElement("div");
   counter.className = "slideshow-counter";
-  counter.textContent = `${currentIndex + 1}/${images.length}`;
+  counter.textContent = `1 / ${images.length}`;
 
-  wrapper.append(img, counter);
+  mainArea.append(img, counter);
 
+  // Navigation buttons
   if (images.length > 1) {
-    const animateSlide = (direction, onClick) => {
-      const outClass =
-        direction === "next" ? "slide-out-left" : "slide-out-right";
-      const inClass = direction === "next" ? "slide-in-right" : "slide-in-left";
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "slideshow-nav-btn slideshow-prev";
+    prevBtn.innerHTML = "&#10094;";
+    prevBtn.setAttribute("aria-label", "Previous image");
 
-      img.classList.add(outClass);
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "slideshow-nav-btn slideshow-next";
+    nextBtn.innerHTML = "&#10095;";
+    nextBtn.setAttribute("aria-label", "Next image");
 
+    mainArea.append(prevBtn, nextBtn);
+
+    const goTo = (newIndex) => {
+      if (newIndex === currentIndex) return;
+      img.classList.add("slideshow-fade-out");
       setTimeout(() => {
-        img.classList.remove(outClass, inClass);
-        onClick();
+        currentIndex = newIndex;
         img.src = images[currentIndex];
-        counter.textContent = `${currentIndex + 1}/${images.length}`;
-        void img.offsetWidth;
-        img.classList.add(inClass);
-      }, 400);
+        img.alt = `Project screenshot ${currentIndex + 1}`;
+        counter.textContent = `${currentIndex + 1} / ${images.length}`;
+        updateThumbnails();
+        img.classList.remove("slideshow-fade-out");
+        img.classList.add("slideshow-fade-in");
+        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
+      }, 200);
     };
 
-    const createBtn = (text, direction, onClick) => {
-      const btn = document.createElement("button");
-      btn.className = "slideshow-btn";
-      btn.textContent = text;
-      btn.onmouseover = () => (btn.style.background = "rgba(0,0,0,0.7)");
-      btn.onmouseout = () => (btn.style.background = "rgba(0,0,0,0.5)");
-      btn.onclick = () => animateSlide(direction, onClick);
-      return btn;
-    };
+    prevBtn.onclick = () =>
+      goTo((currentIndex - 1 + images.length) % images.length);
+    nextBtn.onclick = () =>
+      goTo((currentIndex + 1) % images.length);
 
-    const prevBtn = createBtn("\u25C0", "prev", () => {
-      currentIndex = (currentIndex - 1 + images.length) % images.length;
+    // Keyboard navigation
+    container.tabIndex = 0;
+    container.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft")
+        goTo((currentIndex - 1 + images.length) % images.length);
+      if (e.key === "ArrowRight")
+        goTo((currentIndex + 1) % images.length);
     });
-    prevBtn.style.left = "16px";
-
-    const nextBtn = createBtn("\u25B6", "next", () => {
-      currentIndex = (currentIndex + 1) % images.length;
-    });
-    nextBtn.style.right = "16px";
-
-    const buttons = document.createElement("div");
-    buttons.className = "slideshow-buttons";
-    buttons.append(prevBtn, nextBtn);
-    wrapper.appendChild(buttons);
   }
 
-  container.appendChild(wrapper);
+  // Thumbnail strip
+  const thumbs = document.createElement("div");
+  thumbs.className = "slideshow-thumbs";
+
+  const thumbEls = images.map((src, i) => {
+    const thumb = document.createElement("button");
+    thumb.className = "slideshow-thumb" + (i === 0 ? " active" : "");
+    const thumbImg = document.createElement("img");
+    thumbImg.src = src;
+    thumbImg.alt = `Thumbnail ${i + 1}`;
+    thumbImg.onerror = () => (thumb.style.display = "none");
+    thumb.appendChild(thumbImg);
+    thumb.onclick = () => {
+      if (i === currentIndex) return;
+      img.classList.add("slideshow-fade-out");
+      setTimeout(() => {
+        currentIndex = i;
+        img.src = images[currentIndex];
+        img.alt = `Project screenshot ${currentIndex + 1}`;
+        counter.textContent = `${currentIndex + 1} / ${images.length}`;
+        updateThumbnails();
+        img.classList.remove("slideshow-fade-out");
+        img.classList.add("slideshow-fade-in");
+        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
+      }, 200);
+    };
+    return thumb;
+  });
+
+  function updateThumbnails() {
+    thumbEls.forEach((t, i) => t.classList.toggle("active", i === currentIndex));
+  }
+
+  thumbs.append(...thumbEls);
+  container.append(mainArea, thumbs);
   return container;
 }
 
@@ -569,79 +606,135 @@ export function buildSlideshow(images) {
 // PROJECT DETAIL PAGE
 // ============================================================================
 
-export function renderProjectDetail(project, allProjectsData) {
+export function renderProjectDetail(project) {
   const app = document.getElementById("app");
   const frag = document.createDocumentFragment();
   const main = document.createElement("main");
   main.appendChild(buildNavbar());
 
-  const card = document.createElement("div");
-  card.className = "project-detail-card";
+  const page = document.createElement("div");
+  page.className = "project-detail";
 
-  // Back button
+  // -- Back button --
   const backBtn = document.createElement("a");
   backBtn.href = "#";
   backBtn.className = "project-detail-back";
   backBtn.textContent = "\u2190 Back to Projects";
-  card.appendChild(backBtn);
+  page.appendChild(backBtn);
 
-  // Title and links
-  const h1 = document.createElement("h1");
-  h1.className = "project-detail-title";
-  h1.textContent = project.name;
-  card.appendChild(h1);
+  // -- Project header --
+  const header = document.createElement("div");
+  header.className = "project-detail-header";
 
-  const links = document.createElement("div");
-  links.className = "project-links";
-  if (project.live_link) {
-    const a = document.createElement("a");
-    a.href = project.live_link;
-    a.target = "_blank";
-    a.textContent = "\uD83D\uDD17 Live Demo";
-    links.appendChild(a);
+  const title = document.createElement("h1");
+  title.className = "project-detail-title";
+  title.textContent = project.name;
+  header.appendChild(title);
+
+  const desc =
+    project.readmeDescription || project.description || "";
+  if (desc) {
+    const subtitle = document.createElement("p");
+    subtitle.className = "project-detail-subtitle";
+    subtitle.textContent = desc;
+    header.appendChild(subtitle);
   }
-  const ghLink = document.createElement("a");
-  ghLink.href = project.github_link;
-  ghLink.target = "_blank";
-  ghLink.textContent = "\uD83D\uDC19 GitHub";
-  links.appendChild(ghLink);
-  card.appendChild(links);
 
-  // Responsive flex container: slideshow left, about/tech right
-  const container = document.createElement("div");
-  container.className = "project-detail-container";
+  // Badges row
+  const badges = document.createElement("div");
+  badges.className = "project-detail-badges";
+  if (project.stars != null && project.stars > 0) {
+    const starBadge = document.createElement("span");
+    starBadge.className = "project-detail-badge";
+    starBadge.textContent = `\u2B50 ${project.stars}`;
+    badges.appendChild(starBadge);
+  }
+  if (project.isGitHubRepo) {
+    const repoBadge = document.createElement("span");
+    repoBadge.className = "project-detail-badge";
+    repoBadge.textContent = "Public Repo";
+    badges.appendChild(repoBadge);
+  }
+  if (badges.children.length > 0) header.appendChild(badges);
 
-  // Left: Slideshow or image
-  const leftCol = document.createElement("div");
-  leftCol.className = "project-detail-left";
-  if (project.allImages && project.allImages.length > 0) {
-    leftCol.appendChild(buildSlideshow(project.allImages));
+  // Action buttons
+  const actions = document.createElement("div");
+  actions.className = "project-detail-actions";
+  if (project.live_link) {
+    const liveBtn = document.createElement("a");
+    liveBtn.href = project.live_link;
+    liveBtn.target = "_blank";
+    liveBtn.className = "project-detail-btn primary";
+    liveBtn.innerHTML = "\uD83D\uDD17 Live Demo";
+    actions.appendChild(liveBtn);
+  }
+  const ghBtn = document.createElement("a");
+  ghBtn.href = project.github_link;
+  ghBtn.target = "_blank";
+  ghBtn.className = "project-detail-btn secondary";
+  ghBtn.innerHTML = "\uD83D\uDC19 View on GitHub";
+  actions.appendChild(ghBtn);
+  if (actions.children.length > 0) header.appendChild(actions);
+
+  page.appendChild(header);
+
+  // -- Image gallery --
+  const allImages = project.allImages || [];
+  if (allImages.length > 0) {
+    page.appendChild(buildSlideshow(allImages));
   } else if (project.image) {
+    const singleImg = document.createElement("div");
+    singleImg.className = "project-detail-single-image";
     const img = document.createElement("img");
     img.src = project.image;
     img.alt = project.name;
-    img.className = "project-detail-image";
-    leftCol.appendChild(img);
+    img.onerror = () => (singleImg.style.display = "none");
+    singleImg.appendChild(img);
+    page.appendChild(singleImg);
   }
 
-  // Right: About + Technologies
-  const rightCol = document.createElement("div");
-  rightCol.className = "project-detail-right";
-  if (project.readmeDescription || project.description) {
-    const desc = document.createElement("div");
-    desc.className = "project-detail-section";
-    const h2 = document.createElement("h2");
-    h2.textContent = "About";
+  // -- Content grid --
+  const contentGrid = document.createElement("div");
+  contentGrid.className = "project-detail-content";
+
+  // Left: About + README
+  const leftCol = document.createElement("div");
+  leftCol.className = "project-detail-content-left";
+
+  if (project.fullReadme) {
+    const readmeSection = document.createElement("div");
+    readmeSection.className = "project-detail-readme";
+    const readmeTitle = document.createElement("h2");
+    readmeTitle.textContent = "About This Project";
+    const readmeContent = document.createElement("div");
+    readmeContent.className = "project-detail-readme-content";
+    readmeContent.innerHTML = markdownToHtml(project.fullReadme);
+    readmeSection.append(readmeTitle, readmeContent);
+    leftCol.appendChild(readmeSection);
+  } else if (desc) {
+    const aboutSection = document.createElement("div");
+    aboutSection.className = "project-detail-readme";
+    const aboutTitle = document.createElement("h2");
+    aboutTitle.textContent = "About This Project";
+    const aboutText = document.createElement("div");
+    aboutText.className = "project-detail-readme-content";
     const p = document.createElement("p");
-    p.textContent = project.readmeDescription || project.description;
-    desc.append(h2, p);
-    rightCol.appendChild(desc);
+    p.textContent = desc;
+    aboutText.appendChild(p);
+    aboutSection.append(aboutTitle, aboutText);
+    leftCol.appendChild(aboutSection);
   }
+
+  // Right: Technologies + Quick Links + Stats
+  const rightCol = document.createElement("div");
+  rightCol.className = "project-detail-content-right";
+
+  // Technologies
   if (project.technologies?.length > 0) {
-    const tech = document.createElement("div");
-    tech.className = "project-detail-section";
-    const h2 = document.createElement("h2");
-    h2.textContent = "Technologies";
+    const techSection = document.createElement("div");
+    techSection.className = "project-detail-info-card";
+    const techTitle = document.createElement("h3");
+    techTitle.textContent = "Technologies";
     const tags = document.createElement("div");
     tags.className = "project-detail-tech";
     project.technologies.forEach((t) => {
@@ -655,26 +748,80 @@ export function renderProjectDetail(project, allProjectsData) {
       }
       tags.appendChild(tag);
     });
-    tech.append(h2, tags);
-    rightCol.appendChild(tech);
-  }
-  container.append(leftCol, rightCol);
-  card.appendChild(container);
-
-  // Full-width README section below
-  if (project.fullReadme) {
-    const readmeSection = document.createElement("section");
-    readmeSection.className = "project-detail-readme";
-    const readmeTitle = document.createElement("h2");
-    readmeTitle.textContent = "README";
-    const readmeContent = document.createElement("div");
-    readmeContent.className = "project-detail-readme-content";
-    readmeContent.innerHTML = markdownToHtml(project.fullReadme);
-    readmeSection.append(readmeTitle, readmeContent);
-    card.appendChild(readmeSection);
+    techSection.append(techTitle, tags);
+    rightCol.appendChild(techSection);
   }
 
-  main.appendChild(card);
+  // Quick Links
+  const hasLinks =
+    project.github_link || project.live_link;
+  if (hasLinks) {
+    const linksSection = document.createElement("div");
+    linksSection.className = "project-detail-info-card";
+    const linksTitle = document.createElement("h3");
+    linksTitle.textContent = "Quick Links";
+    const linksList = document.createElement("div");
+    linksList.className = "project-detail-links";
+    if (project.github_link) {
+      const ghLink = document.createElement("a");
+      ghLink.href = project.github_link;
+      ghLink.target = "_blank";
+      ghLink.className = "project-detail-link-item";
+      ghLink.innerHTML = "\uD83D\uDCC1 Repository";
+      linksList.appendChild(ghLink);
+    }
+    if (project.live_link) {
+      const liveLink = document.createElement("a");
+      liveLink.href = project.live_link;
+      liveLink.target = "_blank";
+      liveLink.className = "project-detail-link-item";
+      liveLink.innerHTML = "\uD83C\uDF10 Live Demo";
+      linksList.appendChild(liveLink);
+    }
+    linksSection.append(linksTitle, linksList);
+    rightCol.appendChild(linksSection);
+  }
+
+  // Stats
+  if (project.stars != null || project.technologies?.length > 0) {
+    const statsSection = document.createElement("div");
+    statsSection.className = "project-detail-info-card";
+    const statsTitle = document.createElement("h3");
+    statsTitle.textContent = "Stats";
+    const statsGrid = document.createElement("div");
+    statsGrid.className = "project-detail-stats";
+    if (project.stars != null) {
+      const statItem = document.createElement("div");
+      statItem.className = "project-detail-stat";
+      const statValue = document.createElement("div");
+      statValue.className = "project-detail-stat-value";
+      statValue.textContent = project.stars;
+      const statLabel = document.createElement("div");
+      statLabel.className = "project-detail-stat-label";
+      statLabel.textContent = "Stars";
+      statItem.append(statValue, statLabel);
+      statsGrid.appendChild(statItem);
+    }
+    if (project.technologies?.length > 0) {
+      const statItem = document.createElement("div");
+      statItem.className = "project-detail-stat";
+      const statValue = document.createElement("div");
+      statValue.className = "project-detail-stat-value";
+      statValue.textContent = project.technologies.length;
+      const statLabel = document.createElement("div");
+      statLabel.className = "project-detail-stat-label";
+      statLabel.textContent = "Technologies";
+      statItem.append(statValue, statLabel);
+      statsGrid.appendChild(statItem);
+    }
+    statsSection.append(statsTitle, statsGrid);
+    rightCol.appendChild(statsSection);
+  }
+
+  contentGrid.append(leftCol, rightCol);
+  page.appendChild(contentGrid);
+
+  main.appendChild(page);
   frag.appendChild(main);
   frag.appendChild(buildFooter());
   app.innerHTML = "";
