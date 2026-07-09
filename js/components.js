@@ -5,7 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { loadModel, chat, isModelReady } from "./slm.js";
+import { loadModel, chat, isModelReady, getModelError } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -655,7 +655,9 @@ export function buildChatBubble(displayName) {
         } else {
           statusEl.textContent = "Offline";
           input.placeholder = "Model unavailable";
-          addMessage("bot", "AI model could not load. Your browser may not support WebGPU.");
+          const err = getModelError();
+          console.error("[chat] Model load error:", err);
+          addMessage("bot", `AI model could not load. ${err || "Check console for details."}`);
         }
       });
     }
@@ -709,101 +711,124 @@ export function buildSlideshow(images) {
   const container = document.createElement("div");
   container.className = "slideshow";
 
-  let currentIndex = 0;
-
   // Main image area
   const mainArea = document.createElement("div");
   mainArea.className = "slideshow-main";
 
   const img = document.createElement("img");
   img.className = "slideshow-img";
-  img.src = images[0];
-  img.alt = "Project screenshot 1";
 
   const counter = document.createElement("div");
   counter.className = "slideshow-counter";
-  counter.textContent = `1 / ${images.length}`;
 
-  mainArea.append(img, counter);
+  const placeholder = document.createElement("div");
+  placeholder.className = "slideshow-placeholder";
+  placeholder.textContent = "No images available";
 
-  // Navigation buttons
-  if (images.length > 1) {
-    const prevBtn = document.createElement("button");
-    prevBtn.className = "slideshow-nav-btn slideshow-prev";
-    prevBtn.innerHTML = "&#10094;";
-    prevBtn.setAttribute("aria-label", "Previous image");
+  mainArea.append(img, counter, placeholder);
 
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "slideshow-nav-btn slideshow-next";
-    nextBtn.innerHTML = "&#10095;";
-    nextBtn.setAttribute("aria-label", "Next image");
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "slideshow-nav-btn slideshow-prev";
+  prevBtn.innerHTML = "&#10094;";
+  prevBtn.setAttribute("aria-label", "Previous image");
 
-    mainArea.append(prevBtn, nextBtn);
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "slideshow-nav-btn slideshow-next";
+  nextBtn.innerHTML = "&#10095;";
+  nextBtn.setAttribute("aria-label", "Next image");
 
-    const goTo = (newIndex) => {
-      if (newIndex === currentIndex) return;
-      img.classList.add("slideshow-fade-out");
-      setTimeout(() => {
-        currentIndex = newIndex;
-        img.src = images[currentIndex];
-        img.alt = `Project screenshot ${currentIndex + 1}`;
-        counter.textContent = `${currentIndex + 1} / ${images.length}`;
-        updateThumbnails();
-        img.classList.remove("slideshow-fade-out");
-        img.classList.add("slideshow-fade-in");
-        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
-      }, 200);
-    };
-
-    prevBtn.onclick = () =>
-      goTo((currentIndex - 1 + images.length) % images.length);
-    nextBtn.onclick = () =>
-      goTo((currentIndex + 1) % images.length);
-
-    // Keyboard navigation
-    container.tabIndex = 0;
-    container.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft")
-        goTo((currentIndex - 1 + images.length) % images.length);
-      if (e.key === "ArrowRight")
-        goTo((currentIndex + 1) % images.length);
-    });
-  }
-
-  // Thumbnail strip
   const thumbs = document.createElement("div");
   thumbs.className = "slideshow-thumbs";
 
-  const thumbEls = images.map((src, i) => {
-    const thumb = document.createElement("button");
-    thumb.className = "slideshow-thumb" + (i === 0 ? " active" : "");
-    const thumbImg = document.createElement("img");
-    thumbImg.src = src;
-    thumbImg.alt = `Thumbnail ${i + 1}`;
-    thumb.appendChild(thumbImg);
-    thumb.onclick = () => {
-      if (i === currentIndex) return;
-      img.classList.add("slideshow-fade-out");
-      setTimeout(() => {
-        currentIndex = i;
-        img.src = images[currentIndex];
-        img.alt = `Project screenshot ${currentIndex + 1}`;
-        counter.textContent = `${currentIndex + 1} / ${images.length}`;
-        updateThumbnails();
-        img.classList.remove("slideshow-fade-out");
-        img.classList.add("slideshow-fade-in");
-        setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
-      }, 200);
-    };
-    return thumb;
-  });
+  let validImages = [];
+  let currentIndex = 0;
+  let thumbEls = [];
 
-  function updateThumbnails() {
+  function updateView() {
+    if (validImages.length === 0) {
+      img.style.display = "none";
+      counter.style.display = "none";
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+      thumbs.style.display = "none";
+      placeholder.style.display = "";
+      return;
+    }
+
+    placeholder.style.display = "none";
+    img.style.display = "";
+    counter.style.display = validImages.length > 1 ? "" : "none";
+    prevBtn.style.display = validImages.length > 1 ? "" : "none";
+    nextBtn.style.display = validImages.length > 1 ? "" : "none";
+    thumbs.style.display = validImages.length > 1 ? "" : "none";
+
+    img.src = validImages[currentIndex];
+    img.alt = `Project screenshot ${currentIndex + 1}`;
+    counter.textContent = `${currentIndex + 1} / ${validImages.length}`;
     thumbEls.forEach((t, i) => t.classList.toggle("active", i === currentIndex));
   }
 
-  thumbs.append(...thumbEls);
+  function goTo(newIndex) {
+    if (newIndex === currentIndex || validImages.length === 0) return;
+    img.classList.add("slideshow-fade-out");
+    setTimeout(() => {
+      currentIndex = newIndex;
+      updateView();
+      img.classList.remove("slideshow-fade-out");
+      img.classList.add("slideshow-fade-in");
+      setTimeout(() => img.classList.remove("slideshow-fade-in"), 300);
+    }, 200);
+  }
+
+  prevBtn.onclick = () =>
+    goTo((currentIndex - 1 + validImages.length) % validImages.length);
+  nextBtn.onclick = () =>
+    goTo((currentIndex + 1) % validImages.length);
+
+  container.tabIndex = 0;
+  container.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft")
+      goTo((currentIndex - 1 + validImages.length) % validImages.length);
+    if (e.key === "ArrowRight")
+      goTo((currentIndex + 1) % validImages.length);
+  });
+
+  mainArea.append(prevBtn, nextBtn);
   container.append(mainArea, thumbs);
+
+  // Preload images and filter out broken ones
+  Promise.all(
+    images.map(
+      (url) =>
+        new Promise((resolve) => {
+          const testImg = new Image();
+          testImg.onload = () => resolve({ url, ok: true });
+          testImg.onerror = () => {
+            console.warn("[slideshow] Broken image:", url);
+            resolve({ url, ok: false });
+          };
+          testImg.src = url;
+        }),
+    ),
+  ).then((results) => {
+    validImages = results.filter((r) => r.ok).map((r) => r.url);
+
+    // Build thumbnails
+    thumbEls = validImages.map((src, i) => {
+      const thumb = document.createElement("button");
+      thumb.className = "slideshow-thumb" + (i === 0 ? " active" : "");
+      const thumbImg = document.createElement("img");
+      thumbImg.src = src;
+      thumbImg.alt = `Thumbnail ${i + 1}`;
+      thumb.appendChild(thumbImg);
+      thumb.onclick = () => goTo(i);
+      return thumb;
+    });
+
+    thumbs.append(...thumbEls);
+    updateView();
+  });
+
   return container;
 }
 
