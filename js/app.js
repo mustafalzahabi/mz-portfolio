@@ -159,15 +159,17 @@ async function getDynamicResume() {
 
   // 2. Determine the GitHub username from the path
   const githubUsername = getGithubUsername();
+  console.log("[getDynamicResume] extracted username:", githubUsername);
   if (!githubUsername) {
     return null;
   }
 
   // 3. Try to fetch resume.json from gists (optional)
   try {
-    const gistsResponse = await fetch(
-      `https://api.github.com/users/${githubUsername}/gists`,
-    );
+    const gistUrl = `https://api.github.com/users/${githubUsername}/gists`;
+    console.log("[getDynamicResume] fetching gists:", gistUrl);
+    const gistsResponse = await fetch(gistUrl);
+    console.log("[getDynamicResume] gist response status:", gistsResponse.status);
     if (gistsResponse.status === 403) {
       console.warn(
         "GitHub API rate limit exceeded. Resume data may not load.",
@@ -183,32 +185,30 @@ async function getDynamicResume() {
       );
       if (resumeGist) {
         const rawUrl = resumeGist.files["resume.json"].raw_url;
+        console.log("[getDynamicResume] fetching resume.json from:", rawUrl);
         const resumeResponse = await fetch(rawUrl);
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
+          console.log("[getDynamicResume] resume.json loaded successfully");
           return { resumeData, githubUsername };
         }
+      } else {
+        console.log("[getDynamicResume] no resume.json gist found");
       }
     }
   } catch (e) {
-    console.warn("Could not fetch resume.json:", e.message);
+    console.warn("[getDynamicResume] Could not fetch resume.json:", e.message);
   }
 
   // 4. No resume.json found - return just the username so GitHub repos can be used
+  console.log("[getDynamicResume] returning username only:", githubUsername);
   return { resumeData: null, githubUsername };
 }
 
 function getGithubUsername() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
-  const isGitHubPages = window.location.hostname.endsWith(".github.io");
-  if (isGitHubPages) {
-    if (pathParts.length >= 2) {
-      return pathParts[pathParts.length - 1];
-    }
-  } else {
-    if (pathParts.length >= 1) {
-      return pathParts[pathParts.length - 1];
-    }
+  if (pathParts.length >= 1) {
+    return pathParts[pathParts.length - 1];
   }
   return "";
 }
@@ -342,9 +342,11 @@ async function loadDataThenRoute(projectName) {
 // ============================================================================
 
 export async function loadData(projectName) {
+  console.log("[loadData] started, projectName:", projectName);
   showLoading();
   try {
     const result = await getDynamicResume();
+    console.log("[loadData] getDynamicResume result:", result);
 
     // No username in URL -> show the landing page
     if (!result) {
@@ -422,7 +424,6 @@ export async function loadData(projectName) {
     setupMetaTags();
 
     const app = document.getElementById("app");
-    app.innerHTML = "";
 
     const frag = document.createDocumentFragment();
     const main = document.createElement("main");
@@ -577,9 +578,11 @@ export async function loadData(projectName) {
     // Create sections container
     const sections = document.createElement("div");
     sections.className = "sections";
+    let hasAnySection = false;
     for (const key of order) {
       if (hide.includes(key)) continue;
       if (!sectionData[key]) continue;
+      hasAnySection = true;
       if (key === "about") sections.appendChild(buildAbout(sectionData.about));
       if (key === "education")
         sections.appendChild(buildEducation(sectionData.education));
@@ -591,10 +594,28 @@ export async function loadData(projectName) {
         sections.appendChild(buildContact(sectionData.contact));
     }
 
+    // Show fallback when no data sections rendered
+    if (!hasAnySection) {
+      console.warn(
+        "[loadData] No sections rendered — gist and/or repo data may be empty or rate-limited",
+      );
+      const emptyMsg = document.createElement("div");
+      emptyMsg.style.cssText =
+        "text-align:center;padding:4rem 2rem;color:var(--secondary-color);";
+      emptyMsg.innerHTML = `
+        <p style="font-size:1.25rem;margin-bottom:0.5rem;">No portfolio data found</p>
+        <p style="font-size:0.9rem;">Could not load resume.json gist or GitHub repositories for <strong>${githubUsername}</strong>.</p>
+        <p style="font-size:0.9rem;">Check the browser console for details, or try again later if rate-limited.</p>
+      `;
+      sections.appendChild(emptyMsg);
+    }
+
     main.appendChild(buildNavbar());
     main.appendChild(sections);
     frag.appendChild(main);
     frag.appendChild(buildFooter(displayName));
+    console.log("[loadData] appending content to DOM");
+    app.innerHTML = "";
     app.appendChild(frag);
     setupThemeToggle();
   } catch (e) {
