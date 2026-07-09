@@ -5,6 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
+import { loadModel, chat, isModelReady } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -426,28 +427,55 @@ export function buildContact(contact) {
   const container = document.createElement("div");
   container.className = "contact-container";
 
-  const msg = document.createElement("p");
-  msg.textContent = contact.message;
+  if (contact.message) {
+    const msg = document.createElement("p");
+    msg.textContent = contact.message;
+    container.appendChild(msg);
+  }
 
   const links = document.createElement("div");
   links.className = "contact-links";
 
-  const emailLink = document.createElement("a");
-  emailLink.href = `mailto:${contact.email}`;
-  emailLink.textContent = "Email";
+  if (contact.email) {
+    const emailLink = document.createElement("a");
+    emailLink.href = `mailto:${contact.email}`;
+    emailLink.textContent = "Email";
+    links.appendChild(emailLink);
+  }
 
-  const ghLink = document.createElement("a");
-  ghLink.href = contact.github;
-  ghLink.target = "_blank";
-  ghLink.textContent = "GitHub";
+  if (contact.github) {
+    const ghLink = document.createElement("a");
+    ghLink.href = contact.github;
+    ghLink.target = "_blank";
+    ghLink.textContent = "GitHub";
+    links.appendChild(ghLink);
+  }
 
-  const liLink = document.createElement("a");
-  liLink.href = contact.linkedin;
-  liLink.target = "_blank";
-  liLink.textContent = "LinkedIn";
+  if (contact.linkedin) {
+    const liLink = document.createElement("a");
+    liLink.href = contact.linkedin;
+    liLink.target = "_blank";
+    liLink.textContent = "LinkedIn";
+    links.appendChild(liLink);
+  }
 
-  links.append(emailLink, ghLink, liLink);
-  container.append(msg, links);
+  // Additional profile links (website, blog, etc.)
+  if (Array.isArray(contact.profiles)) {
+    for (const profile of contact.profiles) {
+      const a = document.createElement("a");
+      a.href = profile.url;
+      a.target = "_blank";
+      a.textContent =
+        profile.network?.charAt(0).toUpperCase() +
+          profile.network?.slice(1) ||
+        profile.url;
+      links.appendChild(a);
+    }
+  }
+
+  if (links.children.length > 0) {
+    container.appendChild(links);
+  }
   section.appendChild(container);
   return section;
 }
@@ -459,6 +487,187 @@ export function buildFooter(name) {
   p.innerHTML = `\u00A9 ${new Date().getFullYear()} ${name || "Portfolio"}. All rights reserved.${name === "Mustafa Alzahabi" ? "" : '<br>Built using <strong>mz-portfolio</strong> by Mustafa Alzahabi. <a href="/">Make yours today.</a>'}`;
   footer.appendChild(p);
   return footer;
+}
+
+// ============================================================================
+// CHAT BUBBLE
+// ============================================================================
+
+export function buildChatBubble(displayName) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-bubble-wrapper";
+
+  const chatHistory = [];
+  let isGenerating = false;
+
+  // --- Floating trigger button ---
+  const trigger = document.createElement("button");
+  trigger.className = "chat-bubble-trigger";
+  trigger.setAttribute("aria-label", "Open chat");
+  trigger.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+  // --- Chat window ---
+  const chatWindow = document.createElement("div");
+  chatWindow.className = "chat-window";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "chat-header";
+
+  const headerInfo = document.createElement("div");
+  headerInfo.className = "chat-header-info";
+
+  const avatar = document.createElement("div");
+  avatar.className = "chat-avatar";
+  avatar.textContent = (displayName || "AI").charAt(0).toUpperCase();
+
+  const headerText = document.createElement("div");
+
+  const nameEl = document.createElement("div");
+  nameEl.className = "chat-header-name";
+  nameEl.textContent = displayName || "Portfolio Owner";
+
+  const statusEl = document.createElement("div");
+  statusEl.className = "chat-header-status";
+  statusEl.textContent = "Loading model...";
+
+  headerText.append(nameEl, statusEl);
+  headerInfo.append(avatar, headerText);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "chat-close";
+  closeBtn.setAttribute("aria-label", "Close chat");
+  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  header.append(headerInfo, closeBtn);
+
+  // Messages area
+  const messages = document.createElement("div");
+  messages.className = "chat-messages";
+
+  // Welcome message
+  const welcome = document.createElement("div");
+  welcome.className = "chat-msg bot";
+  welcome.textContent = "Hi! Ask me anything about this portfolio.";
+  messages.appendChild(welcome);
+
+  // Typing indicator
+  const typing = document.createElement("div");
+  typing.className = "chat-typing";
+  typing.style.display = "none";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  messages.appendChild(typing);
+
+  // Input area
+  const inputArea = document.createElement("div");
+  inputArea.className = "chat-input-area";
+
+  const input = document.createElement("input");
+  input.className = "chat-input";
+  input.type = "text";
+  input.placeholder = "Loading model...";
+  input.disabled = true;
+
+  const sendBtn = document.createElement("button");
+  sendBtn.className = "chat-send";
+  sendBtn.setAttribute("aria-label", "Send message");
+  sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+
+  inputArea.append(input, sendBtn);
+  chatWindow.append(header, messages, inputArea);
+
+  // --- Helpers ---
+  function addMessage(role, text) {
+    const msg = document.createElement("div");
+    msg.className = `chat-msg ${role}`;
+    msg.textContent = text;
+    messages.insertBefore(msg, typing);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function setLoading(loading) {
+    isGenerating = loading;
+    input.disabled = loading;
+    sendBtn.disabled = loading;
+    input.placeholder = loading ? "Thinking..." : "Type a message...";
+    typing.style.display = loading ? "flex" : "none";
+    if (loading) messages.scrollTop = messages.scrollHeight;
+  }
+
+  function setInputReady(ready) {
+    input.disabled = !ready;
+    sendBtn.disabled = !ready;
+    input.placeholder = ready ? "Type a message..." : "Loading model...";
+  }
+
+  async function handleSend() {
+    const text = input.value.trim();
+    if (!text || isGenerating) return;
+
+    input.value = "";
+    addMessage("user", text);
+    chatHistory.push({ role: "user", content: text });
+
+    setLoading(true);
+
+    try {
+      const reply = await chat(chatHistory);
+      chatHistory.push({ role: "assistant", content: reply });
+      addMessage("bot", reply);
+    } catch (e) {
+      console.warn("[chat] inference error:", e);
+      addMessage("bot", "Sorry, something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // --- Events ---
+  sendBtn.addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  trigger.addEventListener("click", () => {
+    chatWindow.classList.toggle("open");
+    const isOpen = chatWindow.classList.contains("open");
+    trigger.setAttribute("aria-label", isOpen ? "Close chat" : "Open chat");
+
+    // Load model on first open
+    if (isOpen && !isModelReady()) {
+      setLoading(true);
+      statusEl.textContent = "Loading model...";
+
+      loadModel((stage, progress) => {
+        if (stage === "downloading") {
+          statusEl.textContent = `Loading model... ${Math.round(progress)}%`;
+        } else if (stage === "ready") {
+          statusEl.textContent = "Online";
+          setInputReady(true);
+        }
+      }).then((ok) => {
+        if (ok) {
+          statusEl.textContent = "Online";
+          setInputReady(true);
+        } else {
+          statusEl.textContent = "Offline";
+          input.placeholder = "Model unavailable";
+          addMessage("bot", "AI model could not load. Your browser may not support WebGPU.");
+        }
+      });
+    }
+  });
+
+  closeBtn.addEventListener("click", () => {
+    chatWindow.classList.remove("open");
+    trigger.setAttribute("aria-label", "Open chat");
+  });
+
+  wrapper.append(trigger, chatWindow);
+  return wrapper;
 }
 
 // ============================================================================
