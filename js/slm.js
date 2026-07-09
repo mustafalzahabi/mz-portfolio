@@ -15,9 +15,11 @@ let loadError = null;
 // ---------------------------------------------------------------------------
 
 const MODEL_ID = "Xenova/Qwen2-0.5B-Instruct";
+const CDN_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+const DTYPES = ["q4", "q8", "fp32"];
 
 // ---------------------------------------------------------------------------
-// Detect WebGPU support (including Android Chrome)
+// Detect WebGPU support
 // ---------------------------------------------------------------------------
 
 async function hasWebGPU() {
@@ -49,14 +51,12 @@ function buildSystemPrompt() {
   parts.push("Keep answers concise and conversational.");
   parts.push("");
 
-  // Basics
   parts.push("## Profile");
   parts.push(`- Name: ${d.basics.name}`);
   if (d.basics.label) parts.push(`- Title: ${d.basics.label}`);
   if (d.basics.summary) parts.push(`- Bio: ${d.basics.summary}`);
   if (d.basics.email) parts.push(`- Email: ${d.basics.email}`);
 
-  // Education
   if (d.education?.length) {
     parts.push("");
     parts.push("## Education");
@@ -66,7 +66,6 @@ function buildSystemPrompt() {
     }
   }
 
-  // Skills
   if (d.skills?.length) {
     parts.push("");
     parts.push("## Skills");
@@ -75,7 +74,6 @@ function buildSystemPrompt() {
     }
   }
 
-  // Projects
   if (d.projects?.length) {
     parts.push("");
     parts.push("## Projects");
@@ -86,7 +84,6 @@ function buildSystemPrompt() {
     }
   }
 
-  // Profiles
   if (d.basics.profiles?.length) {
     parts.push("");
     parts.push("## Links");
@@ -99,20 +96,33 @@ function buildSystemPrompt() {
 }
 
 // ---------------------------------------------------------------------------
-// Try loading with a specific device
+// Load Transformers.js dynamically (cached after first load)
 // ---------------------------------------------------------------------------
 
-async function tryLoad(device, onProgress) {
-  const { pipeline, env } = await import(
-    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3"
-  );
+let transformersModule = null;
 
+async function getTransformers() {
+  if (transformersModule) return transformersModule;
+  try {
+    transformersModule = await import(CDN_URL);
+    return transformersModule;
+  } catch (e) {
+    throw new Error(`Failed to load Transformers.js library: ${e.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Try loading with a specific device and dtype
+// ---------------------------------------------------------------------------
+
+async function tryLoad(device, dtype, onProgress) {
+  const { pipeline, env } = await getTransformers();
   env.allowLocalModels = false;
 
   onProgress?.("downloading", 0);
 
-  const pipe = await pipeline("text-generation", MODEL_ID, {
-    dtype: "q4",
+  return pipeline("text-generation", MODEL_ID, {
+    dtype,
     device,
     progress_callback: (progress) => {
       if (progress.status === "progress") {
@@ -122,12 +132,10 @@ async function tryLoad(device, onProgress) {
       }
     },
   });
-
-  return pipe;
 }
 
 // ---------------------------------------------------------------------------
-// Model loading (WebGPU → WASM fallback chain)
+// Model loading (device x dtype fallback chain)
 // ---------------------------------------------------------------------------
 
 export async function loadModel(onProgress) {
@@ -138,32 +146,45 @@ export async function loadModel(onProgress) {
   modelLoading = true;
   loadError = null;
 
+  // Step 1: Check if Transformers.js can even be loaded
+  try {
+    await getTransformers();
+  } catch (e) {
+    loadError = `Library load failed: ${e.message}`;
+    modelLoading = false;
+    console.error("[slm]", loadError);
+    return false;
+  }
+
+  // Step 2: Determine device order
   const gpuAvailable = await hasWebGPU();
   console.log("[slm] WebGPU available:", gpuAvailable);
-
-  // Try WebGPU first, then WASM
   const devices = gpuAvailable ? ["webgpu", "wasm"] : ["wasm"];
 
+  // Step 3: Try each device + dtype combination
   for (const device of devices) {
-    try {
-      console.log(`[slm] Trying device: ${device}`);
-      onProgress?.("loading", 0);
+    for (const dtype of DTYPES) {
+      try {
+        console.log(`[slm] Trying ${device} / ${dtype}`);
+        onProgress?.("loading", 0);
 
-      generator = await tryLoad(device, onProgress);
+        generator = await tryLoad(device, dtype, onProgress);
 
-      modelReady = true;
-      modelLoading = false;
-      console.log(`[slm] Model loaded on ${device}`);
-      return true;
-    } catch (e) {
-      console.warn(`[slm] ${device} failed:`, e.message);
-      loadError = e.message;
-      // Continue to next device
+        modelReady = true;
+        modelLoading = false;
+        loadError = null;
+        console.log(`[slm] Model loaded on ${device} / ${dtype}`);
+        return true;
+      } catch (e) {
+        console.warn(`[slm] ${device}/${dtype} failed:`, e.message);
+        loadError = `${device}/${dtype}: ${e.message}`;
+        // Continue to next combo
+      }
     }
   }
 
   modelLoading = false;
-  console.error("[slm] All devices failed");
+  console.error("[slm] All device/dtype combos failed. Last error:", loadError);
   return false;
 }
 
