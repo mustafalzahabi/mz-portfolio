@@ -181,16 +181,79 @@ async function getDynamicResume() {
     } else {
       const gists = await gistsResponse.json();
       const resumeGist = gists.find(
-        (gist) => gist.files && gist.files["resume.json"],
+        (gist) =>
+          gist.files &&
+          Object.keys(gist.files).some(
+            (name) => name.toLowerCase() === "resume.json",
+          ),
       );
       if (resumeGist) {
-        const rawUrl = resumeGist.files["resume.json"].raw_url;
-        console.log("[getDynamicResume] fetching resume.json from:", rawUrl);
+        const gistId = resumeGist.id;
+        const resumeFile = Object.keys(resumeGist.files).find(
+          (name) => name.toLowerCase() === "resume.json",
+        );
+
+        // 1) Try inline content from list endpoint (usually absent, but check)
+        if (resumeGist.files[resumeFile]?.content) {
+          try {
+            const resumeData = JSON.parse(resumeGist.files[resumeFile].content);
+            console.log("[getDynamicResume] resume.json loaded from inline content. Sections:", {
+              hasName: !!resumeData?.basics?.name,
+              hasSummary: !!resumeData?.basics?.summary,
+              hasEducation: !!(resumeData?.education?.length),
+              hasSkills: !!(resumeData?.skills?.length),
+              hasProjects: !!(resumeData?.projects?.length),
+            });
+            return { resumeData, githubUsername };
+          } catch (e) {
+            console.warn("[getDynamicResume] inline parse failed:", e.message);
+          }
+        }
+
+        // 2) Fetch the single gist by ID — this endpoint includes the content field
+        try {
+          const singleUrl = `https://api.github.com/gists/${gistId}`;
+          console.log("[getDynamicResume] fetching single gist:", singleUrl);
+          const singleRes = await fetch(singleUrl);
+          if (singleRes.ok) {
+            const singleGist = await singleRes.json();
+            const fileKey = Object.keys(singleGist.files).find(
+              (name) => name.toLowerCase() === "resume.json",
+            );
+            if (fileKey && singleGist.files[fileKey]?.content) {
+              const resumeData = JSON.parse(singleGist.files[fileKey].content);
+              console.log("[getDynamicResume] resume.json loaded from single-gist endpoint. Sections:", {
+                hasName: !!resumeData?.basics?.name,
+                hasSummary: !!resumeData?.basics?.summary,
+                hasEducation: !!(resumeData?.education?.length),
+                hasSkills: !!(resumeData?.skills?.length),
+                hasProjects: !!(resumeData?.projects?.length),
+              });
+              return { resumeData, githubUsername };
+            }
+          } else {
+            console.warn("[getDynamicResume] single-gist fetch returned", singleRes.status);
+          }
+        } catch (e) {
+          console.warn("[getDynamicResume] single-gist fetch error:", e.message);
+        }
+
+        // 3) Final fallback: raw_url (may be rate-limited)
+        const rawUrl = resumeGist.files[resumeFile].raw_url;
+        console.log("[getDynamicResume] fetching resume.json from raw_url:", rawUrl);
         const resumeResponse = await fetch(rawUrl);
         if (resumeResponse.ok) {
           const resumeData = await resumeResponse.json();
-          console.log("[getDynamicResume] resume.json loaded successfully");
+          console.log("[getDynamicResume] resume.json loaded from raw_url. Sections:", {
+            hasName: !!resumeData?.basics?.name,
+            hasSummary: !!resumeData?.basics?.summary,
+            hasEducation: !!(resumeData?.education?.length),
+            hasSkills: !!(resumeData?.skills?.length),
+            hasProjects: !!(resumeData?.projects?.length),
+          });
           return { resumeData, githubUsername };
+        } else {
+          console.warn("[getDynamicResume] raw_url fetch returned", resumeResponse.status);
         }
       } else {
         console.log("[getDynamicResume] no resume.json gist found");
@@ -498,9 +561,9 @@ export async function loadData(projectName) {
     );
     const sectionData = {
       about:
-        text.bio || text.philosophy
+        text.bio || text.philosophy || data?.basics?.summary
           ? {
-              bio: text.bio ?? "",
+              bio: text.bio || data?.basics?.summary || "",
               philosophy: text.philosophy ?? "",
               cv_link:
                 (data?.basics?.profiles || []).find(
@@ -593,6 +656,8 @@ export async function loadData(projectName) {
       if (key === "contact")
         sections.appendChild(buildContact(sectionData.contact));
     }
+
+    console.log("[loadData] sectionData keys present:", Object.entries(sectionData).filter(([,v]) => v).map(([k]) => k));
 
     // Show fallback when no data sections rendered
     if (!hasAnySection) {
