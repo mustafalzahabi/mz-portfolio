@@ -170,12 +170,12 @@ async function fetchReadmeData(username, repoName, branch) {
 }
 
 function extractImages(readme, username, repoName, branch) {
-  const imageRegex = /!\[.*?\]\((.*?)\)/g;
   const images = [];
-  let match;
+  const seen = new Set();
 
-  while ((match = imageRegex.exec(readme))) {
-    const url = match[1];
+  function addImage(url) {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
     if (url.startsWith("./") || url.startsWith("/") || !url.includes("://")) {
       const normalized = url.startsWith("./")
         ? url.slice(2)
@@ -188,6 +188,19 @@ function extractImages(readme, username, repoName, branch) {
     } else {
       images.push(url);
     }
+  }
+
+  // Markdown images: ![alt](url)
+  const mdRegex = /!\[.*?\]\((.*?)\)/g;
+  let match;
+  while ((match = mdRegex.exec(readme))) {
+    addImage(match[1]);
+  }
+
+  // HTML images: <img src="url" ...>  or  <img src='url' ...>
+  const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
+  while ((match = htmlRegex.exec(readme))) {
+    addImage(match[1]);
   }
 
   return images;
