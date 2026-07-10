@@ -177,7 +177,12 @@ export async function chat(userMessage, onToken) {
     for await (const json of parseSSE(res)) {
       const delta = json.choices?.[0]?.delta?.content;
       if (delta) {
-        fullResponse += delta;
+        // Handle both cumulative and delta chunk formats
+        if (delta.startsWith(fullResponse)) {
+          fullResponse = delta;
+        } else {
+          fullResponse += delta;
+        }
         onToken(fullResponse);
       }
     }
