@@ -5,7 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { loadModel, chat, isModelReady, getModelError } from "./slm.js";
+import { loadModel, chat, isModelReady, isModelLoading, getModelError } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -529,7 +529,7 @@ export function buildChatBubble(displayName) {
 
   const statusEl = document.createElement("div");
   statusEl.className = "chat-header-status";
-  statusEl.textContent = "Loading model...";
+  statusEl.textContent = isModelReady() ? "Online" : "Loading model...";
 
   headerText.append(nameEl, statusEl);
   headerInfo.append(avatar, headerText);
@@ -565,13 +565,14 @@ export function buildChatBubble(displayName) {
   const input = document.createElement("input");
   input.className = "chat-input";
   input.type = "text";
-  input.placeholder = "Loading model...";
-  input.disabled = true;
+  input.placeholder = isModelReady() ? "Type a message..." : "Loading model...";
+  input.disabled = !isModelReady();
 
   const sendBtn = document.createElement("button");
   sendBtn.className = "chat-send";
   sendBtn.setAttribute("aria-label", "Send message");
   sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+  sendBtn.disabled = !isModelReady();
 
   inputArea.append(input, sendBtn);
   chatWindow.append(header, messages, inputArea);
@@ -583,18 +584,20 @@ export function buildChatBubble(displayName) {
     msg.textContent = text;
     messages.insertBefore(msg, typing);
     messages.scrollTop = messages.scrollHeight;
+    return msg;
   }
 
-  function setLoading(loading) {
-    isGenerating = loading;
-    input.disabled = loading;
-    sendBtn.disabled = loading;
-    input.placeholder = loading ? "Thinking..." : "Type a message...";
-    typing.style.display = loading ? "flex" : "none";
-    if (loading) messages.scrollTop = messages.scrollHeight;
+  function setGenerating(gen) {
+    isGenerating = gen;
+    input.disabled = gen;
+    sendBtn.disabled = gen;
+    input.placeholder = gen ? "Thinking..." : "Type a message...";
+    typing.style.display = gen ? "flex" : "none";
+    if (gen) messages.scrollTop = messages.scrollHeight;
   }
 
   function setInputReady(ready) {
+    if (isGenerating) return;
     input.disabled = !ready;
     sendBtn.disabled = !ready;
     input.placeholder = ready ? "Type a message..." : "Loading model...";
@@ -602,23 +605,40 @@ export function buildChatBubble(displayName) {
 
   async function handleSend() {
     const text = input.value.trim();
-    if (!text || isGenerating) return;
+    if (!text || isGenerating || !isModelReady()) return;
 
     input.value = "";
     addMessage("user", text);
     chatHistory.push({ role: "user", content: text });
 
-    setLoading(true);
+    setGenerating(true);
+
+    // Create bot message element for streaming
+    const botMsg = document.createElement("div");
+    botMsg.className = "chat-msg bot";
+    botMsg.textContent = "";
+    messages.insertBefore(botMsg, typing);
+    messages.scrollTop = messages.scrollHeight;
+
+    let fullReply = "";
 
     try {
-      const reply = await chat(chatHistory);
-      chatHistory.push({ role: "assistant", content: reply });
-      addMessage("bot", reply);
+      await chat(chatHistory, (token) => {
+        fullReply += token;
+        botMsg.textContent = fullReply;
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      if (fullReply) {
+        chatHistory.push({ role: "assistant", content: fullReply });
+      } else {
+        botMsg.textContent = "No response generated.";
+      }
     } catch (e) {
       console.warn("[chat] inference error:", e);
-      addMessage("bot", "Sorry, something went wrong. Please try again.");
+      botMsg.textContent = "Sorry, something went wrong. Please try again.";
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   }
 
@@ -636,14 +656,14 @@ export function buildChatBubble(displayName) {
     const isOpen = chatWindow.classList.contains("open");
     trigger.setAttribute("aria-label", isOpen ? "Close chat" : "Open chat");
 
-    // Load model on first open
+    // Load model on first open if not already loaded
     if (isOpen && !isModelReady() && !isModelLoading()) {
       setInputReady(false);
       statusEl.textContent = "Loading model...";
 
       loadModel((stage, progress) => {
         if (stage === "downloading") {
-          statusEl.textContent = `Loading model... ${Math.round(progress)}%`;
+          statusEl.textContent = `Loading... ${Math.round(progress)}%`;
         } else if (stage === "ready") {
           statusEl.textContent = "Online";
         }
