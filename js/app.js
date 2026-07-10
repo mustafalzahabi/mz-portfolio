@@ -172,7 +172,7 @@ import {
 
 import { collectPortfolioData } from "./data.js";
 
-import { isAIAvailable, loadModel as preloadModel } from "./slm.js";
+import { loadModel as preloadModel } from "./slm.js";
 
 import { setupThemeToggle } from "./theme.js";
 
@@ -542,15 +542,12 @@ export async function loadData(projectName) {
     app.innerHTML = "";
     app.appendChild(frag);
     setupThemeToggle();
-    // AI Chat — only if Chrome built-in AI is available
-    isAIAvailable().then((available) => {
-      if (!available) return;
-      document.querySelectorAll(".chat-bubble-wrapper").forEach((el) =>
-        el.remove(),
-      );
-      document.body.appendChild(buildChatBubble(d.basics.name));
-      setTimeout(() => preloadModel().catch(() => {}), 3000);
-    });
+    // Chat bubble
+    document.querySelectorAll(".chat-bubble-wrapper").forEach((el) =>
+      el.remove(),
+    );
+    document.body.appendChild(buildChatBubble(d.basics.name));
+    setTimeout(() => preloadModel().catch(() => {}), 1000);
   } catch (e) {
     console.error(e);
     showError(e.message || "Could not load portfolio data.");

@@ -5,7 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { loadModel, chat, isModelReady, isModelLoading, getModelError } from "./slm.js";
+import { chat, isModelReady } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -529,7 +529,7 @@ export function buildChatBubble(displayName) {
 
   const statusEl = document.createElement("div");
   statusEl.className = "chat-header-status";
-  statusEl.textContent = isModelReady() ? "Online" : "Loading model...";
+  statusEl.textContent = "Online";
 
   headerText.append(nameEl, statusEl);
   headerInfo.append(avatar, headerText);
@@ -565,14 +565,12 @@ export function buildChatBubble(displayName) {
   const input = document.createElement("input");
   input.className = "chat-input";
   input.type = "text";
-  input.placeholder = isModelReady() ? "Type a message..." : "Loading model...";
-  input.disabled = !isModelReady();
+  input.placeholder = "Type a message...";
 
   const sendBtn = document.createElement("button");
   sendBtn.className = "chat-send";
   sendBtn.setAttribute("aria-label", "Send message");
   sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-  sendBtn.disabled = !isModelReady();
 
   inputArea.append(input, sendBtn);
   chatWindow.append(header, messages, inputArea);
@@ -594,13 +592,6 @@ export function buildChatBubble(displayName) {
     input.placeholder = gen ? "Thinking..." : "Type a message...";
     typing.style.display = gen ? "flex" : "none";
     if (gen) messages.scrollTop = messages.scrollHeight;
-  }
-
-  function setInputReady(ready) {
-    if (isGenerating) return;
-    input.disabled = !ready;
-    sendBtn.disabled = !ready;
-    input.placeholder = ready ? "Type a message..." : "Loading model...";
   }
 
   async function handleSend() {
@@ -653,33 +644,10 @@ export function buildChatBubble(displayName) {
 
   trigger.addEventListener("click", () => {
     chatWindow.classList.toggle("open");
-    const isOpen = chatWindow.classList.contains("open");
-    trigger.setAttribute("aria-label", isOpen ? "Close chat" : "Open chat");
-
-    // Load model on first open if not already loaded
-    if (isOpen && !isModelReady() && !isModelLoading()) {
-      setInputReady(false);
-      statusEl.textContent = "Loading model...";
-
-      loadModel((stage, progress) => {
-        if (stage === "downloading") {
-          statusEl.textContent = `Loading... ${Math.round(progress)}%`;
-        } else if (stage === "ready") {
-          statusEl.textContent = "Online";
-        }
-      }).then((ok) => {
-        if (ok) {
-          statusEl.textContent = "Online";
-          setInputReady(true);
-        } else {
-          statusEl.textContent = "Offline";
-          input.placeholder = "Model unavailable";
-          const err = getModelError();
-          console.error("[chat] Model load error:", err);
-          addMessage("bot", `AI model could not load. ${err || "Check console for details."}`);
-        }
-      });
-    }
+    trigger.setAttribute(
+      "aria-label",
+      chatWindow.classList.contains("open") ? "Close chat" : "Open chat",
+    );
   });
 
   closeBtn.addEventListener("click", () => {
