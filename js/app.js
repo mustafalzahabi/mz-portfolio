@@ -172,6 +172,8 @@ import {
 
 import { collectPortfolioData } from "./data.js";
 
+import { loadModel as preloadModel, isModelReady, isModelLoading } from "./slm.js";
+
 import { setupThemeToggle } from "./theme.js";
 
 // ============================================================================
@@ -543,6 +545,10 @@ export async function loadData(projectName) {
     document.querySelectorAll(".chat-bubble-wrapper").forEach((el) => el.remove());
     document.body.appendChild(buildChatBubble(d.basics.name));
     setupThemeToggle();
+    // Preload SLM in background after a short delay
+    if (!isModelReady() && !isModelLoading()) {
+      setTimeout(() => preloadModel().catch(() => {}), 3000);
+    }
   } catch (e) {
     console.error(e);
     showError(e.message || "Could not load portfolio data.");

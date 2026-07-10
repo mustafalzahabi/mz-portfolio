@@ -1,234 +1,241 @@
 // ============================================================================
-// CLIENT-SIDE SLM (Small Language Model)
-// Runs a quantized model entirely in the browser using Transformers.js
+// CLIENT-SIDE SLM — Thin wrapper around inference Web Worker
+// All heavy work (model loading, inference) runs in a dedicated worker thread.
 // ============================================================================
 
 import { getCachedData } from "./data.js";
 
-let generator = null;
-let modelLoading = false;
-let modelReady = false;
-let loadError = null;
+let worker = null;
+let ready = false;
+let loading = false;
+let error = null;
+
+// Pending resolve callbacks for worker messages
+let pendingInit = null;
+let pendingChat = null;
+
+// Prompt template (loaded once, cached)
+let promptTemplate = null;
+
+// Max conversation turns to keep (prevents context overflow + hallucination)
+const MAX_TURNS = 2;
 
 // ---------------------------------------------------------------------------
-// Model configuration — try in order, first one that works wins
+// Load prompt template from prompt.md
 // ---------------------------------------------------------------------------
 
-const MODELS = [
-  { id: "Xenova/TinyLlama-1.1B-Chat-v1.0", dtypes: ["q8", "fp32"] },
-  { id: "Xenova/SmolLM-135M-Instruct", dtypes: ["q8", "fp32"] },
-];
-const CDN_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
-
-// ---------------------------------------------------------------------------
-// Detect WebGPU support
-// ---------------------------------------------------------------------------
-
-async function hasWebGPU() {
+async function loadPromptTemplate() {
+  if (promptTemplate) return promptTemplate;
   try {
-    if (!navigator.gpu) return false;
-    const adapter = await navigator.gpu.requestAdapter();
-    return !!adapter;
+    const res = await fetch(new URL("../prompt.md", import.meta.url));
+    promptTemplate = await res.text();
   } catch {
-    return false;
+    // Fallback if prompt.md can't be loaded
+    promptTemplate = `You are a portfolio assistant. Answer ONLY using the information below. If the answer is not in the data, say "I don't have that information." Keep answers short and conversational.\n\n{{DATA}}`;
   }
+  return promptTemplate;
 }
 
 // ---------------------------------------------------------------------------
-// Build system prompt from portfolio data (grounding)
+// Fill prompt template with portfolio data
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt() {
+function fillTemplate(template, d) {
+  if (!d) return template;
+
+  const education = (d.education || [])
+    .map((e) => {
+      const degree = e.studyType + (e.area ? " in " + e.area : "");
+      return `- ${degree} from ${e.institution} (${e.startDate} - ${e.endDate})`;
+    })
+    .join("\n");
+
+  const skills = (d.skills || [])
+    .map((c) => `- ${c.category}: ${c.items.join(", ")}`)
+    .join("\n");
+
+  const projects = (d.projects || [])
+    .map((p) => {
+      const desc = p.readmeDescription || p.description || "";
+      const tech = (p.technologies || []).join(", ");
+      return `- ${p.name}: ${desc}${tech ? ` [Tech: ${tech}]` : ""}`;
+    })
+    .join("\n");
+
+  const links = (d.basics.profiles || [])
+    .map((p) => `- ${p.network}: ${p.url}`)
+    .join("\n");
+
+  return template
+    .replace(/\{\{NAME\}\}/g, d.basics.name || "the portfolio owner")
+    .replace(/\{\{LABEL\}\}/g, d.basics.label ? `- Title: ${d.basics.label}` : "")
+    .replace(/\{\{SUMMARY\}\}/g, d.basics.summary ? `- Bio: ${d.basics.summary}` : "")
+    .replace(/\{\{EMAIL\}\}/g, d.basics.email ? `- Email: ${d.basics.email}` : "")
+    .replace(/\{\{EDUCATION\}\}/g, education)
+    .replace(/\{\{SKILLS\}\}/g, skills)
+    .replace(/\{\{PROJECTS\}\}/g, projects)
+    .replace(/\{\{LINKS\}\}/g, links);
+}
+
+// ---------------------------------------------------------------------------
+// Build system prompt (cached per session)
+// ---------------------------------------------------------------------------
+
+let cachedSystemPrompt = null;
+
+async function getSystemPrompt() {
+  if (cachedSystemPrompt) return cachedSystemPrompt;
+  const template = await loadPromptTemplate();
   const d = getCachedData();
-  if (!d) {
-    return "You are a helpful assistant for a portfolio website. Answer questions honestly. If you don't know, say so.";
-  }
-
-  const parts = [];
-
-  parts.push(`You are a helpful assistant for ${d.basics.name}'s portfolio website.`);
-  parts.push(`Answer questions about ${d.basics.name} honestly based ONLY on the information below.`);
-  parts.push("If the information is not in the data provided, say 'I don't have that information available.'");
-  parts.push("Do not make up or hallucinate any information.");
-  parts.push("Keep answers concise and conversational.");
-  parts.push("");
-
-  parts.push("## Profile");
-  parts.push(`- Name: ${d.basics.name}`);
-  if (d.basics.label) parts.push(`- Title: ${d.basics.label}`);
-  if (d.basics.summary) parts.push(`- Bio: ${d.basics.summary}`);
-  if (d.basics.email) parts.push(`- Email: ${d.basics.email}`);
-
-  if (d.education?.length) {
-    parts.push("");
-    parts.push("## Education");
-    for (const edu of d.education) {
-      const degree = edu.studyType + (edu.area ? " in " + edu.area : "");
-      parts.push(`- ${degree} from ${edu.institution} (${edu.startDate} - ${edu.endDate})`);
-    }
-  }
-
-  if (d.skills?.length) {
-    parts.push("");
-    parts.push("## Skills");
-    for (const cat of d.skills) {
-      parts.push(`- ${cat.category}: ${cat.items.join(", ")}`);
-    }
-  }
-
-  if (d.projects?.length) {
-    parts.push("");
-    parts.push("## Projects");
-    for (const proj of d.projects) {
-      const desc = proj.readmeDescription || proj.description || "";
-      const tech = (proj.technologies || []).join(", ");
-      parts.push(`- ${proj.name}: ${desc}${tech ? ` [Tech: ${tech}]` : ""}`);
-    }
-  }
-
-  if (d.basics.profiles?.length) {
-    parts.push("");
-    parts.push("## Links");
-    for (const p of d.basics.profiles) {
-      parts.push(`- ${p.network}: ${p.url}`);
-    }
-  }
-
-  return parts.join("\n");
+  cachedSystemPrompt = fillTemplate(template, d);
+  return cachedSystemPrompt;
 }
 
 // ---------------------------------------------------------------------------
-// Load Transformers.js dynamically (cached after first load)
+// Prune messages: keep system prompt + last 2 turns (4 messages)
 // ---------------------------------------------------------------------------
 
-let transformersModule = null;
-
-async function getTransformers() {
-  if (transformersModule) return transformersModule;
-  try {
-    transformersModule = await import(CDN_URL);
-    return transformersModule;
-  } catch (e) {
-    throw new Error(`Failed to load Transformers.js: ${e.message}`);
-  }
+function pruneMessages(messages) {
+  const system = messages.filter((m) => m.role === "system");
+  const conversation = messages.filter((m) => m.role !== "system");
+  const recent = conversation.slice(-MAX_TURNS * 2);
+  return [...system, ...recent];
 }
 
 // ---------------------------------------------------------------------------
-// Try loading with a specific model, device, and dtype
+// Worker setup + message routing
 // ---------------------------------------------------------------------------
 
-async function tryLoad(modelId, device, dtype, onProgress) {
-  const { pipeline, env } = await getTransformers();
-  env.allowLocalModels = false;
-  env.useBrowserCache = true;
+function ensureWorker() {
+  if (worker) return worker;
 
-  onProgress?.("downloading", 0);
+  worker = new Worker(new URL("./inference.worker.js", import.meta.url), {
+    type: "module",
+    name: "slm-inference",
+  });
 
-  return pipeline("text-generation", modelId, {
-    dtype,
-    device,
-    progress_callback: (progress) => {
-      if (progress.status === "progress") {
-        onProgress?.("downloading", progress.progress || 0);
-      } else if (progress.status === "done") {
-        onProgress?.("ready", 100);
-      }
-    },
+  worker.addEventListener("message", (event) => {
+    const msg = event.data;
+
+    switch (msg.type) {
+      case "progress":
+        pendingInit?.onProgress?.(msg.status, msg.progress);
+        break;
+
+      case "ready":
+        ready = true;
+        loading = false;
+        error = null;
+        console.log("[slm] Model ready");
+        pendingInit?.resolve(true);
+        pendingInit = null;
+        break;
+
+      case "error":
+        loading = false;
+        error = msg.message;
+        console.error("[slm] Worker error:", msg.message);
+        if (pendingInit) {
+          pendingInit.resolve(false);
+          pendingInit = null;
+        }
+        if (pendingChat) {
+          pendingChat.reject(new Error(msg.message));
+          pendingChat = null;
+        }
+        break;
+
+      case "stream":
+        pendingChat?.onToken?.(msg.text);
+        break;
+
+      case "done":
+        pendingChat?.resolve(msg.text);
+        pendingChat = null;
+        break;
+
+      case "cancelled":
+        pendingChat?.resolve("");
+        pendingChat = null;
+        break;
+    }
+  });
+
+  worker.addEventListener("error", (e) => {
+    console.error("[slm] Worker crashed:", e);
+    loading = false;
+    error = "Worker crashed";
+    ready = false;
+    if (pendingInit) {
+      pendingInit.resolve(false);
+      pendingInit = null;
+    }
+    if (pendingChat) {
+      pendingChat.reject(new Error("Worker crashed"));
+      pendingChat = null;
+    }
+  });
+
+  return worker;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function loadModel(onProgress) {
+  if (ready) return Promise.resolve(true);
+  if (loading) return Promise.resolve(false);
+
+  loading = true;
+  error = null;
+
+  ensureWorker();
+
+  return new Promise((resolve) => {
+    pendingInit = { resolve, onProgress };
+    worker.postMessage({ type: "init" });
   });
 }
 
-// ---------------------------------------------------------------------------
-// Model loading (model -> device -> dtype fallback chain)
-// ---------------------------------------------------------------------------
+export async function chat(messages, onToken) {
+  if (!ready) return Promise.reject(new Error("Model not loaded"));
 
-export async function loadModel(onProgress) {
-  if (modelReady) return true;
-  if (generator) return true;
-  if (modelLoading) return false;
+  ensureWorker();
 
-  modelLoading = true;
-  loadError = null;
+  const systemPrompt = await getSystemPrompt();
 
-  try {
-    await getTransformers();
-  } catch (e) {
-    loadError = `Library load failed: ${e.message}`;
-    modelLoading = false;
-    console.error("[slm]", loadError);
-    return false;
-  }
-
-  const gpuAvailable = await hasWebGPU();
-  console.log("[slm] WebGPU available:", gpuAvailable);
-  const devices = gpuAvailable ? ["webgpu", "wasm"] : ["wasm"];
-
-  for (const model of MODELS) {
-    for (const device of devices) {
-      for (const dtype of model.dtypes) {
-        try {
-          console.log(`[slm] Trying ${model.id} / ${device} / ${dtype}`);
-          onProgress?.("loading", 0);
-
-          generator = await tryLoad(model.id, device, dtype, onProgress);
-
-          modelReady = true;
-          modelLoading = false;
-          loadError = null;
-          console.log(`[slm] Loaded: ${model.id} / ${device} / ${dtype}`);
-          return true;
-        } catch (e) {
-          console.warn(`[slm] ${model.id}/${device}/${dtype} failed:`, e.message);
-          loadError = `${device}/${dtype}: ${e.message}`;
-        }
-      }
-    }
-  }
-
-  modelLoading = false;
-  console.error("[slm] All combos failed. Last error:", loadError);
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// Chat inference
-// ---------------------------------------------------------------------------
-
-export async function chat(messages) {
-  if (!generator) throw new Error("Model not loaded");
-
-  const systemPrompt = buildSystemPrompt();
-
-  const formattedMessages = [
+  // Build full message list: system prompt + pruned conversation
+  const formatted = [
     { role: "system", content: systemPrompt },
-    ...messages.map((m) => ({
-      role: m.role === "user" ? "user" : "assistant",
-      content: m.content,
-    })),
+    ...pruneMessages(
+      messages.map((m) => ({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.content,
+      })),
+    ),
   ];
 
-  const output = await generator(formattedMessages, {
-    max_new_tokens: 512,
-    temperature: 0.3,
-    top_p: 0.9,
-    do_sample: true,
+  return new Promise((resolve, reject) => {
+    pendingChat = { resolve, reject, onToken };
+    worker.postMessage({ type: "chat", messages: formatted });
   });
-
-  const reply = output[0]?.generated_text?.slice(-1)?.[0]?.content || "";
-  return reply.trim();
 }
 
-// ---------------------------------------------------------------------------
-// State getters
-// ---------------------------------------------------------------------------
+export function cancelGeneration() {
+  if (worker && pendingChat) {
+    worker.postMessage({ type: "cancel" });
+  }
+}
 
 export function isModelReady() {
-  return modelReady;
+  return ready;
 }
 
 export function isModelLoading() {
-  return modelLoading;
+  return loading;
 }
 
 export function getModelError() {
-  return loadError;
+  return error;
 }
