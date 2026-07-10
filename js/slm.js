@@ -1,32 +1,15 @@
 // ============================================================================
-// CLIENT-SIDE SLM — Chrome Built-in AI (Gemini Nano)
-// Uses the LanguageModel API shipped in Chrome 148+.
-// No downloads, no WASM, no Web Worker — managed by the browser.
+// CLIENT-SIDE SLM — Free API chatbot via Pollinations.ai
+// No API key, no download, no WASM, works on every browser.
 // ============================================================================
 
 import { getCachedData } from "./data.js";
 
-let session = null;
-let loading = false;
-let ready = false;
-let error = null;
+const API_URL = "https://text.pollinations.ai/openai";
+const MODEL = "openai";
 
 // ---------------------------------------------------------------------------
-// Feature detection
-// ---------------------------------------------------------------------------
-
-export async function isAIAvailable() {
-  try {
-    if (!("LanguageModel" in self)) return false;
-    const status = await LanguageModel.availability();
-    return status !== "unavailable";
-  } catch {
-    return false;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Load prompt template from prompt.md and fill placeholders
+// Prompt template (from prompt.md)
 // ---------------------------------------------------------------------------
 
 let promptTemplate = null;
@@ -89,86 +72,134 @@ function fillTemplate(template, d) {
 }
 
 // ---------------------------------------------------------------------------
-// Load model — create a Gemini Nano session
+// System prompt (cached)
 // ---------------------------------------------------------------------------
 
-export async function loadModel(onProgress) {
-  if (ready) return true;
-  if (loading) return false;
+let systemPrompt = null;
 
-  loading = true;
-  error = null;
+async function getSystemPrompt() {
+  if (systemPrompt) return systemPrompt;
+  const template = await loadPromptTemplate();
+  const d = getCachedData();
+  systemPrompt = fillTemplate(template, d);
+  return systemPrompt;
+}
 
-  try {
-    const template = await loadPromptTemplate();
-    const d = getCachedData();
-    const systemPrompt = fillTemplate(template, d);
+// ---------------------------------------------------------------------------
+// Conversation history (managed internally, capped at 10 turns)
+// ---------------------------------------------------------------------------
 
-    session = await LanguageModel.create({
-      initialPrompts: [{ role: "system", content: systemPrompt }],
-      monitor(m) {
-        m.addEventListener("downloadprogress", (e) => {
-          const pct = e.total
-            ? Math.round((e.loaded / e.total) * 100)
-            : 0;
-          onProgress?.("downloading", pct);
-        });
-      },
-    });
+let messageHistory = null;
+const MAX_HISTORY = 20; // 10 user + 10 assistant
 
-    ready = true;
-    loading = false;
-    onProgress?.("ready", 100);
-    console.log("[slm] Gemini Nano ready");
-    return true;
-  } catch (e) {
-    error = e.message || "Failed to create AI session";
-    loading = false;
-    console.error("[slm]", error);
-    return false;
+async function ensureHistory() {
+  if (messageHistory) return;
+  const sp = await getSystemPrompt();
+  messageHistory = [{ role: "system", content: sp }];
+}
+
+function pushToHistory(msg) {
+  messageHistory.push(msg);
+  // Keep system prompt + last MAX_HISTORY messages
+  if (messageHistory.length > MAX_HISTORY + 1) {
+    messageHistory = [
+      messageHistory[0],
+      ...messageHistory.slice(-MAX_HISTORY),
+    ];
   }
 }
 
 // ---------------------------------------------------------------------------
-// Chat — send message to the existing session, stream tokens
+// SSE stream parser (OpenAI-compatible format)
 // ---------------------------------------------------------------------------
+
+async function* parseSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        try {
+          yield JSON.parse(payload);
+        } catch {}
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export async function loadModel() {
+  return true;
+}
 
 export async function chat(userMessage, onToken) {
-  if (!session) throw new Error("Model not loaded");
+  await ensureHistory();
+  pushToHistory({ role: "user", content: userMessage });
+
+  let fullResponse = "";
 
   try {
-    const stream = session.promptStreaming(userMessage);
-    let full = "";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-    for await (const chunk of stream) {
-      // Defensive: handle both delta and cumulative chunk formats
-      if (chunk.startsWith(full)) {
-        full = chunk;
-      } else {
-        full += chunk;
-      }
-      onToken(full);
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: messageHistory,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`API error ${res.status}: ${errText}`);
     }
 
-    return full;
+    for await (const json of parseSSE(res)) {
+      const delta = json.choices?.[0]?.delta?.content;
+      if (delta) {
+        fullResponse += delta;
+        onToken(fullResponse);
+      }
+    }
+
+    if (!fullResponse) throw new Error("Empty response from API");
   } catch (e) {
-    if (e.name === "AbortError") return "";
+    messageHistory = null; // Reset on error
     throw e;
   }
+
+  pushToHistory({ role: "assistant", content: fullResponse });
+  return fullResponse;
 }
 
-// ---------------------------------------------------------------------------
-// State getters
-// ---------------------------------------------------------------------------
-
 export function isModelReady() {
-  return ready;
+  return true;
 }
 
 export function isModelLoading() {
-  return loading;
+  return false;
 }
 
 export function getModelError() {
-  return error;
+  return null;
 }
