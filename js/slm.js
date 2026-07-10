@@ -1,28 +1,18 @@
 // ============================================================================
-// CLIENT-SIDE SLM — Thin wrapper around inference Web Worker
-// All heavy work (model loading, inference) runs in a dedicated worker thread.
+// CLIENT-SIDE SLM — Free API chatbot via Pollinations.ai
+// No API key, no download, no WASM, works on every browser.
 // ============================================================================
 
 import { getCachedData } from "./data.js";
 
-let worker = null;
-let ready = false;
-let loading = false;
-let error = null;
+const API_URL = "https://text.pollinations.ai/openai";
+const MODEL = "openai";
 
-// Pending resolve callbacks for worker messages
-let pendingInit = null;
-let pendingChat = null;
+// ---------------------------------------------------------------------------
+// Prompt template (from prompt.md)
+// ---------------------------------------------------------------------------
 
-// Prompt template (loaded once, cached)
 let promptTemplate = null;
-
-// Max conversation turns to keep (prevents context overflow + hallucination)
-const MAX_TURNS = 2;
-
-// ---------------------------------------------------------------------------
-// Load prompt template from prompt.md
-// ---------------------------------------------------------------------------
 
 async function loadPromptTemplate() {
   if (promptTemplate) return promptTemplate;
@@ -30,23 +20,18 @@ async function loadPromptTemplate() {
     const res = await fetch(new URL("../prompt.md", import.meta.url));
     promptTemplate = await res.text();
   } catch {
-    // Fallback if prompt.md can't be loaded
-    promptTemplate = `You are a portfolio assistant. Answer ONLY using the information below. If the answer is not in the data, say "I don't have that information." Keep answers short and conversational.\n\n{{DATA}}`;
+    promptTemplate = `You are a portfolio assistant. Present the candidate positively using ONLY the data below. Keep answers concise.\n\n{{DATA}}`;
   }
   return promptTemplate;
 }
-
-// ---------------------------------------------------------------------------
-// Fill prompt template with portfolio data
-// ---------------------------------------------------------------------------
 
 function fillTemplate(template, d) {
   if (!d) return template;
 
   const education = (d.education || [])
     .map((e) => {
-      const degree = e.studyType + (e.area ? " in " + e.area : "");
-      return `- ${degree} from ${e.institution} (${e.startDate} - ${e.endDate})`;
+      const deg = e.studyType + (e.area ? " in " + e.area : "");
+      return `- ${deg} from ${e.institution} (${e.startDate} - ${e.endDate})`;
     })
     .join("\n");
 
@@ -68,9 +53,18 @@ function fillTemplate(template, d) {
 
   return template
     .replace(/\{\{NAME\}\}/g, d.basics.name || "the portfolio owner")
-    .replace(/\{\{LABEL\}\}/g, d.basics.label ? `- Title: ${d.basics.label}` : "")
-    .replace(/\{\{SUMMARY\}\}/g, d.basics.summary ? `- Bio: ${d.basics.summary}` : "")
-    .replace(/\{\{EMAIL\}\}/g, d.basics.email ? `- Email: ${d.basics.email}` : "")
+    .replace(
+      /\{\{LABEL\}\}/g,
+      d.basics.label ? `- Title: ${d.basics.label}` : "",
+    )
+    .replace(
+      /\{\{SUMMARY\}\}/g,
+      d.basics.summary ? `- Bio: ${d.basics.summary}` : "",
+    )
+    .replace(
+      /\{\{EMAIL\}\}/g,
+      d.basics.email ? `- Email: ${d.basics.email}` : "",
+    )
     .replace(/\{\{EDUCATION\}\}/g, education)
     .replace(/\{\{SKILLS\}\}/g, skills)
     .replace(/\{\{PROJECTS\}\}/g, projects)
@@ -78,164 +72,134 @@ function fillTemplate(template, d) {
 }
 
 // ---------------------------------------------------------------------------
-// Build system prompt (cached per session)
+// System prompt (cached)
 // ---------------------------------------------------------------------------
 
-let cachedSystemPrompt = null;
+let systemPrompt = null;
 
 async function getSystemPrompt() {
-  if (cachedSystemPrompt) return cachedSystemPrompt;
+  if (systemPrompt) return systemPrompt;
   const template = await loadPromptTemplate();
   const d = getCachedData();
-  cachedSystemPrompt = fillTemplate(template, d);
-  return cachedSystemPrompt;
+  systemPrompt = fillTemplate(template, d);
+  return systemPrompt;
 }
 
 // ---------------------------------------------------------------------------
-// Prune messages: keep system prompt + last 2 turns (4 messages)
+// Conversation history (managed internally, capped at 10 turns)
 // ---------------------------------------------------------------------------
 
-function pruneMessages(messages) {
-  const system = messages.filter((m) => m.role === "system");
-  const conversation = messages.filter((m) => m.role !== "system");
-  const recent = conversation.slice(-MAX_TURNS * 2);
-  return [...system, ...recent];
+let messageHistory = null;
+const MAX_HISTORY = 20; // 10 user + 10 assistant
+
+async function ensureHistory() {
+  if (messageHistory) return;
+  const sp = await getSystemPrompt();
+  messageHistory = [{ role: "system", content: sp }];
+}
+
+function pushToHistory(msg) {
+  messageHistory.push(msg);
+  // Keep system prompt + last MAX_HISTORY messages
+  if (messageHistory.length > MAX_HISTORY + 1) {
+    messageHistory = [
+      messageHistory[0],
+      ...messageHistory.slice(-MAX_HISTORY),
+    ];
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Worker setup + message routing
+// SSE stream parser (OpenAI-compatible format)
 // ---------------------------------------------------------------------------
 
-function ensureWorker() {
-  if (worker) return worker;
+async function* parseSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
 
-  worker = new Worker(new URL("./inference.worker.js", import.meta.url), {
-    type: "module",
-    name: "slm-inference",
-  });
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-  worker.addEventListener("message", (event) => {
-    const msg = event.data;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
 
-    switch (msg.type) {
-      case "progress":
-        pendingInit?.onProgress?.(msg.status, msg.progress);
-        break;
-
-      case "ready":
-        ready = true;
-        loading = false;
-        error = null;
-        console.log("[slm] Model ready");
-        pendingInit?.resolve(true);
-        pendingInit = null;
-        break;
-
-      case "error":
-        loading = false;
-        error = msg.message;
-        console.error("[slm] Worker error:", msg.message);
-        if (pendingInit) {
-          pendingInit.resolve(false);
-          pendingInit = null;
-        }
-        if (pendingChat) {
-          pendingChat.reject(new Error(msg.message));
-          pendingChat = null;
-        }
-        break;
-
-      case "stream":
-        pendingChat?.onToken?.(msg.text);
-        break;
-
-      case "done":
-        pendingChat?.resolve(msg.text);
-        pendingChat = null;
-        break;
-
-      case "cancelled":
-        pendingChat?.resolve("");
-        pendingChat = null;
-        break;
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        try {
+          yield JSON.parse(payload);
+        } catch {}
+      }
     }
-  });
-
-  worker.addEventListener("error", (e) => {
-    console.error("[slm] Worker crashed:", e);
-    loading = false;
-    error = "Worker crashed";
-    ready = false;
-    if (pendingInit) {
-      pendingInit.resolve(false);
-      pendingInit = null;
-    }
-    if (pendingChat) {
-      pendingChat.reject(new Error("Worker crashed"));
-      pendingChat = null;
-    }
-  });
-
-  return worker;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-export function loadModel(onProgress) {
-  if (ready) return Promise.resolve(true);
-  if (loading) return Promise.resolve(false);
-
-  loading = true;
-  error = null;
-
-  ensureWorker();
-
-  return new Promise((resolve) => {
-    pendingInit = { resolve, onProgress };
-    worker.postMessage({ type: "init" });
-  });
+export async function loadModel() {
+  return true;
 }
 
-export async function chat(messages, onToken) {
-  if (!ready) return Promise.reject(new Error("Model not loaded"));
+export async function chat(userMessage, onToken) {
+  await ensureHistory();
+  pushToHistory({ role: "user", content: userMessage });
 
-  ensureWorker();
+  let fullResponse = "";
 
-  const systemPrompt = await getSystemPrompt();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-  // Build full message list: system prompt + pruned conversation
-  const formatted = [
-    { role: "system", content: systemPrompt },
-    ...pruneMessages(
-      messages.map((m) => ({
-        role: m.role === "user" ? "user" : "assistant",
-        content: m.content,
-      })),
-    ),
-  ];
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: messageHistory,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
 
-  return new Promise((resolve, reject) => {
-    pendingChat = { resolve, reject, onToken };
-    worker.postMessage({ type: "chat", messages: formatted });
-  });
-}
+    clearTimeout(timeout);
 
-export function cancelGeneration() {
-  if (worker && pendingChat) {
-    worker.postMessage({ type: "cancel" });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`API error ${res.status}: ${errText}`);
+    }
+
+    for await (const json of parseSSE(res)) {
+      const delta = json.choices?.[0]?.delta?.content;
+      if (delta) {
+        fullResponse += delta;
+        onToken(fullResponse);
+      }
+    }
+
+    if (!fullResponse) throw new Error("Empty response from API");
+  } catch (e) {
+    messageHistory = null; // Reset on error
+    throw e;
   }
+
+  pushToHistory({ role: "assistant", content: fullResponse });
+  return fullResponse;
 }
 
 export function isModelReady() {
-  return ready;
+  return true;
 }
 
 export function isModelLoading() {
-  return loading;
+  return false;
 }
 
 export function getModelError() {
-  return error;
+  return null;
 }
