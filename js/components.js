@@ -623,7 +623,7 @@ export function buildChatBubble(displayName) {
     let fullReply = "";
 
     try {
-      await chat(chatHistory, (token) => {
+      await chat(text, (token) => {
         fullReply += token;
         botMsg.textContent = fullReply;
         messages.scrollTop = messages.scrollHeight;
