@@ -637,8 +637,8 @@ export function buildChatBubble(displayName) {
     trigger.setAttribute("aria-label", isOpen ? "Close chat" : "Open chat");
 
     // Load model on first open
-    if (isOpen && !isModelReady()) {
-      setLoading(true);
+    if (isOpen && !isModelReady() && !isModelLoading()) {
+      setInputReady(false);
       statusEl.textContent = "Loading model...";
 
       loadModel((stage, progress) => {
@@ -646,7 +646,6 @@ export function buildChatBubble(displayName) {
           statusEl.textContent = `Loading model... ${Math.round(progress)}%`;
         } else if (stage === "ready") {
           statusEl.textContent = "Online";
-          setInputReady(true);
         }
       }).then((ok) => {
         if (ok) {
