@@ -6,7 +6,7 @@
 import { getCachedData } from "./data.js";
 
 const API_URL = "https://text.pollinations.ai/openai";
-const MODEL = "qwen-safety";
+const MODELS = ["deepseek", "mistral"];
 
 // ---------------------------------------------------------------------------
 // Prompt template (from prompt.md)
@@ -150,51 +150,57 @@ export async function chat(userMessage, onToken) {
   await ensureHistory();
   pushToHistory({ role: "user", content: userMessage });
 
-  let fullResponse = "";
+  let lastError = null;
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+  for (const model of MODELS) {
+    let fullResponse = "";
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: messageHistory,
-        stream: true,
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
-    clearTimeout(timeout);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: messageHistory,
+          stream: true,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`API error ${res.status}: ${errText}`);
-    }
+      clearTimeout(timeout);
 
-    for await (const json of parseSSE(res)) {
-      const delta = json.choices?.[0]?.delta?.content;
-      if (delta) {
-        // Handle both cumulative and delta chunk formats
-        if (delta.startsWith(fullResponse)) {
-          fullResponse = delta;
-        } else {
-          fullResponse += delta;
-        }
-        onToken(fullResponse);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`API error ${res.status}: ${errText}`);
       }
-    }
 
-    if (!fullResponse) throw new Error("Empty response from API");
-  } catch (e) {
-    messageHistory = null; // Reset on error
-    throw e;
+      for await (const json of parseSSE(res)) {
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          if (delta.startsWith(fullResponse)) {
+            fullResponse = delta;
+          } else {
+            fullResponse += delta;
+          }
+          onToken(fullResponse);
+        }
+      }
+
+      if (!fullResponse) throw new Error("Empty response from API");
+
+      pushToHistory({ role: "assistant", content: fullResponse });
+      return fullResponse;
+    } catch (e) {
+      lastError = e;
+      console.warn(`[slm] ${model} failed:`, e.message);
+    }
   }
 
-  pushToHistory({ role: "assistant", content: fullResponse });
-  return fullResponse;
+  messageHistory = null;
+  throw lastError;
 }
 
 export function isModelReady() {
