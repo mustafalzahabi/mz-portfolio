@@ -6,7 +6,7 @@
 import { getCachedData } from "./data.js";
 
 const API_URL = "https://text.pollinations.ai/openai";
-const MODEL = "openai";
+const MODEL = "qwen-safety";
 
 // ---------------------------------------------------------------------------
 // Prompt template (from prompt.md)
