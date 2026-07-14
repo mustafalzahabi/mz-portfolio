@@ -615,7 +615,7 @@ export function buildChatBubble(displayName) {
 
     try {
       await chat(text, (token) => {
-        fullReply += token;
+        fullReply = token;
         botMsg.textContent = fullReply;
         messages.scrollTop = messages.scrollHeight;
       });

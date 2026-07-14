@@ -6,7 +6,7 @@
 import { getCachedData } from "./data.js";
 
 const API_URL = "https://text.pollinations.ai/openai";
-const MODEL = "openai";
+const MODEL = "qwen-safety";
 
 // ---------------------------------------------------------------------------
 // Prompt template (from prompt.md)
@@ -177,7 +177,12 @@ export async function chat(userMessage, onToken) {
     for await (const json of parseSSE(res)) {
       const delta = json.choices?.[0]?.delta?.content;
       if (delta) {
-        fullResponse += delta;
+        // Handle both cumulative and delta chunk formats
+        if (delta.startsWith(fullResponse)) {
+          fullResponse = delta;
+        } else {
+          fullResponse += delta;
+        }
         onToken(fullResponse);
       }
     }
