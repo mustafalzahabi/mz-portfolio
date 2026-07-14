@@ -6,7 +6,7 @@
 import { getCachedData } from "./data.js";
 
 const API_URL = "https://text.pollinations.ai/openai";
-const MODELS = ["deepseek", "mistral"];
+const MODELS = ["openai-fast"];
 
 // ---------------------------------------------------------------------------
 // Prompt template (from prompt.md)
@@ -166,6 +166,7 @@ export async function chat(userMessage, onToken) {
           model,
           messages: messageHistory,
           stream: true,
+          reasoning_effort: "minimal",
         }),
         signal: controller.signal,
       });
