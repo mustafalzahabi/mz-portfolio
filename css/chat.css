@@ -143,6 +143,19 @@
   background: light-dark(rgba(255, 255, 255, 0.3), rgba(0, 0, 0, 0.3));
 }
 
+/* Hide Puter.js SDK dialog and UI elements */
+puter-dialog,
+puter-modal,
+[data-puter],
+.puter-ui,
+.puter-dialog,
+.puter-modal {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Messages area */
 .chat-messages {
   flex: 1;
