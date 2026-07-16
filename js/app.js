@@ -436,6 +436,7 @@ export async function loadData(projectName) {
               bio: text.bio || d.basics.summary || "",
               philosophy: text.philosophy ?? "",
               cv_link: cvProfile?.url || "",
+              _rawResume: d._rawResume || null,
             }
           : null,
       education:
