@@ -1,12 +1,35 @@
 // ============================================================================
-// CLIENT-SIDE SLM — Free API chatbot via Pollinations.ai
-// No API key, no download, no WASM, works on every browser.
+// CLIENT-SIDE SLM — Dual-mode chatbot
+// Default: Puter.js (cloud, user-pays). Toggle: SmolLM2-360M (local, offline).
 // ============================================================================
 
 import { getCachedData } from "./data.js";
+import {
+  isPuterReady,
+  markPuterReady,
+  puterChatStream,
+} from "./puter-model.js";
+import {
+  isLocalModelReady,
+  isLocalModelLoading,
+  loadLocalModel,
+  localChat,
+} from "./local-model.js";
 
-const API_URL = "https://text.pollinations.ai/openai";
-const MODELS = ["openai-fast"];
+// ---------------------------------------------------------------------------
+// Mode management
+// ---------------------------------------------------------------------------
+
+let currentMode = "cloud"; // "cloud" | "local"
+
+export function switchMode(mode) {
+  currentMode = mode;
+  resetHistory();
+}
+
+export function getMode() {
+  return currentMode;
+}
 
 // ---------------------------------------------------------------------------
 // Prompt template (from prompt.md)
@@ -20,7 +43,8 @@ async function loadPromptTemplate() {
     const res = await fetch(new URL("../prompt.md", import.meta.url));
     promptTemplate = await res.text();
   } catch {
-    promptTemplate = `You are a portfolio assistant. Present the candidate positively using ONLY the data below. Keep answers concise.\n\n{{DATA}}`;
+    promptTemplate =
+      "You are a portfolio assistant. Answer briefly about the owner's projects and skills.\n\n{{DATA}}";
   }
   return promptTemplate;
 }
@@ -72,17 +96,35 @@ function fillTemplate(template, d) {
 }
 
 // ---------------------------------------------------------------------------
-// System prompt (cached)
+// System prompt (cached, mode-aware)
 // ---------------------------------------------------------------------------
 
-let systemPrompt = null;
+let cloudSystemPrompt = null;
+let localSystemPrompt = null;
 
 async function getSystemPrompt() {
-  if (systemPrompt) return systemPrompt;
-  const template = await loadPromptTemplate();
-  const d = getCachedData();
-  systemPrompt = fillTemplate(template, d);
-  return systemPrompt;
+  if (currentMode === "cloud") {
+    if (cloudSystemPrompt) return cloudSystemPrompt;
+    const template = await loadPromptTemplate();
+    const d = getCachedData();
+    cloudSystemPrompt = fillTemplate(template, d);
+    return cloudSystemPrompt;
+  } else {
+    // Local mode: much shorter prompt for small model (max ~100 tokens)
+    if (localSystemPrompt) return localSystemPrompt;
+    const d = getCachedData();
+    const name = d?.basics?.name || "the portfolio owner";
+    const skills = (d?.skills || [])
+      .slice(0, 3)
+      .map((c) => c.items.slice(0, 5).join(", "))
+      .join("; ");
+    const projects = (d?.projects || [])
+      .slice(0, 3)
+      .map((p) => p.name)
+      .join(", ");
+    localSystemPrompt = `You are ${name}'s portfolio assistant. Answer briefly about their projects and skills. Keep answers under 50 words.\nSkills: ${skills}\nProjects: ${projects}`;
+    return localSystemPrompt;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -98,9 +140,12 @@ async function ensureHistory() {
   messageHistory = [{ role: "system", content: sp }];
 }
 
+function resetHistory() {
+  messageHistory = null;
+}
+
 function pushToHistory(msg) {
   messageHistory.push(msg);
-  // Keep system prompt + last MAX_HISTORY messages
   if (messageHistory.length > MAX_HISTORY + 1) {
     messageHistory = [
       messageHistory[0],
@@ -110,105 +155,69 @@ function pushToHistory(msg) {
 }
 
 // ---------------------------------------------------------------------------
-// SSE stream parser (OpenAI-compatible format)
-// ---------------------------------------------------------------------------
-
-async function* parseSSE(response) {
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const payload = line.slice(6).trim();
-        if (payload === "[DONE]") return;
-        try {
-          yield JSON.parse(payload);
-        } catch {}
-      }
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export async function loadModel() {
-  return true;
+  // Check if Puter.js is available
+  if (typeof puter !== "undefined") {
+    markPuterReady();
+  }
+
+  if (currentMode === "cloud" && isPuterReady()) {
+    return true;
+  }
+
+  if (currentMode === "local") {
+    return await loadLocalModel();
+  }
+
+  // Cloud mode but Puter not ready — fall back to local
+  if (currentMode === "cloud" && !isPuterReady()) {
+    console.warn("[slm] Puter.js not available, falling back to local model");
+    currentMode = "local";
+    return await loadLocalModel();
+  }
+
+  return false;
 }
 
 export async function chat(userMessage, onToken) {
   await ensureHistory();
   pushToHistory({ role: "user", content: userMessage });
 
-  let lastError = null;
-
-  for (const model of MODELS) {
-    let fullResponse = "";
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: messageHistory,
-          stream: true,
-          reasoning_effort: "minimal",
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(`API error ${res.status}: ${errText}`);
+  try {
+    if (currentMode === "cloud") {
+      // Cloud mode via Puter.js
+      let fullReply = "";
+      for await (const text of puterChatStream(messageHistory)) {
+        fullReply = text;
+        onToken(fullReply);
       }
-
-      for await (const json of parseSSE(res)) {
-        const delta = json.choices?.[0]?.delta?.content;
-        if (delta) {
-          if (delta.startsWith(fullResponse)) {
-            fullResponse = delta;
-          } else {
-            fullResponse += delta;
-          }
-          onToken(fullResponse);
-        }
-      }
-
-      if (!fullResponse) throw new Error("Empty response from API");
-
-      pushToHistory({ role: "assistant", content: fullResponse });
-      return fullResponse;
-    } catch (e) {
-      lastError = e;
-      console.warn(`[slm] ${model} failed:`, e.message);
+      if (!fullReply) throw new Error("Empty response from Puter.js");
+      pushToHistory({ role: "assistant", content: fullReply });
+      return fullReply;
+    } else {
+      // Local mode via SmolLM2
+      const fullReply = await localChat(messageHistory);
+      onToken(fullReply);
+      pushToHistory({ role: "assistant", content: fullReply });
+      return fullReply;
     }
+  } catch (e) {
+    console.warn(`[slm] ${currentMode} failed:`, e.message);
+    resetHistory();
+    throw e;
   }
-
-  messageHistory = null;
-  throw lastError;
 }
 
 export function isModelReady() {
-  return true;
+  if (currentMode === "cloud") return isPuterReady();
+  return isLocalModelReady();
 }
 
 export function isModelLoading() {
+  if (currentMode === "local") return isLocalModelLoading();
   return false;
 }
 

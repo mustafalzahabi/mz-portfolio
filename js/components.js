@@ -5,7 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { chat, isModelReady } from "./slm.js";
+import { chat, isModelReady, switchMode, getMode } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -539,7 +539,20 @@ export function buildChatBubble(displayName) {
   closeBtn.setAttribute("aria-label", "Close chat");
   closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
-  header.append(headerInfo, closeBtn);
+  // Mode toggle button
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "chat-mode-toggle";
+  toggleBtn.textContent = getMode() === "cloud" ? "Cloud" : "Local";
+  toggleBtn.title = "Switch between cloud AI and local model";
+  toggleBtn.addEventListener("click", () => {
+    const newMode = getMode() === "cloud" ? "local" : "cloud";
+    switchMode(newMode);
+    toggleBtn.textContent = newMode === "cloud" ? "Cloud" : "Local";
+    statusEl.textContent =
+      newMode === "cloud" ? "Online" : "Offline-ready";
+  });
+
+  header.append(headerInfo, toggleBtn, closeBtn);
 
   // Messages area
   const messages = document.createElement("div");
