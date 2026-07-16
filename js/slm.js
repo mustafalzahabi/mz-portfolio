@@ -7,6 +7,7 @@ import { getCachedData } from "./data.js";
 import {
   isPuterReady,
   markPuterReady,
+  ensurePuterAuth,
   puterChatStream,
 } from "./puter-model.js";
 import {
@@ -188,6 +189,14 @@ export async function chat(userMessage, onToken) {
 
   try {
     if (currentMode === "cloud") {
+      // Ensure Puter auth before first chat (creates temp user if needed)
+      const authed = await ensurePuterAuth();
+      if (!authed) {
+        console.warn("[slm] Puter auth failed, falling back to local");
+        currentMode = "local";
+        return await localChat(messageHistory);
+      }
+
       // Cloud mode via Puter.js
       let fullReply = "";
       for await (const text of puterChatStream(messageHistory)) {

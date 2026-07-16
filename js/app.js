@@ -173,6 +173,7 @@ import {
 import { collectPortfolioData } from "./data.js";
 
 import { loadModel as preloadModel } from "./slm.js";
+import { markPuterReady } from "./puter-model.js";
 
 import { setupThemeToggle } from "./theme.js";
 
@@ -549,6 +550,11 @@ export async function loadData(projectName) {
     );
     document.body.appendChild(buildChatBubble(d.basics.name));
     setTimeout(() => preloadModel().catch(() => {}), 1000);
+
+    // Trigger Puter.js init early so auth happens before user chats
+    if (typeof puter !== "undefined") {
+      markPuterReady();
+    }
   } catch (e) {
     console.error(e);
     showError(e.message || "Could not load portfolio data.");

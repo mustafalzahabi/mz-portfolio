@@ -5,7 +5,7 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { chat, isModelReady, switchMode, getMode } from "./slm.js";
+import { chat, isModelReady, switchMode, getMode, isModelLoading } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -519,7 +519,7 @@ export function buildChatBubble(displayName) {
 
   const statusEl = document.createElement("div");
   statusEl.className = "chat-header-status";
-  statusEl.textContent = "Online";
+  statusEl.textContent = getMode() === "cloud" ? "Cloud AI" : "Offline";
 
   headerText.append(nameEl, statusEl);
   headerInfo.append(avatar, headerText);
