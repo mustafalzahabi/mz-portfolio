@@ -744,15 +744,6 @@ async function buildResumeOverlay(resume) {
   const printBtn = document.createElement("button");
   printBtn.className = "resume-overlay-print";
   printBtn.textContent = "Print";
-  printBtn.addEventListener("click", () => {
-    const content = container.querySelector(".resume-document");
-    if (!content) return;
-    const w = window.open("", "_blank", "width=800,height=600");
-    w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
-    w.document.close();
-    w.focus();
-    w.print();
-  });
 
   const closeBtn = document.createElement("button");
   closeBtn.className = "resume-overlay-close";
@@ -762,18 +753,39 @@ async function buildResumeOverlay(resume) {
   toolbarActions.append(printBtn, closeBtn);
   toolbar.append(toolbarTitle, toolbarActions);
 
-  const doc = document.createElement("div");
-  doc.className = "resume-document";
-
   // Try to load the user's chosen JSON Resume theme from CDN
   const themeName = resume.meta?.theme;
   let themed = false;
+
   if (themeName) {
-    themed = await loadThemeIntoDoc(doc, themeName, resume);
+    const themeHtml = await fetchThemeHtml(themeName, resume);
+    if (themeHtml) {
+      themed = true;
+      const iframe = document.createElement("iframe");
+      iframe.className = "resume-theme-iframe";
+      iframe.setAttribute("sandbox", "allow-same-origin allow-scripts");
+      iframe.setAttribute("loading", "eager");
+      iframe.srcdoc = themeHtml;
+
+      printBtn.addEventListener("click", () => {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(themeHtml);
+          w.document.close();
+          w.focus();
+          w.print();
+        }
+      });
+
+      container.append(toolbar, iframe);
+    }
   }
 
   // Fall back to custom renderer if theme didn't load
   if (!themed) {
+    const doc = document.createElement("div");
+    doc.className = "resume-document";
+
     renderResumeBasics(doc, resume.basics);
     renderResumeWork(doc, resume.work);
     renderResumeEducation(doc, resume.education);
@@ -785,9 +797,20 @@ async function buildResumeOverlay(resume) {
     renderResumeLanguages(doc, resume.languages);
     renderResumeInterests(doc, resume.interests);
     renderResumeReferences(doc, resume.references);
+
+    printBtn.addEventListener("click", () => {
+      const content = container.querySelector(".resume-document");
+      if (!content) return;
+      const w = window.open("", "_blank", "width=800,height=600");
+      w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
+      w.document.close();
+      w.focus();
+      w.print();
+    });
+
+    container.append(toolbar, doc);
   }
 
-  container.append(toolbar, doc);
   overlay.append(backdrop, container);
 
   function close() {
@@ -809,42 +832,31 @@ async function buildResumeOverlay(resume) {
   return overlay;
 }
 
-async function loadThemeIntoDoc(doc, themeName, resume) {
-  try {
-    const mod = await import(`https://unpkg.com/${themeName}`);
-    const renderFn = mod.render || mod.default?.render;
-    if (!renderFn) return false;
+async function fetchThemeHtml(themeName, resume) {
+  // Normalize: if the user just typed "even", try "jsonresume-theme-even"
+  const pkgName = themeName.startsWith("jsonresume-theme-")
+    ? themeName
+    : `jsonresume-theme-${themeName}`;
 
-    const html = renderFn(resume);
-    if (!html || typeof html !== "string") return false;
+  const sources = [
+    `https://esm.sh/${pkgName}`,
+    `https://cdn.jsdelivr.net/npm/${pkgName}/+esm`,
+  ];
 
-    // Inject the theme's rendered HTML
-    doc.innerHTML = html;
+  for (const url of sources) {
+    try {
+      const mod = await import(url);
+      const renderFn = mod.render || mod.default?.render || mod.default;
+      if (typeof renderFn !== "function") continue;
 
-    // Load any <link rel="stylesheet"> tags the theme references
-    const linkTags = doc.querySelectorAll('link[rel="stylesheet"]');
-    linkTags.forEach((link) => {
-      const href = link.getAttribute("href");
-      if (!href) return;
-      // Resolve relative URLs against the theme's package
-      const resolved = href.startsWith("http")
-        ? href
-        : `https://unpkg.com/${themeName}/${href.replace(/^\.\//, "")}`;
-      const existing = document.querySelector(`link[href="${resolved}"]`);
-      if (!existing) {
-        const newLink = document.createElement("link");
-        newLink.rel = "stylesheet";
-        newLink.href = resolved;
-        document.head.appendChild(newLink);
-      }
-    });
-
-    // Load any <style> tags (already in the DOM via innerHTML, no extra work needed)
-    return true;
-  } catch (e) {
-    console.warn(`[resume] Could not load theme "${themeName}":`, e.message);
-    return false;
+      const html = renderFn(resume);
+      if (html && typeof html === "string") return html;
+    } catch (e) {
+      console.warn(`[resume] Theme load failed from ${url}:`, e.message);
+    }
   }
+
+  return null;
 }
 
 function renderResumeBasics(doc, basics) {
