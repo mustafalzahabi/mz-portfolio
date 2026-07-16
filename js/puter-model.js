@@ -6,6 +6,33 @@
 let puterReady = false;
 let puterAuthed = false;
 
+// Hide any Puter UI elements that appear
+function hidePuterUI() {
+  const selectors = [
+    "puter-dialog",
+    "puter-modal",
+    "[data-puter]",
+    ".puter-ui",
+    ".puter-dialog",
+    ".puter-modal",
+  ];
+  for (const sel of selectors) {
+    document.querySelectorAll(sel).forEach((el) => {
+      el.style.display = "none";
+      el.style.visibility = "hidden";
+      el.style.opacity = "0";
+      el.style.pointerEvents = "none";
+    });
+  }
+}
+
+// Watch for Puter UI elements and hide them
+const puterObserver = new MutationObserver(() => hidePuterUI());
+puterObserver.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+});
+
 export function isPuterReady() {
   return typeof puter !== "undefined" && puterReady;
 }
@@ -25,14 +52,17 @@ export async function ensurePuterAuth() {
   if (typeof puter === "undefined") return false;
   if (puter.auth.isSignedIn()) {
     puterAuthed = true;
+    hidePuterUI();
     return true;
   }
   try {
     await puter.auth.signIn({ attempt_temp_user_creation: true });
     puterAuthed = true;
+    hidePuterUI();
     return true;
   } catch {
     puterAuthed = false;
+    hidePuterUI();
     return false;
   }
 }
