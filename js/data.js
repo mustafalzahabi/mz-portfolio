@@ -247,7 +247,7 @@ export async function collectPortfolioData(githubUsername) {
   // --- Meta config ---
   const meta = resume?.meta || {};
 
-  const unified = { basics, education, skills, projects, meta };
+  const unified = { basics, education, skills, projects, meta, _rawResume: resume };
 
   // Store in localStorage for debugging / caching
   try {
