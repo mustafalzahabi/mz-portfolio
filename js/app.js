@@ -4,6 +4,9 @@
 
 export let currentPage = "home";
 export let allProjectsData = [];
+export let blogPostsData = [];
+let pendingTab = "profile";
+let pendingBlogSlug = null;
 
 export function setCurrentPage(page) {
   currentPage = page;
@@ -11,6 +14,10 @@ export function setCurrentPage(page) {
 
 export function setAllProjectsData(data) {
   allProjectsData = data;
+}
+
+export function setBlogPostsData(data) {
+  blogPostsData = data;
 }
 
 // ============================================================================
@@ -53,20 +60,35 @@ export function showLandingPage() {
   <!-- Hero Section -->
   <header class="hero-section">
     <div class="brand-badge">mz-portfolio</div>
-    <h1 class="hero-title">Your GitHub Gist.<br>Your Instant Portfolio.</h1>
+    <h1 class="hero-title">Your <code>resume.json</code>.<br>Your Instant Portfolio.</h1>
     <p class="hero-subtitle">
-      Transform a simple <code>resume.json</code> public gist into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
+      Transform a simple <code>resume.json</code> from a public GitHub gist or Google Drive folder into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
     </p>
 
     <!-- Interactive Form -->
     <form onsubmit="navigateToUser(event)" class="search-form">
-      <div class="input-wrapper">
+      <div class="source-tabs">
+        <button type="button" class="source-tab active" data-source="gh">GitHub</button>
+        <button type="button" class="source-tab" data-source="gd">Google Drive</button>
+      </div>
+      <div class="input-wrapper" id="gh-input-wrapper">
         <span class="input-prefix">github.com/</span>
         <input
           id="username-input"
           type="text"
           placeholder="username"
-          autocomplete="username"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
+      </div>
+      <div class="input-wrapper" id="gd-input-wrapper" style="display:none">
+        <span class="input-prefix">File ID</span>
+        <input
+          id="gdrive-input"
+          type="text"
+          placeholder="1abc2def3ghi..."
+          autocomplete="off"
           spellcheck="false"
           required
         />
@@ -80,7 +102,7 @@ export function showLandingPage() {
     <div class="feature-card">
       <div class="feature-icon"></div>
       <h3>Dynamic Rendering</h3>
-      <p>Fetches data directly from your public GitHub gists on the fly. Update your gist, your portfolio updates instantly.</p>
+      <p>Fetches data directly from your public GitHub gist or Google Drive folder on the fly. Update your <code>resume.json</code>, your portfolio updates instantly.</p>
     </div>
 
     <div class="feature-card">
@@ -102,7 +124,7 @@ export function showLandingPage() {
     <div class="steps-container">
       <div class="step-item">
         <div class="step-number">1</div>
-        <p>Create a public GitHub gist named <strong><code>resume.json</code></strong>.</p>
+        <p>Create a <strong>public GitHub gist</strong> or <strong>Google Drive file</strong> named <strong><code>resume.json</code></strong>.</p>
       </div>
       <div class="step-item">
         <div class="step-number">2</div>
@@ -110,12 +132,37 @@ export function showLandingPage() {
       </div>
       <div class="step-item">
         <div class="step-number">3</div>
-        <p>Drop your username above or share your custom link with the world.</p>
+        <p>Select a source above and drop your username or folder ID.</p>
       </div>
     </div>
   </section>
 </div>
   `;
+  // Wire source tab switching
+  const sourceTabs = app.querySelectorAll(".source-tab");
+  const ghWrapper = app.querySelector("#gh-input-wrapper");
+  const gdWrapper = app.querySelector("#gd-input-wrapper");
+  if (sourceTabs.length) {
+    sourceTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        sourceTabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        const source = tab.dataset.source;
+        if (source === "gd") {
+          ghWrapper.style.display = "none";
+          gdWrapper.style.display = "";
+          const gdInput = app.querySelector("#gdrive-input");
+          if (gdInput) gdInput.focus();
+        } else {
+          ghWrapper.style.display = "";
+          gdWrapper.style.display = "none";
+          const ghInput = app.querySelector("#username-input");
+          if (ghInput) ghInput.focus();
+        }
+      });
+    });
+  }
+
   const input = app.querySelector("#username-input");
   if (input) input.focus();
 }
@@ -123,29 +170,57 @@ export function showLandingPage() {
 // Expose navigateToUser globally for the inline onsubmit handler
 window.navigateToUser = function (event) {
   if (event) event.preventDefault();
-  const input = document.getElementById("username-input");
-  const username = input?.value.trim();
-  if (username) {
-    const base =
-      window.location.origin +
-      (window.location.pathname.endsWith("/")
-        ? window.location.pathname
-        : window.location.pathname + "/");
-    const cleanBase = base.replace(/\/+$/, "/");
-    window.location.href = cleanBase + encodeURIComponent(username);
+  const activeTab = document.querySelector(".source-tab.active");
+  const source = activeTab?.dataset.source || "gh";
+
+  if (source === "gd") {
+    const fileId = document.getElementById("gdrive-input")?.value.trim();
+    if (fileId) {
+      const base =
+        window.location.origin +
+        (window.location.pathname.endsWith("/")
+          ? window.location.pathname
+          : window.location.pathname + "/");
+      const cleanBase = base.replace(/\/+$/, "/");
+      window.location.href = `${cleanBase}gd/${encodeURIComponent(fileId)}`;
+    }
+  } else {
+    const input = document.getElementById("username-input");
+    const username = input?.value.trim();
+    if (username) {
+      const base =
+        window.location.origin +
+        (window.location.pathname.endsWith("/")
+          ? window.location.pathname
+          : window.location.pathname + "/");
+      const cleanBase = base.replace(/\/+$/, "/");
+      window.location.href = `${cleanBase}gh/${encodeURIComponent(username)}`;
+    }
   }
 };
 
 // ============================================================================
-// URL USERNAME EXTRACTION
+// ROUTE INFO EXTRACTION
 // ============================================================================
 
-function getGithubUsername() {
+function getRouteInfo() {
   const pathParts = window.location.pathname.split("/").filter(Boolean);
-  if (pathParts.length >= 1) {
-    return pathParts[pathParts.length - 1];
+
+  if (pathParts.length >= 2) {
+    const prefix = pathParts[0].toLowerCase();
+    if (prefix === "gh") {
+      return { type: "gh", identifier: pathParts.slice(1).join("/") };
+    }
+    if (prefix === "gd") {
+      return { type: "gd", identifier: pathParts.slice(1).join("/") };
+    }
   }
-  return "";
+
+  if (pathParts.length >= 1) {
+    return { type: "gh", identifier: pathParts[pathParts.length - 1] };
+  }
+
+  return { type: "", identifier: "" };
 }
 
 // Import component builders
@@ -161,6 +236,8 @@ import {
   buildFooter,
   setProjectsDataRef,
   renderProjectDetail,
+  buildBlogPostList,
+  renderBlogPostDetail,
 } from "./components.js";
 
 import {
@@ -169,10 +246,9 @@ import {
   initializeLanguageColors,
 } from "./api.js";
 
-import { collectPortfolioData } from "./data.js";
+import { collectPortfolioData, fetchBlogPosts } from "./data.js";
 
 import { loadModel as preloadModel, buildChatBubble } from "./chat.js";
-import { markPuterReady } from "./model.js";
 
 import { setupThemeToggle } from "./theme.js";
 
@@ -250,6 +326,26 @@ function setupMetaTags() {
 function handleRoute() {
   const hash = window.location.hash;
 
+  if (hash === "#blog") {
+    pendingTab = "blog";
+    loadData();
+    return;
+  }
+
+  if (hash.startsWith("#/blog/")) {
+    const slug = decodeURIComponent(hash.slice(7));
+    const post = blogPostsData.find((p) => p.slug === slug);
+    if (post) {
+      currentPage = "blog-post";
+      renderBlogPostDetail(post);
+    } else {
+      pendingBlogSlug = slug;
+      pendingTab = "blog";
+      loadData();
+    }
+    return;
+  }
+
   if (hash.startsWith("#/project/")) {
     const projectName = decodeURIComponent(hash.slice(10));
     const project = allProjectsData.find((p) => p.name === projectName);
@@ -284,15 +380,15 @@ export async function loadData(projectName) {
   console.log("[loadData] started, projectName:", projectName);
   showLoading();
   try {
-    // 1. Determine username from URL
-    const githubUsername = getGithubUsername();
-    if (!githubUsername) {
+    // 1. Determine source and identifier from URL
+    const route = getRouteInfo();
+    if (!route.identifier) {
       showLandingPage();
       return;
     }
 
     // 2. Collect all data from resume.json + GitHub into a unified structure
-    const d = await collectPortfolioData(githubUsername);
+    const d = await collectPortfolioData(route.identifier, route.type);
     console.log("[loadData] unified data:", {
       name: d.basics.name,
       hasEducation: !!d.education?.length,
@@ -327,6 +423,14 @@ export async function loadData(projectName) {
     const skillsCfg = custom.skills || {};
     const sectionsCfg = custom.sections || {};
     const animationCfg = custom.animation || {};
+    const blogCfg = custom.blog === false ? { enabled: false } : (custom.blog || {});
+    const blogEnabled = blogCfg.enabled !== false;
+
+    let blogPosts = [];
+    if (blogEnabled && route.type === "gh") {
+      blogPosts = await fetchBlogPosts(route.identifier);
+    }
+    blogPostsData = blogPosts;
 
     // Animation/transition CSS vars
     if (
@@ -364,11 +468,13 @@ export async function loadData(projectName) {
     const frag = document.createDocumentFragment();
     const main = document.createElement("main");
 
-    // Profile photo: custom config > unified image > GitHub avatar
+    // Profile photo: custom config > resume.json image > GitHub avatar (GH only)
     let profilePhoto = "";
     if (profileCfg.photo) {
       if (profileCfg.photo === "gh" || profileCfg.photo === "github") {
-        profilePhoto = await fetchGithubUserAvatar(githubUsername);
+        if (route.type === "gh") {
+          profilePhoto = await fetchGithubUserAvatar(route.identifier);
+        }
       } else {
         profilePhoto = profileCfg.photo;
       }
@@ -376,8 +482,8 @@ export async function loadData(projectName) {
     if (!profilePhoto && d.basics.image) {
       profilePhoto = d.basics.image;
     }
-    if (!profilePhoto) {
-      profilePhoto = await fetchGithubUserAvatar(githubUsername);
+    if (!profilePhoto && route.type === "gh") {
+      profilePhoto = await fetchGithubUserAvatar(route.identifier);
     }
 
     // Build header with all profiles
@@ -413,7 +519,7 @@ export async function loadData(projectName) {
         },
       ),
     );
-    frag.appendChild(buildTabSelector());
+    frag.appendChild(buildTabSelector(blogPosts.length > 0));
 
     // Section order and visibility
     const defaultOrder = [
@@ -469,7 +575,7 @@ export async function loadData(projectName) {
       skills: d.skills || null,
       contact: (() => {
         const email = d.basics.email || "";
-        const github = ghProfileEntry?.url || `https://github.com/${githubUsername}`;
+        const github = ghProfileEntry?.url || `https://github.com/${route.identifier}`;
         const linkedin = liProfileEntry?.url || "";
         // Collect all unique profile URLs for the contact links
         const websiteProfiles = d.basics.profiles.filter(
@@ -529,20 +635,79 @@ export async function loadData(projectName) {
         "text-align:center;padding:4rem 2rem;color:var(--secondary-color);";
       emptyMsg.innerHTML = `
         <p style="font-size:1.25rem;margin-bottom:0.5rem;">No portfolio data found</p>
-        <p style="font-size:0.9rem;">Could not load resume.json gist or GitHub repositories for <strong>${githubUsername}</strong>.</p>
-        <p style="font-size:0.9rem;">Check the browser console for details, or try again later if rate-limited.</p>
+        <p style="font-size:0.9rem;">Could not load resume.json${route.type === 'gh' ? ' or GitHub repositories' : ''} for <strong>${route.identifier}</strong>.</p>
+        <p style="font-size:0.9rem;">Check the browser console for details, or try again later.</p>
       `;
       sections.appendChild(emptyMsg);
     }
 
     main.appendChild(buildNavbar());
     main.appendChild(sections);
+
+    // Blog container (hidden by default)
+    const blogContainer = document.createElement("div");
+    blogContainer.id = "blog-container";
+    blogContainer.className = "blog-container";
+    blogContainer.style.display = "none";
+    if (blogPosts.length > 0) {
+      blogContainer.appendChild(buildBlogPostList(blogPosts));
+    }
+    main.appendChild(blogContainer);
+
     frag.appendChild(main);
     frag.appendChild(buildFooter(d.basics.name));
     console.log("[loadData] appending content to DOM");
     app.innerHTML = "";
     app.appendChild(frag);
+
+    // Wire tab switching
+    const tabSelector = document.querySelector(".tab-selector");
+    if (tabSelector) {
+      tabSelector.addEventListener("click", (e) => {
+        const tab = e.target.closest(".tab-link");
+        if (!tab) return;
+        e.preventDefault();
+
+        const tabName = tab.dataset.tab;
+        tabSelector.querySelectorAll(".tab-link").forEach((t) =>
+          t.classList.remove("active")
+        );
+        tab.classList.add("active");
+
+        const sectionsEl = document.querySelector(".sections");
+        const navbar = document.querySelector(".navbar");
+        const blogCont = document.getElementById("blog-container");
+
+        if (tabName === "profile") {
+          sectionsEl.style.display = "";
+          navbar.style.display = "";
+          blogCont.style.display = "none";
+        } else {
+          sectionsEl.style.display = "none";
+          navbar.style.display = "none";
+          blogCont.style.display = "";
+        }
+      });
+    }
+
     setupThemeToggle();
+
+    // Activate pending tab (e.g. after back from blog detail)
+    if (pendingTab === "blog" && blogPosts.length > 0) {
+      const blogTab = tabSelector?.querySelector('[data-tab="blog"]');
+      if (blogTab) blogTab.click();
+      pendingTab = "profile";
+    }
+
+    // Navigate to a specific blog post if pending
+    if (pendingBlogSlug && blogPosts.length > 0) {
+      const post = blogPostsData.find((p) => p.slug === pendingBlogSlug);
+      if (post) {
+        renderBlogPostDetail(post);
+      }
+      pendingBlogSlug = null;
+    }
+
     // Chat bubble
     document.querySelectorAll(".chat-bubble-wrapper").forEach((el) =>
       el.remove(),
@@ -550,10 +715,6 @@ export async function loadData(projectName) {
     document.body.appendChild(buildChatBubble(d.basics.name));
     setTimeout(() => preloadModel().catch(() => {}), 1000);
 
-    // Trigger Puter.js init early so auth happens before user chats
-    if (typeof puter !== "undefined") {
-      markPuterReady();
-    }
   } catch (e) {
     console.error(e);
     showError(e.message || "Could not load portfolio data.");
@@ -567,11 +728,17 @@ export async function loadData(projectName) {
 import { initDarkMode } from "./theme.js";
 
 export function init() {
-  // Username rescue and URL rewrite logic
+  // Route rescue and URL rewrite logic
   const attemptedUser = sessionStorage.getItem("attempted_user");
+  const sourceType = sessionStorage.getItem("source_type") || "gh";
   if (attemptedUser) {
     sessionStorage.removeItem("attempted_user");
-    window.history.replaceState(null, "", `/${attemptedUser}`);
+    sessionStorage.removeItem("source_type");
+    if (sourceType === "gd") {
+      window.history.replaceState(null, "", `/gd/${encodeURIComponent(attemptedUser)}`);
+    } else {
+      window.history.replaceState(null, "", `/gh/${encodeURIComponent(attemptedUser)}`);
+    }
   }
 
   initDarkMode();
@@ -581,6 +748,12 @@ export function init() {
   const hash = window.location.hash;
   if (hash.startsWith("#/project/")) {
     loadDataThenRoute();
+  } else if (hash === "#blog" || hash.startsWith("#/blog/")) {
+    if (hash.startsWith("#/blog/")) {
+      pendingBlogSlug = decodeURIComponent(hash.slice(7));
+    }
+    pendingTab = "blog";
+    loadData();
   } else {
     loadData();
   }

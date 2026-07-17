@@ -6,7 +6,7 @@ import { getCachedData } from "./data.js";
 import {
   isPuterReady,
   markPuterReady,
-  ensurePuterAuth,
+  trySilentAuth,
   puterChatStream,
 } from "./model.js";
 
@@ -131,12 +131,8 @@ export async function chat(userMessage, onToken) {
   pushToHistory({ role: "user", content: userMessage });
 
   try {
-    const authed = await ensurePuterAuth();
-    if (!authed) {
-      throw new Error(
-        "Could not authenticate with Puter. Please allow popups for this site and try again.",
-      );
-    }
+    // Try silent auth (only if token already cached in localStorage)
+    trySilentAuth();
 
     let fullReply = "";
     for await (const text of puterChatStream(messageHistory)) {

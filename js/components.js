@@ -192,16 +192,25 @@ export function buildHeader(profile, contact, opts = {}) {
   return header;
 }
 
-export function buildTabSelector() {
+export function buildTabSelector(hasBlog) {
   const tabSelector = document.createElement("nav");
   tabSelector.className = "tab-selector";
 
-  const tabLink = document.createElement("a");
-  tabLink.href = "#";
-  tabLink.className = "tab-link active";
-  tabLink.textContent = "My Profile";
+  const profileTab = document.createElement("a");
+  profileTab.href = "#";
+  profileTab.className = "tab-link active";
+  profileTab.dataset.tab = "profile";
+  profileTab.textContent = "My Profile";
+  tabSelector.appendChild(profileTab);
 
-  tabSelector.appendChild(tabLink);
+  if (hasBlog) {
+    const blogTab = document.createElement("a");
+    blogTab.href = "#";
+    blogTab.className = "tab-link";
+    blogTab.dataset.tab = "blog";
+    blogTab.textContent = "Blog";
+    tabSelector.appendChild(blogTab);
+  }
 
   return tabSelector;
 }
@@ -677,51 +686,38 @@ async function executeThemeRender(themeName, resume) {
 
   for (const url of urls) {
     try {
-      const result = await new Promise((resolve, reject) => {
-        const id = `__theme_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const script = document.createElement("script");
-        script.type = "module";
-        script.textContent = `
-          import mod from '${url}';
-          const fn = mod.render || mod.default?.render || mod.default;
-          if (typeof fn === 'function') {
-            try { window['${id}'] = { html: fn(${JSON.stringify(resume)}) }; }
-            catch(e) { window['${id}'] = { error: e.message }; }
-          } else {
-            window['${id}'] = { error: 'no render function (exports: ' + Object.keys(mod).join(',') + ')' };
-          }
-        `;
-
-        const timeout = setTimeout(() => {
-          delete window[id];
-          reject(new Error("timeout"));
-        }, 15000);
-
-        script.onload = () => {
-          clearTimeout(timeout);
-          const data = window[id];
-          delete window[id];
-          if (data?.html) resolve(data.html);
-          else reject(new Error(data?.error || "unknown error"));
-        };
-
-        script.onerror = () => {
-          clearTimeout(timeout);
-          delete window[id];
-          reject(new Error("module load error"));
-        };
-
-        document.head.appendChild(script);
-        setTimeout(() => script.remove(), 100);
-      });
-
-      if (result) return result;
+      const html = await importTheme(url, resume);
+      if (html) return html;
     } catch (e) {
       console.warn(`[resume] Theme "${themeName}" failed from ${url}:`, e.message);
+      console.debug(`[resume] Full error:`, e);
     }
   }
 
   return null;
+}
+
+async function importTheme(url, resume) {
+  const TIMEOUT_MS = 20000;
+
+  const loadPromise = (async () => {
+    const mod = await import(url);
+    const fn = mod.render || mod.default?.render || mod.default;
+    if (typeof fn !== "function") {
+      throw new Error("no render function (exports: " + Object.keys(mod).join(", ") + ")");
+    }
+    const html = fn(resume);
+    if (typeof html !== "string" || html.length === 0) {
+      throw new Error("render returned empty result");
+    }
+    return html;
+  })();
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS)
+  );
+
+  return Promise.race([loadPromise, timeoutPromise]);
 }
 
 function extractStylesFromHtml(html) {
@@ -1229,6 +1225,121 @@ function getResumePrintStyles() {
     .resume-skill-tag { font-size: 0.8rem; padding: 0.125rem 0.5rem; background: #f0f0f0; border-radius: 0.25rem; }
     .resume-entry-inline { display: flex; align-items: baseline; gap: 0.5rem; }
   `;
+}
+
+// ============================================================================
+// BLOG BUILDERS
+// ============================================================================
+
+export function buildBlogPostList(posts) {
+  const container = document.createElement("div");
+  container.className = "blog-posts";
+  container.id = "blog-posts";
+
+  for (const post of posts) {
+    const card = document.createElement("article");
+    card.className = "blog-card";
+
+    const title = document.createElement("h2");
+    title.className = "blog-card-title";
+    const link = document.createElement("a");
+    link.href = `#/blog/${encodeURIComponent(post.slug)}`;
+    link.textContent = post.title;
+    title.appendChild(link);
+
+    const meta = document.createElement("div");
+    meta.className = "blog-card-meta";
+    const d = new Date(post.date);
+    meta.textContent = d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    card.append(title, meta);
+
+    if (post.description) {
+      const desc = document.createElement("p");
+      desc.className = "blog-card-description";
+      desc.textContent = post.description;
+      card.appendChild(desc);
+    }
+
+    if (post.tags?.length > 0) {
+      const tags = document.createElement("div");
+      tags.className = "blog-card-tags";
+      post.tags.forEach((tag) => {
+        const tagEl = document.createElement("span");
+        tagEl.className = "blog-card-tag";
+        tagEl.textContent = tag;
+        tags.appendChild(tagEl);
+      });
+      card.appendChild(tags);
+    }
+
+    container.appendChild(card);
+  }
+
+  return container;
+}
+
+export function renderBlogPostDetail(post) {
+  const app = document.getElementById("app");
+  const frag = document.createDocumentFragment();
+  const main = document.createElement("main");
+
+  const page = document.createElement("div");
+  page.className = "blog-detail";
+
+  const backBtn = document.createElement("a");
+  backBtn.href = "#blog";
+  backBtn.className = "blog-detail-back";
+  backBtn.textContent = "\u2190 Back to Blog";
+  page.appendChild(backBtn);
+
+  const title = document.createElement("h1");
+  title.className = "blog-detail-title";
+  title.textContent = post.title;
+  page.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "blog-detail-meta";
+  const d = new Date(post.date);
+  meta.textContent = d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  page.appendChild(meta);
+
+  if (post.tags?.length > 0) {
+    const tags = document.createElement("div");
+    tags.className = "blog-detail-tags";
+    post.tags.forEach((tag) => {
+      const tagEl = document.createElement("span");
+      tagEl.className = "blog-card-tag";
+      tagEl.textContent = tag;
+      tags.appendChild(tagEl);
+    });
+    page.appendChild(tags);
+  }
+
+  const content = document.createElement("div");
+  content.className = "blog-detail-content";
+  content.innerHTML = markdownToHtml(post.body);
+  page.appendChild(content);
+
+  const gistLink = document.createElement("a");
+  gistLink.href = post.gistUrl;
+  gistLink.target = "_blank";
+  gistLink.className = "blog-detail-gist-link";
+  gistLink.textContent = "View on GitHub Gist \u2192";
+  page.appendChild(gistLink);
+
+  main.appendChild(page);
+  frag.appendChild(main);
+  app.innerHTML = "";
+  app.appendChild(frag);
 }
 
 // ============================================================================

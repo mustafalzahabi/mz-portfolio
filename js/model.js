@@ -1,122 +1,38 @@
 // ============================================================================
 // PUTER.JS WRAPPER — Cloud AI via Puter (User-Pays model)
 // CDN loaded in index.html: <script src="https://js.puter.com/v2/"></script>
+//
+// Strategy: try without auth first (free models may work without a token).
+// Only trigger auth (popup) as a last resort.
 // ============================================================================
 
-const STORAGE_KEY = "puter_anon_token";
-const API_ORIGIN = "https://api.puter.com";
-
 let puterReady = false;
-let puterAuthed = false;
-
-// Try to silently auth by fetching anonymous token and injecting it
-async function trySilentAuth() {
-  try {
-    // Check localStorage for existing token
-    let token = localStorage.getItem(STORAGE_KEY);
-
-    if (!token) {
-      // Fetch new anonymous token (background HTTP, no popup)
-      const res = await fetch(`${API_ORIGIN}/v1/auth/anonymous`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      token = data.token;
-      if (!token) return false;
-      localStorage.setItem(STORAGE_KEY, token);
-    }
-
-    // Inject token into SDK
-    if (typeof puter !== "undefined" && puter.setAuthToken) {
-      puter.setAuthToken(token);
-      return true;
-    }
-  } catch (e) {
-    console.warn("[puter] Silent auth failed:", e.message);
-  }
-  return false;
-}
-
-// Hide any Puter UI elements that appear
-function hidePuterUI() {
-  const selectors = [
-    "puter-dialog",
-    "puter-modal",
-    "[data-puter]",
-    ".puter-ui",
-    ".puter-dialog",
-    ".puter-modal",
-  ];
-  for (const sel of selectors) {
-    document.querySelectorAll(sel).forEach((el) => {
-      el.style.display = "none";
-      el.style.visibility = "hidden";
-      el.style.opacity = "0";
-      el.style.pointerEvents = "none";
-    });
-  }
-}
-
-// Watch for Puter UI elements and hide them
-const puterObserver = new MutationObserver(() => hidePuterUI());
-puterObserver.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
 
 export function isPuterReady() {
   return typeof puter !== "undefined" && puterReady;
 }
 
-export function isPuterAuthed() {
-  return puterAuthed;
-}
-
 export function markPuterReady() {
   puterReady = true;
-  if (typeof puter !== "undefined") {
-    puterAuthed = puter.auth.isSignedIn();
-  }
 }
 
-// Ensure auth: try silent first, then fall back to SDK auth
-export async function ensurePuterAuth() {
+// Try to auth silently. Returns true if already authed, false otherwise.
+// Does NOT open a popup — we only set the token if one is already in localStorage.
+export function trySilentAuth() {
   if (typeof puter === "undefined") return false;
+  if (puter.auth.isSignedIn()) return true;
 
-  // Already signed in
-  if (puter.auth.isSignedIn()) {
-    puterAuthed = true;
-    hidePuterUI();
-    return true;
+  // Check if there's a stored token the SDK should have picked up
+  const stored = localStorage.getItem("puter.auth.token.v2");
+  if (stored) {
+    try { puter.setAuthToken(stored); } catch {}
+    if (puter.auth.isSignedIn()) return true;
   }
-
-  // Try silent auth (no popup)
-  const silentOk = await trySilentAuth();
-  if (silentOk && puter.auth.isSignedIn()) {
-    puterAuthed = true;
-    hidePuterUI();
-    return true;
-  }
-
-  // Fall back to SDK auth (will show popup)
-  try {
-    await puter.auth.signIn({ attempt_temp_user_creation: true });
-    puterAuthed = true;
-    hidePuterUI();
-    return true;
-  } catch {
-    puterAuthed = false;
-    hidePuterUI();
-    return false;
-  }
+  return false;
 }
 
 export async function puterChat(messages, model = "openai/gpt-5.4-nano") {
-  if (!isPuterReady()) {
-    throw new Error("Puter.js not loaded");
-  }
+  if (!isPuterReady()) throw new Error("Puter.js not loaded");
 
   const lastUserMsg = messages.filter((m) => m.role === "user").pop();
   const systemMsg = messages.find((m) => m.role === "system");
@@ -125,24 +41,17 @@ export async function puterChat(messages, model = "openai/gpt-5.4-nano") {
     ? `${systemMsg.content}\n\nUser: ${lastUserMsg.content}`
     : lastUserMsg.content;
 
-  const response = await puter.ai.chat(prompt, {
-    model,
-    stream: true,
-  });
+  const response = await puter.ai.chat(prompt, { model, stream: true });
 
   let fullText = "";
   for await (const part of response) {
-    if (part?.text) {
-      fullText += part.text;
-    }
+    if (part?.text) fullText += part.text;
   }
   return fullText;
 }
 
 export async function* puterChatStream(messages, model = "openai/gpt-5.4-nano") {
-  if (!isPuterReady()) {
-    throw new Error("Puter.js not loaded");
-  }
+  if (!isPuterReady()) throw new Error("Puter.js not loaded");
 
   const lastUserMsg = messages.filter((m) => m.role === "user").pop();
   const systemMsg = messages.find((m) => m.role === "system");
@@ -151,10 +60,7 @@ export async function* puterChatStream(messages, model = "openai/gpt-5.4-nano") 
     ? `${systemMsg.content}\n\nUser: ${lastUserMsg.content}`
     : lastUserMsg.content;
 
-  const response = await puter.ai.chat(prompt, {
-    model,
-    stream: true,
-  });
+  const response = await puter.ai.chat(prompt, { model, stream: true });
 
   let fullText = "";
   for await (const part of response) {

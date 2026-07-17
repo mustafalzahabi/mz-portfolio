@@ -84,3 +84,75 @@ export function markdownToHtml(markdown) {
 
   return html;
 }
+
+// ============================================================================
+// YAML FRONTMATTER PARSER
+// ============================================================================
+
+function parseYamlValue(value) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (value === "null" || value === "~") return null;
+  if (/^\d+$/.test(value)) return parseInt(value, 10);
+  if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  if (value.startsWith("[") && value.endsWith("]")) {
+    return value
+      .slice(1, -1)
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+  return value;
+}
+
+export function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) return { metadata: {}, body: content.trim() };
+
+  const yaml = match[1];
+  const body = content.slice(match[0].length).trim();
+  const metadata = {};
+  let currentKey = null;
+
+  for (const line of yaml.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const itemMatch = trimmed.match(/^-\s+(.+)$/);
+    if (itemMatch && currentKey) {
+      if (!Array.isArray(metadata[currentKey])) {
+        metadata[currentKey] = [];
+      }
+      metadata[currentKey].push(parseYamlValue(itemMatch[1]));
+      continue;
+    }
+
+    const kvMatch = trimmed.match(/^(\w+)\s*:\s*(.*)$/);
+    if (kvMatch) {
+      currentKey = kvMatch[1];
+      const value = kvMatch[2].trim();
+      if (value === "") {
+        metadata[currentKey] = [];
+        continue;
+      }
+      metadata[currentKey] = parseYamlValue(value);
+    }
+  }
+
+  return { metadata, body };
+}
+
+export function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "post";
+}
