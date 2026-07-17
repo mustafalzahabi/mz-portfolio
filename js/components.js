@@ -753,76 +753,60 @@ async function buildResumeOverlay(resume) {
   toolbarActions.append(printBtn, closeBtn);
   toolbar.append(toolbarTitle, toolbarActions);
 
-  // Try to load the user's chosen JSON Resume theme from CDN
+  // Try to fetch the user's chosen JSON Resume theme CSS
   const themeName = resume.meta?.theme;
-  let themed = false;
 
   const status = document.createElement("div");
   status.className = "resume-overlay-status";
-  container.appendChild(status);
+
+  const doc = document.createElement("div");
+  doc.className = "resume-document";
 
   if (themeName) {
     status.textContent = `Loading theme: ${themeName}...`;
-    const themeHtml = await fetchThemeHtml(themeName, resume);
-    if (themeHtml) {
-      themed = true;
+    container.appendChild(status);
+
+    const themeResult = await fetchThemeCss(themeName);
+
+    if (themeResult.css) {
       status.textContent = "";
       status.style.display = "none";
-      const iframe = document.createElement("iframe");
-      iframe.className = "resume-theme-iframe";
-      iframe.setAttribute("sandbox", "allow-same-origin allow-scripts");
-      iframe.setAttribute("loading", "eager");
-      iframe.srcdoc = themeHtml;
 
-      printBtn.addEventListener("click", () => {
-        const w = window.open("", "_blank");
-        if (w) {
-          w.document.write(themeHtml);
-          w.document.close();
-          w.focus();
-          w.print();
-        }
-      });
-
-      container.append(toolbar, iframe);
+      // Inject the theme's CSS scoped to this overlay
+      const style = document.createElement("style");
+      style.className = "resume-theme-style";
+      style.textContent = themeResult.css;
+      container.appendChild(style);
     } else {
-      status.textContent = `Could not load theme "${themeName}" — using custom renderer`;
+      status.textContent = `Theme "${themeName}" not found — using default style`;
       status.className = "resume-overlay-status error";
     }
-  } else {
-    status.textContent = "No theme configured in resume.json — using custom renderer";
-    status.className = "resume-overlay-status";
   }
 
-  // Fall back to custom renderer if theme didn't load
-  if (!themed) {
-    const doc = document.createElement("div");
-    doc.className = "resume-document";
+  // Always render with our custom renderer
+  renderResumeBasics(doc, resume.basics);
+  renderResumeWork(doc, resume.work);
+  renderResumeEducation(doc, resume.education);
+  renderResumeSkills(doc, resume.skills);
+  renderResumeProjects(doc, resume.projects);
+  renderResumeAwards(doc, resume.awards);
+  renderResumePublications(doc, resume.publications);
+  renderResumeVolunteer(doc, resume.volunteer);
+  renderResumeLanguages(doc, resume.languages);
+  renderResumeInterests(doc, resume.interests);
+  renderResumeReferences(doc, resume.references);
 
-    renderResumeBasics(doc, resume.basics);
-    renderResumeWork(doc, resume.work);
-    renderResumeEducation(doc, resume.education);
-    renderResumeSkills(doc, resume.skills);
-    renderResumeProjects(doc, resume.projects);
-    renderResumeAwards(doc, resume.awards);
-    renderResumePublications(doc, resume.publications);
-    renderResumeVolunteer(doc, resume.volunteer);
-    renderResumeLanguages(doc, resume.languages);
-    renderResumeInterests(doc, resume.interests);
-    renderResumeReferences(doc, resume.references);
+  printBtn.addEventListener("click", () => {
+    const content = container.querySelector(".resume-document");
+    if (!content) return;
+    const w = window.open("", "_blank", "width=800,height=600");
+    w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  });
 
-    printBtn.addEventListener("click", () => {
-      const content = container.querySelector(".resume-document");
-      if (!content) return;
-      const w = window.open("", "_blank", "width=800,height=600");
-      w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
-      w.document.close();
-      w.focus();
-      w.print();
-    });
-
-    container.append(toolbar, doc);
-  }
+  container.append(toolbar, doc);
 
   overlay.append(backdrop, container);
 
@@ -845,27 +829,101 @@ async function buildResumeOverlay(resume) {
   return overlay;
 }
 
-async function fetchThemeHtml(themeName, resume) {
-  // Normalize: if the user just typed "even", try "jsonresume-theme-even"
+async function fetchThemeCss(themeName) {
   const pkgName = themeName.startsWith("jsonresume-theme-")
     ? themeName
     : `jsonresume-theme-${themeName}`;
 
-  const sources = [
-    `https://esm.sh/${pkgName}`,
-    `https://cdn.jsdelivr.net/npm/${pkgName}/+esm`,
+  const cdnBase = `https://unpkg.com/${pkgName}`;
+  const errors = [];
+
+  // Strategy 1: Fetch package.json to find the CSS entry point
+  try {
+    const pkgRes = await fetch(`${cdnBase}/package.json`);
+    if (pkgRes.ok) {
+      const pkg = await pkgRes.json();
+      const cssFields = ["style", "css", "styles"];
+      for (const field of cssFields) {
+        if (pkg[field]) {
+          const cssUrl = pkg[field].startsWith("http")
+            ? pkg[field]
+            : `${cdnBase}/${pkg[field].replace(/^\.\//, "")}`;
+          const css = await tryFetchCss(cssUrl);
+          if (css) return { css, errors: [] };
+        }
+      }
+    }
+  } catch (e) {
+    errors.push(`package.json: ${e.message}`);
+  }
+
+  // Strategy 2: Try common CSS file paths
+  const commonPaths = [
+    "css/style.css",
+    "style.css",
+    "dist/style.css",
+    "assets/style.css",
+    "css/theme.css",
+    "theme.css",
   ];
 
-  for (const url of sources) {
-    try {
-      const mod = await import(url);
-      const renderFn = mod.render || mod.default?.render || mod.default;
-      if (typeof renderFn !== "function") continue;
+  for (const path of commonPaths) {
+    const css = await tryFetchCss(`${cdnBase}/${path}`);
+    if (css) return { css, errors: [] };
+  }
 
-      const html = renderFn(resume);
-      if (html && typeof html === "string") return html;
-    } catch (e) {
-      console.warn(`[resume] Theme load failed from ${url}:`, e.message);
+  // Strategy 3: Fetch the JS entry and extract embedded CSS
+  try {
+    const jsRes = await fetch(`${cdnBase}/dist/index.js`);
+    if (!jsRes.ok) {
+      const jsRes2 = await fetch(`${cdnBase}/index.js`);
+      if (jsRes2.ok) {
+        const jsText = await jsRes2.text();
+        const css = extractCssFromJs(jsText);
+        if (css) return { css, errors: [] };
+      }
+    } else {
+      const jsText = await jsRes.text();
+      const css = extractCssFromJs(jsText);
+      if (css) return { css, errors: [] };
+    }
+  } catch (e) {
+    errors.push(`JS extraction: ${e.message}`);
+  }
+
+  return { css: null, errors };
+}
+
+async function tryFetchCss(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (text && text.includes("{") && text.length > 100) return text;
+  } catch (_) {}
+  return null;
+}
+
+function extractCssFromJs(jsText) {
+  // Look for a large CSS string — themes like "even" embed CSS as a const string
+  // Pattern: a long string that contains CSS selectors and properties
+  const cssPatterns = [
+    // CSS custom property blocks: :root { --var: val; ... }
+    /[:@]\s*root\s*\{[^}]{200,}/,
+    // Large string assignments containing CSS
+    /(?:const|let|var)\s+\w+\s*=\s*`([^`]{500,})`/,
+    /(?:const|let|var)\s+\w+\s*=\s*"([^"]{500,})"/,
+    /(?:const|let|var)\s+\w+\s*=\s*'([^']{500,})'/,
+  ];
+
+  for (const pattern of cssPatterns) {
+    const match = jsText.match(pattern);
+    if (match) {
+      const candidate = match[1] || match[0];
+      // Verify it looks like CSS
+      if (candidate.includes("{") && candidate.includes("}") && candidate.includes(":")) {
+        return candidate;
+      }
     }
   }
 
