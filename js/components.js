@@ -5,7 +5,6 @@
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
 import { GITHUB_LANGUAGE_COLORS } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { chat, isModelReady, switchMode, getMode, isModelLoading } from "./slm.js";
 
 let allProjectsDataRef = null;
 
@@ -480,189 +479,6 @@ export function buildFooter(name) {
 }
 
 // ============================================================================
-// CHAT BUBBLE
-// ============================================================================
-
-export function buildChatBubble(displayName) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "chat-bubble-wrapper";
-
-  const chatHistory = [];
-  let isGenerating = false;
-
-  // --- Floating trigger button ---
-  const trigger = document.createElement("button");
-  trigger.className = "chat-bubble-trigger";
-  trigger.setAttribute("aria-label", "Open chat");
-  trigger.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
-  // --- Chat window ---
-  const chatWindow = document.createElement("div");
-  chatWindow.className = "chat-window";
-
-  // Header
-  const header = document.createElement("div");
-  header.className = "chat-header";
-
-  const headerInfo = document.createElement("div");
-  headerInfo.className = "chat-header-info";
-
-  const avatar = document.createElement("div");
-  avatar.className = "chat-avatar";
-  avatar.textContent = (displayName || "AI").charAt(0).toUpperCase();
-
-  const headerText = document.createElement("div");
-
-  const nameEl = document.createElement("div");
-  nameEl.className = "chat-header-name";
-  nameEl.textContent = displayName || "Portfolio Owner";
-
-  const statusEl = document.createElement("div");
-  statusEl.className = "chat-header-status";
-  statusEl.textContent = getMode() === "cloud" ? "Cloud AI" : "Offline";
-
-  headerText.append(nameEl, statusEl);
-  headerInfo.append(avatar, headerText);
-
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "chat-close";
-  closeBtn.setAttribute("aria-label", "Close chat");
-  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-
-  // Mode toggle button
-  const toggleBtn = document.createElement("button");
-  toggleBtn.className = "chat-mode-toggle";
-  toggleBtn.textContent = getMode() === "cloud" ? "Cloud" : "Local";
-  toggleBtn.title = "Switch between cloud AI and local model";
-  toggleBtn.addEventListener("click", () => {
-    const newMode = getMode() === "cloud" ? "local" : "cloud";
-    switchMode(newMode);
-    toggleBtn.textContent = newMode === "cloud" ? "Cloud" : "Local";
-    statusEl.textContent =
-      newMode === "cloud" ? "Online" : "Offline-ready";
-  });
-
-  header.append(headerInfo, toggleBtn, closeBtn);
-
-  // Messages area
-  const messages = document.createElement("div");
-  messages.className = "chat-messages";
-
-  // Welcome message
-  const welcome = document.createElement("div");
-  welcome.className = "chat-msg bot";
-  welcome.textContent = "Hi! Ask me anything about this portfolio.";
-  messages.appendChild(welcome);
-
-  // Typing indicator
-  const typing = document.createElement("div");
-  typing.className = "chat-typing";
-  typing.style.display = "none";
-  typing.innerHTML = "<span></span><span></span><span></span>";
-  messages.appendChild(typing);
-
-  // Input area
-  const inputArea = document.createElement("div");
-  inputArea.className = "chat-input-area";
-
-  const input = document.createElement("input");
-  input.className = "chat-input";
-  input.type = "text";
-  input.placeholder = "Type a message...";
-
-  const sendBtn = document.createElement("button");
-  sendBtn.className = "chat-send";
-  sendBtn.setAttribute("aria-label", "Send message");
-  sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-
-  inputArea.append(input, sendBtn);
-  chatWindow.append(header, messages, inputArea);
-
-  // --- Helpers ---
-  function addMessage(role, text) {
-    const msg = document.createElement("div");
-    msg.className = `chat-msg ${role}`;
-    msg.textContent = text;
-    messages.insertBefore(msg, typing);
-    messages.scrollTop = messages.scrollHeight;
-    return msg;
-  }
-
-  function setGenerating(gen) {
-    isGenerating = gen;
-    input.disabled = gen;
-    sendBtn.disabled = gen;
-    input.placeholder = gen ? "Thinking..." : "Type a message...";
-    typing.style.display = gen ? "flex" : "none";
-    if (gen) messages.scrollTop = messages.scrollHeight;
-  }
-
-  async function handleSend() {
-    const text = input.value.trim();
-    if (!text || isGenerating || !isModelReady()) return;
-
-    input.value = "";
-    addMessage("user", text);
-    chatHistory.push({ role: "user", content: text });
-
-    setGenerating(true);
-
-    // Create bot message element for streaming
-    const botMsg = document.createElement("div");
-    botMsg.className = "chat-msg bot";
-    botMsg.textContent = "";
-    messages.insertBefore(botMsg, typing);
-    messages.scrollTop = messages.scrollHeight;
-
-    let fullReply = "";
-
-    try {
-      await chat(text, (token) => {
-        fullReply = token;
-        botMsg.textContent = fullReply;
-        messages.scrollTop = messages.scrollHeight;
-      });
-
-      if (fullReply) {
-        chatHistory.push({ role: "assistant", content: fullReply });
-      } else {
-        botMsg.textContent = "No response generated.";
-      }
-    } catch (e) {
-      console.warn("[chat] inference error:", e);
-      botMsg.textContent = "Sorry, something went wrong. Please try again.";
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  // --- Events ---
-  sendBtn.addEventListener("click", handleSend);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  });
-
-  trigger.addEventListener("click", () => {
-    chatWindow.classList.toggle("open");
-    trigger.setAttribute(
-      "aria-label",
-      chatWindow.classList.contains("open") ? "Close chat" : "Open chat",
-    );
-  });
-
-  closeBtn.addEventListener("click", () => {
-    chatWindow.classList.remove("open");
-    trigger.setAttribute("aria-label", "Open chat");
-  });
-
-  wrapper.append(trigger, chatWindow);
-  return wrapper;
-}
-
-// ============================================================================
 // RESUME PREVIEW & OVERLAY
 // ============================================================================
 
@@ -753,61 +569,81 @@ async function buildResumeOverlay(resume) {
   toolbarActions.append(printBtn, closeBtn);
   toolbar.append(toolbarTitle, toolbarActions);
 
-  // Try to fetch the user's chosen JSON Resume theme CSS
-  const themeName = resume.meta?.theme;
-
-  const status = document.createElement("div");
-  status.className = "resume-overlay-status";
-
   const doc = document.createElement("div");
   doc.className = "resume-document";
 
+  const themeName = resume.meta?.theme;
+  let themed = false;
+
+  // Try to load the theme from CDN and execute it via a module script
   if (themeName) {
+    const status = document.createElement("div");
+    status.className = "resume-overlay-status";
     status.textContent = `Loading theme: ${themeName}...`;
     container.appendChild(status);
 
-    const themeResult = await fetchThemeCss(themeName);
-
-    if (themeResult.css) {
+    const result = await executeThemeRender(themeName, resume);
+    if (result) {
+      themed = true;
       status.textContent = "";
       status.style.display = "none";
 
-      // Inject the theme's CSS scoped to this overlay
-      const style = document.createElement("style");
-      style.className = "resume-theme-style";
-      style.textContent = themeResult.css;
-      container.appendChild(style);
+      const styles = extractStylesFromHtml(result);
+      const bodyContent = extractBodyContent(result);
+
+      if (styles) {
+        const styleTag = document.createElement("style");
+        styleTag.className = "resume-theme-style";
+        styleTag.textContent = styles;
+        container.appendChild(styleTag);
+      }
+
+      if (bodyContent) {
+        doc.innerHTML = bodyContent;
+      } else {
+        doc.innerHTML = result;
+      }
+
+      printBtn.addEventListener("click", () => {
+        const w = window.open("", "_blank");
+        if (w) {
+          w.document.write(result);
+          w.document.close();
+          w.focus();
+          w.print();
+        }
+      });
     } else {
-      status.textContent = `Theme "${themeName}" not found — using default style`;
+      status.textContent = `Could not load theme "${themeName}" — using default style`;
       status.className = "resume-overlay-status error";
     }
   }
 
-  // Always render with our custom renderer
-  renderResumeBasics(doc, resume.basics);
-  renderResumeWork(doc, resume.work);
-  renderResumeEducation(doc, resume.education);
-  renderResumeSkills(doc, resume.skills);
-  renderResumeProjects(doc, resume.projects);
-  renderResumeAwards(doc, resume.awards);
-  renderResumePublications(doc, resume.publications);
-  renderResumeVolunteer(doc, resume.volunteer);
-  renderResumeLanguages(doc, resume.languages);
-  renderResumeInterests(doc, resume.interests);
-  renderResumeReferences(doc, resume.references);
+  if (!themed) {
+    renderResumeBasics(doc, resume.basics);
+    renderResumeWork(doc, resume.work);
+    renderResumeEducation(doc, resume.education);
+    renderResumeSkills(doc, resume.skills);
+    renderResumeProjects(doc, resume.projects);
+    renderResumeAwards(doc, resume.awards);
+    renderResumePublications(doc, resume.publications);
+    renderResumeVolunteer(doc, resume.volunteer);
+    renderResumeLanguages(doc, resume.languages);
+    renderResumeInterests(doc, resume.interests);
+    renderResumeReferences(doc, resume.references);
 
-  printBtn.addEventListener("click", () => {
-    const content = container.querySelector(".resume-document");
-    if (!content) return;
-    const w = window.open("", "_blank", "width=800,height=600");
-    w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
-    w.document.close();
-    w.focus();
-    w.print();
-  });
+    printBtn.addEventListener("click", () => {
+      const content = container.querySelector(".resume-document");
+      if (!content) return;
+      const w = window.open("", "_blank", "width=800,height=600");
+      w.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>${getResumePrintStyles()}</style></head><body>${content.outerHTML}</body></html>`);
+      w.document.close();
+      w.focus();
+      w.print();
+    });
+  }
 
   container.append(toolbar, doc);
-
   overlay.append(backdrop, container);
 
   function close() {
@@ -829,105 +665,78 @@ async function buildResumeOverlay(resume) {
   return overlay;
 }
 
-async function fetchThemeCss(themeName) {
+async function executeThemeRender(themeName, resume) {
   const pkgName = themeName.startsWith("jsonresume-theme-")
     ? themeName
     : `jsonresume-theme-${themeName}`;
 
-  const cdnBase = `https://unpkg.com/${pkgName}`;
-  const errors = [];
-
-  // Strategy 1: Fetch package.json to find the CSS entry point
-  try {
-    const pkgRes = await fetch(`${cdnBase}/package.json`);
-    if (pkgRes.ok) {
-      const pkg = await pkgRes.json();
-      const cssFields = ["style", "css", "styles"];
-      for (const field of cssFields) {
-        if (pkg[field]) {
-          const cssUrl = pkg[field].startsWith("http")
-            ? pkg[field]
-            : `${cdnBase}/${pkg[field].replace(/^\.\//, "")}`;
-          const css = await tryFetchCss(cssUrl);
-          if (css) return { css, errors: [] };
-        }
-      }
-    }
-  } catch (e) {
-    errors.push(`package.json: ${e.message}`);
-  }
-
-  // Strategy 2: Try common CSS file paths
-  const commonPaths = [
-    "css/style.css",
-    "style.css",
-    "dist/style.css",
-    "assets/style.css",
-    "css/theme.css",
-    "theme.css",
+  const urls = [
+    `https://esm.sh/${pkgName}`,
+    `https://cdn.jsdelivr.net/npm/${pkgName}/+esm`,
   ];
 
-  for (const path of commonPaths) {
-    const css = await tryFetchCss(`${cdnBase}/${path}`);
-    if (css) return { css, errors: [] };
-  }
+  for (const url of urls) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const id = `__theme_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const script = document.createElement("script");
+        script.type = "module";
+        script.textContent = `
+          import mod from '${url}';
+          const fn = mod.render || mod.default?.render || mod.default;
+          if (typeof fn === 'function') {
+            try { window['${id}'] = { html: fn(${JSON.stringify(resume)}) }; }
+            catch(e) { window['${id}'] = { error: e.message }; }
+          } else {
+            window['${id}'] = { error: 'no render function (exports: ' + Object.keys(mod).join(',') + ')' };
+          }
+        `;
 
-  // Strategy 3: Fetch the JS entry and extract embedded CSS
-  try {
-    const jsRes = await fetch(`${cdnBase}/dist/index.js`);
-    if (!jsRes.ok) {
-      const jsRes2 = await fetch(`${cdnBase}/index.js`);
-      if (jsRes2.ok) {
-        const jsText = await jsRes2.text();
-        const css = extractCssFromJs(jsText);
-        if (css) return { css, errors: [] };
-      }
-    } else {
-      const jsText = await jsRes.text();
-      const css = extractCssFromJs(jsText);
-      if (css) return { css, errors: [] };
-    }
-  } catch (e) {
-    errors.push(`JS extraction: ${e.message}`);
-  }
+        const timeout = setTimeout(() => {
+          delete window[id];
+          reject(new Error("timeout"));
+        }, 15000);
 
-  return { css: null, errors };
-}
+        script.onload = () => {
+          clearTimeout(timeout);
+          const data = window[id];
+          delete window[id];
+          if (data?.html) resolve(data.html);
+          else reject(new Error(data?.error || "unknown error"));
+        };
 
-async function tryFetchCss(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const text = await res.text();
-    if (text && text.includes("{") && text.length > 100) return text;
-  } catch (_) {}
-  return null;
-}
+        script.onerror = () => {
+          clearTimeout(timeout);
+          delete window[id];
+          reject(new Error("module load error"));
+        };
 
-function extractCssFromJs(jsText) {
-  // Look for a large CSS string — themes like "even" embed CSS as a const string
-  // Pattern: a long string that contains CSS selectors and properties
-  const cssPatterns = [
-    // CSS custom property blocks: :root { --var: val; ... }
-    /[:@]\s*root\s*\{[^}]{200,}/,
-    // Large string assignments containing CSS
-    /(?:const|let|var)\s+\w+\s*=\s*`([^`]{500,})`/,
-    /(?:const|let|var)\s+\w+\s*=\s*"([^"]{500,})"/,
-    /(?:const|let|var)\s+\w+\s*=\s*'([^']{500,})'/,
-  ];
+        document.head.appendChild(script);
+        setTimeout(() => script.remove(), 100);
+      });
 
-  for (const pattern of cssPatterns) {
-    const match = jsText.match(pattern);
-    if (match) {
-      const candidate = match[1] || match[0];
-      // Verify it looks like CSS
-      if (candidate.includes("{") && candidate.includes("}") && candidate.includes(":")) {
-        return candidate;
-      }
+      if (result) return result;
+    } catch (e) {
+      console.warn(`[resume] Theme "${themeName}" failed from ${url}:`, e.message);
     }
   }
 
   return null;
+}
+
+function extractStylesFromHtml(html) {
+  const styles = [];
+  const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+  let match;
+  while ((match = styleRegex.exec(html)) !== null) {
+    styles.push(match[1]);
+  }
+  return styles.length > 0 ? styles.join("\n") : null;
+}
+
+function extractBodyContent(html) {
+  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return match ? match[1].trim() : null;
 }
 
 function renderResumeBasics(doc, basics) {

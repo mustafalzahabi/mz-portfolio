@@ -159,7 +159,6 @@ import {
   buildContact,
   buildNavbar,
   buildFooter,
-  buildChatBubble,
   setProjectsDataRef,
   renderProjectDetail,
 } from "./components.js";
@@ -172,8 +171,8 @@ import {
 
 import { collectPortfolioData } from "./data.js";
 
-import { loadModel as preloadModel } from "./slm.js";
-import { markPuterReady } from "./puter-model.js";
+import { loadModel as preloadModel, buildChatBubble } from "./chat.js";
+import { markPuterReady } from "./model.js";
 
 import { setupThemeToggle } from "./theme.js";
 
