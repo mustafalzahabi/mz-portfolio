@@ -1,9 +1,6 @@
 // ============================================================================
 // PUTER.JS WRAPPER — Cloud AI via Puter (User-Pays model)
 // CDN loaded in index.html: <script src="https://js.puter.com/v2/"></script>
-//
-// Silent auth: fetch anonymous token from Puter API and inject via
-// puter.setAuthToken() to bypass the "Setting up your account" popup.
 // ============================================================================
 
 const STORAGE_KEY = "puter_anon_token";
@@ -12,22 +9,32 @@ const API_ORIGIN = "https://api.puter.com";
 let puterReady = false;
 let puterAuthed = false;
 
-// Fetch anonymous token from Puter API (no popup)
-async function fetchAnonymousToken() {
-  const res = await fetch(`${API_ORIGIN}/v1/auth/anonymous`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!res.ok) throw new Error(`Anonymous auth failed: ${res.status}`);
-  const data = await res.json();
-  return data.token;
-}
+// Try to silently auth by fetching anonymous token and injecting it
+async function trySilentAuth() {
+  try {
+    // Check localStorage for existing token
+    let token = localStorage.getItem(STORAGE_KEY);
 
-// Inject token into Puter SDK (tricks it into thinking user is signed in)
-function injectToken(token) {
-  if (typeof puter !== "undefined" && puter.setAuthToken) {
-    puter.setAuthToken(token);
-    return true;
+    if (!token) {
+      // Fetch new anonymous token (background HTTP, no popup)
+      const res = await fetch(`${API_ORIGIN}/v1/auth/anonymous`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      token = data.token;
+      if (!token) return false;
+      localStorage.setItem(STORAGE_KEY, token);
+    }
+
+    // Inject token into SDK
+    if (typeof puter !== "undefined" && puter.setAuthToken) {
+      puter.setAuthToken(token);
+      return true;
+    }
+  } catch (e) {
+    console.warn("[puter] Silent auth failed:", e.message);
   }
   return false;
 }
@@ -74,8 +81,7 @@ export function markPuterReady() {
   }
 }
 
-// Silent auth: fetch anonymous token and inject into SDK
-// No popups, no user interaction required
+// Ensure auth: try silent first, then fall back to SDK auth
 export async function ensurePuterAuth() {
   if (typeof puter === "undefined") return false;
 
@@ -86,33 +92,21 @@ export async function ensurePuterAuth() {
     return true;
   }
 
-  try {
-    // Check localStorage for existing token
-    let token = localStorage.getItem(STORAGE_KEY);
-
-    if (!token) {
-      // Fetch new anonymous token (no popup)
-      token = await fetchAnonymousToken();
-      if (token) {
-        localStorage.setItem(STORAGE_KEY, token);
-      }
-    }
-
-    if (token) {
-      // Inject token into SDK — tricks it into thinking user is signed in
-      const injected = injectToken(token);
-      if (injected) {
-        puterAuthed = true;
-        hidePuterUI();
-        return true;
-      }
-    }
-
-    puterAuthed = false;
+  // Try silent auth (no popup)
+  const silentOk = await trySilentAuth();
+  if (silentOk && puter.auth.isSignedIn()) {
+    puterAuthed = true;
     hidePuterUI();
-    return false;
-  } catch (err) {
-    console.error("Silent Puter auth failed:", err);
+    return true;
+  }
+
+  // Fall back to SDK auth (will show popup)
+  try {
+    await puter.auth.signIn({ attempt_temp_user_creation: true });
+    puterAuthed = true;
+    hidePuterUI();
+    return true;
+  } catch {
     puterAuthed = false;
     hidePuterUI();
     return false;
