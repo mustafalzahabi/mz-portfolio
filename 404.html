@@ -93,24 +93,36 @@
             const msgElement = document.getElementById('status-message');
             const homeLink = document.getElementById('home-link');
 
-            // 1. Check for explicit errors from your API
             if (url.searchParams.has('error')) {
                 const failedUser = url.searchParams.get('user');
-                msgElement.innerText = `The GitHub user "${failedUser || 'requested'}" could not be found.`;
+                msgElement.innerText = `The user "${failedUser || 'requested'}" could not be found.`;
                 homeLink.classList.remove('hidden');
                 return;
             }
 
-            // 2. Rescue Logic: Capture path and redirect to home
             const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'index.html' && p !== '404.html');
-            const potentialUsername = pathParts[pathParts.length - 1];
 
+            // Detect route pattern: /gh/username or /gd/folderId
+            if (pathParts.length >= 2) {
+                const prefix = pathParts[0].toLowerCase();
+                if (prefix === 'gh') {
+                    sessionStorage.setItem('attempted_user', pathParts.slice(1).join('/'));
+                    sessionStorage.setItem('source_type', 'gh');
+                    window.location.replace('/');
+                    return;
+                } else if (prefix === 'gd') {
+                    sessionStorage.setItem('attempted_user', pathParts.slice(1).join('/'));
+                    sessionStorage.setItem('source_type', 'gd');
+                    window.location.replace('/');
+                    return;
+                }
+            }
+
+            // Fallback: treat last path segment as GitHub username (backward compat)
+            const potentialUsername = pathParts[pathParts.length - 1];
             if (potentialUsername) {
-                // Store username in sessionStorage
                 sessionStorage.setItem('attempted_user', potentialUsername);
-                
-                // Redirect to root, but keep the current path as a fallback
-                // This ensures index.html knows exactly what was requested
+                sessionStorage.setItem('source_type', 'gh');
                 window.location.replace('/');
             } else {
                 msgElement.innerText = "The page you're looking for doesn't exist.";

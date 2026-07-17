@@ -9,6 +9,8 @@ import {
   fetchAndMergeProjects,
 } from "./api.js";
 
+import { parseFrontmatter, slugify } from "./utils.js";
+
 const STORAGE_KEY = "mz-portfolio-data";
 
 // ---------------------------------------------------------------------------
@@ -70,6 +72,101 @@ async function fetchResumeGist(username) {
     console.warn("[data] Could not fetch resume.json gist:", e.message);
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Google Drive fetcher (public folder with resume.json)
+// ---------------------------------------------------------------------------
+
+async function fetchResumeFromGDrive(fileId) {
+  try {
+    // Direct download URL for publicly shared files (no API key needed)
+    const downloadUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
+    const res = await fetch(downloadUrl);
+    if (!res.ok) {
+      console.warn(`[data] Google Drive download returned ${res.status}`);
+      return null;
+    }
+    const text = await res.text();
+    // Google may return an HTML page instead of JSON if the file isn't public
+    // or if there's a confirmation page we didn't bypass
+    if (text.trim().startsWith('<')) {
+      console.warn('[data] Google Drive returned HTML instead of JSON — file may not be public');
+      return null;
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.warn('[data] Could not fetch resume.json from Google Drive:', e.message);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Blog posts fetcher (gists with .md files + YAML frontmatter)
+// ---------------------------------------------------------------------------
+
+export async function fetchBlogPosts(username) {
+  try {
+    const res = await fetch(
+      `https://api.github.com/users/${username}/gists?per_page=100`,
+    );
+    if (!res.ok) return [];
+
+    const gists = await res.json();
+    const mdGists = gists.filter((g) => {
+      const files = Object.keys(g.files);
+      return (
+        files.some((f) => f.endsWith(".md")) &&
+        !files.some((f) => f.toLowerCase() === "resume.json")
+      );
+    });
+
+    const posts = [];
+    for (const gist of mdGists) {
+      try {
+        const singleRes = await fetch(
+          `https://api.github.com/gists/${gist.id}`,
+        );
+        if (!singleRes.ok) continue;
+        const single = await singleRes.json();
+
+        const mdFile = Object.values(single.files).find((f) =>
+          f.filename.endsWith(".md"),
+        );
+        if (!mdFile?.content) continue;
+
+        const { metadata, body } = parseFrontmatter(mdFile.content);
+        if (metadata.draft === true || metadata.published === false) continue;
+
+        const title =
+          metadata.title ||
+          gist.description ||
+          mdFile.filename.replace(/\.md$/i, "");
+        const slug = slugify(title);
+
+        posts.push({
+          title,
+          slug,
+          date: metadata.date || gist.created_at,
+          tags: metadata.tags || [],
+          description: metadata.description || metadata.preview || "",
+          image: metadata.image || "",
+          body,
+          gistId: gist.id,
+          gistUrl: gist.html_url,
+          updatedAt: gist.updated_at,
+        });
+      } catch (_) {
+        /* skip failed gist */
+      }
+    }
+
+    posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return posts;
+  } catch (e) {
+    console.warn("[data] Could not fetch blog posts:", e.message);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -203,23 +300,30 @@ function mergeProjects(resumeProjects, ghProjects) {
 // Main: collect and merge everything
 // ---------------------------------------------------------------------------
 
-export async function collectPortfolioData(githubUsername) {
-  console.log("[data] collecting for:", githubUsername);
+export async function collectPortfolioData(identifier, source = 'gh') {
+  console.log("[data] collecting for:", identifier, "source:", source);
 
-  // Fetch everything in parallel where possible
-  const [resume, ghProfile] = await Promise.all([
-    fetchResumeGist(githubUsername),
-    fetchGithubUserProfile(githubUsername),
-  ]);
+  let resume, ghProfile, repos;
+
+  if (source === 'gd') {
+    // Google Drive source: fetch resume.json from public file only
+    resume = await fetchResumeFromGDrive(identifier);
+    ghProfile = null;
+    repos = null;
+  } else {
+    // GitHub source: fetch resume.json gist + GitHub profile + repos
+    [resume, ghProfile] = await Promise.all([
+      fetchResumeGist(identifier),
+      fetchGithubUserProfile(identifier),
+    ]);
+    repos = await fetchAndMergeProjects(
+      resume?.projects,
+      identifier,
+    );
+  }
 
   console.log("[data] resume loaded:", !!resume);
-  console.log("[data] gh profile loaded:", !!ghProfile);
-
-  // Fetch repos (needs ghProfile for languages)
-  const repos = await fetchAndMergeProjects(
-    resume?.projects,
-    githubUsername,
-  );
+  if (source !== 'gd') console.log("[data] gh profile loaded:", !!ghProfile);
   console.log("[data] repos loaded:", repos?.length || 0);
 
   // --- Merge basics ---
@@ -227,11 +331,11 @@ export async function collectPortfolioData(githubUsername) {
   const profiles = mergeProfiles(
     resumeBasics.profiles,
     ghProfile,
-    githubUsername,
+    identifier,
   );
 
   const basics = {
-    name: resumeBasics.name || ghProfile?.name || githubUsername,
+    name: resumeBasics.name || ghProfile?.name || identifier,
     label: resumeBasics.label || "",
     summary: resumeBasics.summary || ghProfile?.bio || "",
     email: resumeBasics.email || ghProfile?.email || "",
