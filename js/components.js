@@ -686,38 +686,54 @@ async function executeThemeRender(themeName, resume) {
 
   for (const url of urls) {
     try {
-      const html = await importTheme(url, resume);
+      const html = await loadThemeViaScript(url, resume);
       if (html) return html;
     } catch (e) {
-      console.warn(`[resume] Theme "${themeName}" failed from ${url}:`, e.message);
-      console.debug(`[resume] Full error:`, e);
+      console.warn(`[resume] Theme "${themeName}" from ${url}:`, e.message);
     }
   }
 
   return null;
 }
 
-async function importTheme(url, resume) {
-  const TIMEOUT_MS = 20000;
+function loadThemeViaScript(url, resume) {
+  return new Promise((resolve, reject) => {
+    const uid = `__resumeTheme${Date.now()}`;
+    const resumeJson = JSON.stringify(resume);
+    const script = document.createElement("script");
+    script.type = "module";
+    script.textContent = [
+      `import * as mod from '${url}';`,
+      `const fn = mod.render || mod.default?.render || mod.default;`,
+      `if (typeof fn === 'function') {`,
+      `  window['${uid}'] = { ok:true, html: fn(${resumeJson}) };`,
+      `} else {`,
+      `  window['${uid}'] = { ok:false, error:'No render function. Exports: '+Object.keys(mod).join(', ') };`,
+      `}`,
+    ].join("\n");
 
-  const loadPromise = (async () => {
-    const mod = await import(url);
-    const fn = mod.render || mod.default?.render || mod.default;
-    if (typeof fn !== "function") {
-      throw new Error("no render function (exports: " + Object.keys(mod).join(", ") + ")");
-    }
-    const html = fn(resume);
-    if (typeof html !== "string" || html.length === 0) {
-      throw new Error("render returned empty result");
-    }
-    return html;
-  })();
+    const timer = setTimeout(() => {
+      reject(new Error("timeout loading " + url));
+    }, 30000);
 
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS)
-  );
+    script.onload = () => {
+      const result = window[uid];
+      delete window[uid];
+      clearTimeout(timer);
+      if (result?.ok && typeof result.html === "string" && result.html.length > 0) {
+        resolve(result.html);
+      } else {
+        reject(new Error(result?.error || "render returned no content"));
+      }
+    };
 
-  return Promise.race([loadPromise, timeoutPromise]);
+    script.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error("failed to load module from " + url));
+    };
+
+    document.head.appendChild(script);
+  });
 }
 
 function extractStylesFromHtml(html) {
