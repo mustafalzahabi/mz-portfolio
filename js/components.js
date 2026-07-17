@@ -757,10 +757,17 @@ async function buildResumeOverlay(resume) {
   const themeName = resume.meta?.theme;
   let themed = false;
 
+  const status = document.createElement("div");
+  status.className = "resume-overlay-status";
+  container.appendChild(status);
+
   if (themeName) {
+    status.textContent = `Loading theme: ${themeName}...`;
     const themeHtml = await fetchThemeHtml(themeName, resume);
     if (themeHtml) {
       themed = true;
+      status.textContent = "";
+      status.style.display = "none";
       const iframe = document.createElement("iframe");
       iframe.className = "resume-theme-iframe";
       iframe.setAttribute("sandbox", "allow-same-origin allow-scripts");
@@ -778,7 +785,13 @@ async function buildResumeOverlay(resume) {
       });
 
       container.append(toolbar, iframe);
+    } else {
+      status.textContent = `Could not load theme "${themeName}" — using custom renderer`;
+      status.className = "resume-overlay-status error";
     }
+  } else {
+    status.textContent = "No theme configured in resume.json — using custom renderer";
+    status.className = "resume-overlay-status";
   }
 
   // Fall back to custom renderer if theme didn't load
