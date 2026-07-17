@@ -67,37 +67,19 @@ export function showLandingPage() {
 
     <!-- Interactive Form -->
     <form onsubmit="navigateToUser(event)" class="search-form">
-      <div class="input-row">
-        <div class="source-selector">
-          <button type="button" class="source-pill active" data-source="gh">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-            GitHub
-          </button>
-          <button type="button" class="source-pill" data-source="gd">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z"/></svg>
-            Drive
-          </button>
-        </div>
-        <div class="input-wrapper" id="gh-input-wrapper">
-          <span class="input-prefix">github.com/</span>
-          <input
-            id="username-input"
-            type="text"
-            placeholder="username"
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-        <div class="input-wrapper" id="gd-input-wrapper" style="display:none">
-          <span class="input-prefix">drive.google.com/file/d/</span>
-          <input
-            id="gdrive-input"
-            type="text"
-            placeholder="1abc2def3ghi..."
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
+      <select id="source-select" class="source-select">
+        <option value="gh">github.com</option>
+        <option value="gd">drive.google.com/file/d</option>
+      </select>
+      <div class="input-wrapper">
+        <input
+          id="username-input"
+          type="text"
+          placeholder="username"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
       </div>
       <button type="submit" class="cta-button">Generate Portfolio</button>
     </form>
@@ -144,69 +126,38 @@ export function showLandingPage() {
   </section>
 </div>
   `;
-  // Wire source tab switching
-  const sourcePills = app.querySelectorAll(".source-pill");
-  const ghWrapper = app.querySelector("#gh-input-wrapper");
-  const gdWrapper = app.querySelector("#gd-input-wrapper");
-  const ghInput = app.querySelector("#username-input");
-  const gdInput = app.querySelector("#gdrive-input");
-
-  if (sourcePills.length) {
-    sourcePills.forEach((pill) => {
-      pill.addEventListener("click", () => {
-        sourcePills.forEach((p) => p.classList.remove("active"));
-        pill.classList.add("active");
-        const source = pill.dataset.source;
-        if (source === "gd") {
-          ghWrapper.style.display = "none";
-          gdWrapper.style.display = "";
-          if (gdInput) { gdInput.focus(); gdInput.setAttribute("required", ""); }
-          if (ghInput) ghInput.removeAttribute("required");
-        } else {
-          ghWrapper.style.display = "";
-          gdWrapper.style.display = "none";
-          if (ghInput) { ghInput.focus(); ghInput.setAttribute("required", ""); }
-          if (gdInput) gdInput.removeAttribute("required");
-        }
-      });
+  // Wire source dropdown
+  const sourceSelect = app.querySelector("#source-select");
+  const usernameInput = app.querySelector("#username-input");
+  if (sourceSelect && usernameInput) {
+    sourceSelect.addEventListener("change", () => {
+      usernameInput.placeholder = sourceSelect.value === "gd" ? "file id (e.g. 1abc2def3ghi)" : "username";
+      usernameInput.value = "";
+      usernameInput.focus();
     });
-    // Set initial required state
-    if (ghInput) ghInput.setAttribute("required", "");
+    usernameInput.focus();
   }
-
-  const input = app.querySelector("#username-input");
-  if (input) input.focus();
 }
 
 // Expose navigateToUser globally for the inline onsubmit handler
 window.navigateToUser = function (event) {
   if (event) event.preventDefault();
-  const activePill = document.querySelector(".source-pill.active");
-  const source = activePill?.dataset.source || "gh";
+  const source = document.getElementById("source-select")?.value || "gh";
+  const input = document.getElementById("username-input");
+  const value = input?.value.trim();
+  if (!value) return;
+
+  const base =
+    window.location.origin +
+    (window.location.pathname.endsWith("/")
+      ? window.location.pathname
+      : window.location.pathname + "/");
+  const cleanBase = base.replace(/\/+$/, "/");
 
   if (source === "gd") {
-    const fileId = document.getElementById("gdrive-input")?.value.trim();
-    if (fileId) {
-      const base =
-        window.location.origin +
-        (window.location.pathname.endsWith("/")
-          ? window.location.pathname
-          : window.location.pathname + "/");
-      const cleanBase = base.replace(/\/+$/, "/");
-      window.location.href = `${cleanBase}gd/${encodeURIComponent(fileId)}`;
-    }
+    window.location.href = `${cleanBase}gd/${encodeURIComponent(value)}`;
   } else {
-    const input = document.getElementById("username-input");
-    const username = input?.value.trim();
-    if (username) {
-      const base =
-        window.location.origin +
-        (window.location.pathname.endsWith("/")
-          ? window.location.pathname
-          : window.location.pathname + "/");
-      const cleanBase = base.replace(/\/+$/, "/");
-      window.location.href = `${cleanBase}gh/${encodeURIComponent(username)}`;
-    }
+    window.location.href = `${cleanBase}gh/${encodeURIComponent(value)}`;
   }
 };
 
