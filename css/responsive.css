@@ -98,22 +98,16 @@
 @media (max-width: 600px) {
   .search-form {
     flex-direction: column;
-    background: transparent;
-    border: none;
-    padding: 0;
-    gap: 12px;
-    box-shadow: none;
+    gap: 10px;
   }
 
-  .search-form:focus-within {
-    box-shadow: none;
+  .source-selector {
+    width: 100%;
+    justify-content: center;
   }
 
-  .input-wrapper {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 4px 12px;
+  .input-row {
+    box-shadow: none;
   }
 
   .cta-button {

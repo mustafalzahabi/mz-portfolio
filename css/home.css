@@ -63,88 +63,107 @@
   font-size: 0.9em;
 }
 
-/* Source Tabs (GitHub / Google Drive) */
-.source-tabs {
+/* Source Selector (inline pills) */
+.source-selector {
   display: flex;
-  gap: 0;
-  position: absolute;
-  top: -40px;
-  left: 0;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-.source-tab {
-  background: var(--surface-color);
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-bottom: none;
-  padding: 8px 20px;
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
   color: var(--secondary-color);
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: color 0.2s, background 0.2s;
+  border-radius: 8px;
+  transition: all 0.2s;
   font-family: inherit;
+  white-space: nowrap;
 }
 
-.source-tab:first-child {
-  border-right: none;
+.source-pill svg {
+  opacity: 0.6;
+  transition: opacity 0.2s;
 }
 
-.source-tab:hover {
+.source-pill:hover {
   color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
-.source-tab.active {
+.source-pill:hover svg {
+  opacity: 0.8;
+}
+
+.source-pill.active {
   color: var(--accent-color);
-  background: var(--background-color);
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
 }
 
-/* Sleek Modern Input Form */
+.source-pill.active svg {
+  opacity: 1;
+}
+
+/* Search Form */
 .search-form {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  max-width: 520px;
-  background: var(--surface-color);
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s, box-shadow 0.2s;
-  position: relative;
-  margin-top: 40px;
+  max-width: 600px;
 }
 
-.search-form:focus-within {
+.input-row {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 4px 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.search-form:focus-within .input-row {
   border-color: var(--accent-color);
-  box-shadow: 0 8px 30px rgba(184, 134, 11, 0.1);
+  box-shadow: 0 2px 20px rgba(184, 134, 11, 0.1);
 }
 
 .input-wrapper {
   display: flex;
   align-items: center;
   flex: 1;
-  padding-left: 12px;
-  font-size: 16px;
+  padding-left: 8px;
+  font-size: 15px;
+  min-width: 0;
 }
 
 .input-prefix {
   color: var(--secondary-color);
   user-select: none;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.search-form input {
+.input-wrapper input {
   flex: 1;
   border: none;
   background: transparent;
   padding: 10px 4px;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--primary-color);
   font-weight: 600;
   outline: none;
   width: 100%;
+  min-width: 0;
 }
 
 .cta-button {
@@ -154,10 +173,11 @@
   font-size: 15px;
   padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cta-button:hover {
