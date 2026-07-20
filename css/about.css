@@ -9,6 +9,10 @@
   align-items: start;
 }
 
+.about-container > * {
+  min-width: 0;
+}
+
 .about-text h3 {
   font-size: 1.25rem;
   font-weight: 700;
