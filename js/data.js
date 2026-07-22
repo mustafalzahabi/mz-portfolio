@@ -481,10 +481,7 @@ export async function collectPortfolioData(identifier, source = 'gh') {
       fetchResumeGist(identifier),
       fetchGithubUserProfile(identifier),
     ]);
-    repos = await fetchAndMergeProjects(
-      resume?.projects,
-      identifier,
-    );
+    repos = await fetchAndMergeProjects(identifier);
   }
 
   console.log("[data] resume loaded:", !!resume);
