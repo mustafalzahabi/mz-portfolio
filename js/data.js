@@ -356,14 +356,18 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
   const resumeUrl = resumeProj.url || "";
   const resumeDemo = resumeProj.demo || "";
 
+  console.log(`[match] "${resumeProj.name}" — github:"${resumeGithub}" url:"${resumeUrl}" demo:"${resumeDemo}"`);
+
   // Signal 1: resume github/url field IS a github.com URL → match repo.html_url
   for (let i = 0; i < ghProjects.length; i++) {
     if (matchedIndices.has(i)) continue;
     const repoUrl = ghProjects[i].github_link || "";
     if (resumeGithub && urlsMatch(resumeGithub, repoUrl)) {
+      console.log(`  → matched via github URL: ${repoUrl}`);
       return { repo: ghProjects[i], index: i };
     }
     if (resumeUrl && isGithubUrl(resumeUrl) && urlsMatch(resumeUrl, repoUrl)) {
+      console.log(`  → matched via url field: ${repoUrl}`);
       return { repo: ghProjects[i], index: i };
     }
   }
@@ -380,6 +384,7 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
       const desc = (ghProjects[i].description || "").toLowerCase();
       for (const domain of resumeUrls) {
         if (desc.includes(domain)) {
+          console.log(`  → matched via domain "${domain}" in repo description`);
           return { repo: ghProjects[i], index: i };
         }
       }
@@ -391,7 +396,9 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
   if (normName) {
     for (let i = 0; i < ghProjects.length; i++) {
       if (matchedIndices.has(i)) continue;
-      if (normalizeName(ghProjects[i].name || "") === normName) {
+      const repoNorm = normalizeName(ghProjects[i].name || "");
+      if (repoNorm === normName) {
+        console.log(`  → matched via name: "${ghProjects[i].name}"`);
         return { repo: ghProjects[i], index: i };
       }
     }
@@ -419,11 +426,13 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
       const overlapRatio = overlapCount / allTech.size;
 
       if (overlapRatio >= 0.5) {
+        console.log(`  → matched via name+keywords: "${ghProjects[i].name}" (overlap: ${(overlapRatio * 100).toFixed(0)}%)`);
         return { repo: ghProjects[i], index: i };
       }
     }
   }
 
+  console.log(`  → NO MATCH found`);
   return null;
 }
 
