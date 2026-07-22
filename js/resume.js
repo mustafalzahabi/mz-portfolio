@@ -48,9 +48,8 @@ export function buildResumePreview(resume) {
   const viewBtn = document.createElement("button");
   viewBtn.className = "resume-preview-btn";
   viewBtn.textContent = "View Resume";
-  viewBtn.addEventListener("click", async () => {
-    const overlay = await buildResumeOverlay(resume);
-    document.body.appendChild(overlay);
+  viewBtn.addEventListener("click", () => {
+    buildResumeOverlay(resume);
   });
 
   card.append(header, stats, viewBtn);
@@ -106,22 +105,6 @@ async function buildResumeOverlay(resume) {
 
   overlay.append(backdrop, container);
 
-  // Fetch or render HTML content
-  const renderedContent = await executeThemeRender(requestedTheme, resume);
-  status.remove(); // Clear status bar
-
-  // Write content directly into iframe
-  const frameDoc = frame.contentWindow.document;
-  frameDoc.open();
-  frameDoc.write(renderedContent);
-  frameDoc.close();
-
-  // Handle printing directly from the framed Document
-  printBtn.addEventListener("click", () => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-  });
-
   function close() {
     document.body.style.overflow = "";
     overlay.classList.add("closing");
@@ -138,9 +121,29 @@ async function buildResumeOverlay(resume) {
     }
   });
 
+  // Append overlay immediately so user sees it right away
+  document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("open"));
 
-  return overlay;
+  // Async: fetch/render theme content into the iframe
+  try {
+    const renderedContent = await executeThemeRender(requestedTheme, resume);
+    status.remove();
+
+    const frameDoc = frame.contentWindow.document;
+    frameDoc.open();
+    frameDoc.write(renderedContent);
+    frameDoc.close();
+
+    printBtn.addEventListener("click", () => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    });
+  } catch (e) {
+    console.warn("[resume] Failed to render theme:", e);
+    status.textContent = `Failed to load theme "${requestedTheme}"`;
+    status.className = "resume-overlay-status error";
+  }
 }
 
 /**
