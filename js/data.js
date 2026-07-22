@@ -264,36 +264,201 @@ function mergeSkills(resumeSkills, repos) {
 }
 
 function mergeProjects(resumeProjects, ghProjects) {
-  const all = [];
+  if (!Array.isArray(resumeProjects) && !Array.isArray(ghProjects)) return null;
+  if (!Array.isArray(ghProjects)) {
+    return (resumeProjects || []).map((p) => normalizeResumeProject(p));
+  }
+  if (!Array.isArray(resumeProjects)) return ghProjects;
 
-  // Resume.json projects first
-  if (Array.isArray(resumeProjects)) {
-    for (const p of resumeProjects) {
-      all.push({
-        name: p.name || "",
-        description: p.description || "",
-        technologies: p.keywords || [],
-        github_link: p.github || p.url || "",
-        live_link: p.demo || "",
-        image: p.image || "",
-        allImages: p.images || [],
-        readmeDescription: p.description || "",
-        fullReadme: "",
-        stars: null,
-        isGitHubRepo: false,
-      });
+  const merged = [];
+  const matchedRepoIndices = new Set();
+
+  for (const rp of resumeProjects) {
+    const match = findMatchingRepo(rp, ghProjects, matchedRepoIndices);
+    if (match) {
+      merged.push(mergePair(rp, match.repo));
+      matchedRepoIndices.add(match.index);
+    } else {
+      merged.push(normalizeResumeProject(rp));
     }
   }
 
-  // GitHub repos (skip duplicates by name)
-  const existingNames = new Set(all.map((p) => p.name.toLowerCase()));
-  for (const repo of ghProjects || []) {
-    if (!existingNames.has(repo.name.toLowerCase())) {
-      all.push(repo);
+  for (let i = 0; i < ghProjects.length; i++) {
+    if (!matchedRepoIndices.has(i)) {
+      merged.push(ghProjects[i]);
     }
   }
 
-  return all.length > 0 ? all : null;
+  return merged.length > 0 ? merged : null;
+}
+
+function normalizeResumeProject(p) {
+  return {
+    name: p.name || "",
+    description: p.description || "",
+    technologies: p.keywords || [],
+    github_link: p.github || p.url || "",
+    live_link: p.demo || "",
+    image: p.image || "",
+    allImages: p.images || [],
+    readmeDescription: p.description || "",
+    fullReadme: "",
+    stars: null,
+    isGitHubRepo: false,
+    highlights: p.highlights || [],
+    startDate: p.startDate || "",
+    endDate: p.endDate || "",
+  };
+}
+
+function mergePair(resumeProj, repo) {
+  const mergedTech = [
+    ...new Set([
+      ...(repo.technologies || []),
+      ...(resumeProj.keywords || []),
+    ]),
+  ];
+
+  const resumeDesc = resumeProj.description || "";
+  const repoDesc = repo.description || "";
+  const description =
+    resumeDesc.length > repoDesc.length ? resumeDesc : repoDesc;
+
+  const readmeDescription =
+    repo.readmeDescription || resumeDesc || repoDesc;
+
+  const mergedImages = [
+    ...new Set([...(repo.allImages || []), ...(resumeProj.images || [])]),
+  ];
+  const image =
+    repo.image || resumeProj.image || mergedImages[0] || "";
+
+  return {
+    name: repo.name || resumeProj.name || "",
+    description,
+    technologies: mergedTech,
+    github_link: repo.github_link || resumeProj.github || resumeProj.url || "",
+    live_link: repo.live_link || resumeProj.demo || "",
+    image,
+    allImages: mergedImages,
+    readmeDescription,
+    fullReadme: repo.fullReadme || "",
+    stars: repo.stars ?? null,
+    isGitHubRepo: true,
+    highlights: resumeProj.highlights || [],
+    startDate: resumeProj.startDate || "",
+    endDate: resumeProj.endDate || "",
+  };
+}
+
+function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
+  const resumeGithub = resumeProj.github || "";
+  const resumeUrl = resumeProj.url || "";
+  const resumeDemo = resumeProj.demo || "";
+
+  // Signal 1: resume github/url field IS a github.com URL → match repo.html_url
+  for (let i = 0; i < ghProjects.length; i++) {
+    if (matchedIndices.has(i)) continue;
+    const repoUrl = ghProjects[i].github_link || "";
+    if (resumeGithub && urlsMatch(resumeGithub, repoUrl)) {
+      return { repo: ghProjects[i], index: i };
+    }
+    if (resumeUrl && isGithubUrl(resumeUrl) && urlsMatch(resumeUrl, repoUrl)) {
+      return { repo: ghProjects[i], index: i };
+    }
+  }
+
+  // Signal 2: resume url/demo domain appears in repo description
+  const resumeUrls = [resumeUrl, resumeDemo]
+    .filter(Boolean)
+    .map(extractDomain)
+    .filter(Boolean);
+
+  if (resumeUrls.length > 0) {
+    for (let i = 0; i < ghProjects.length; i++) {
+      if (matchedIndices.has(i)) continue;
+      const desc = (ghProjects[i].description || "").toLowerCase();
+      for (const domain of resumeUrls) {
+        if (desc.includes(domain)) {
+          return { repo: ghProjects[i], index: i };
+        }
+      }
+    }
+  }
+
+  // Signal 3: normalized name match
+  const normName = normalizeName(resumeProj.name || "");
+  if (normName) {
+    for (let i = 0; i < ghProjects.length; i++) {
+      if (matchedIndices.has(i)) continue;
+      if (normalizeName(ghProjects[i].name || "") === normName) {
+        return { repo: ghProjects[i], index: i };
+      }
+    }
+  }
+
+  // Signal 4: partial name match + keyword overlap ≥ 50%
+  const resumeKeywords = (resumeProj.keywords || []).map((k) =>
+    k.toLowerCase(),
+  );
+  if (normName && resumeKeywords.length > 0) {
+    for (let i = 0; i < ghProjects.length; i++) {
+      if (matchedIndices.has(i)) continue;
+      const repoName = normalizeName(ghProjects[i].name || "");
+      const repoTech = (ghProjects[i].technologies || []).map((t) =>
+        t.toLowerCase(),
+      );
+
+      const nameOverlap =
+        repoName.includes(normName) || normName.includes(repoName);
+      if (!nameOverlap) continue;
+
+      const allTech = new Set([...resumeKeywords, ...repoTech]);
+      const overlapCount = resumeKeywords.filter((k) => repoTech.includes(k))
+        .length;
+      const overlapRatio = overlapCount / allTech.size;
+
+      if (overlapRatio >= 0.5) {
+        return { repo: ghProjects[i], index: i };
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeName(name) {
+  return name
+    .toLowerCase()
+    .replace(/^jsonresume-theme-/, "")
+    .replace(/^@[^/]+\//, "")
+    .replace(/[-_\s]+/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function extractDomain(url) {
+  try {
+    const u = new URL(url.startsWith("http") ? url : `https://${url}`);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function isGithubUrl(url) {
+  return /github\.com\/[^/]+\/[^/]+/.test(url);
+}
+
+function urlsMatch(a, b) {
+  const normA = extractUrlRepo(a);
+  const normB = extractUrlRepo(b);
+  return normA && normB && normA === normB;
+}
+
+function extractUrlRepo(url) {
+  const match = url.match(/github\.com\/([^/]+)\/([^/?#]+)/);
+  if (!match) return null;
+  return `${match[1].toLowerCase()}/${match[2].toLowerCase()}`;
 }
 
 // ---------------------------------------------------------------------------
