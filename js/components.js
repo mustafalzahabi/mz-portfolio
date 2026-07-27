@@ -388,12 +388,12 @@ export function buildSkills(skills, skillsCfg = {}) {
         const bar = document.createElement("div");
         bar.style.flex = "2";
         bar.style.height = "0.5rem";
-        bar.style.background = "var(--border-color)";
+        bar.style.background = "var(--border)";
         bar.style.marginLeft = "0.5rem";
         const fill = document.createElement("div");
         fill.style.height = "100%";
         fill.style.width = Math.floor(40 + Math.random() * 60) + "%";
-        fill.style.background = "var(--accent-color)";
+        fill.style.background = "var(--accent)";
         bar.appendChild(fill);
         wrap.appendChild(label);
         wrap.appendChild(bar);

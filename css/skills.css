@@ -9,7 +9,7 @@
 }
 
 .skill-category {
-  background: var(--surface-color);
+  background: var(--surface);
   padding: 1.5rem;
   border-radius: 0.5rem;
 }
@@ -18,7 +18,7 @@
   font-size: 1.125rem;
   font-weight: 700;
   margin-block-end: 1rem;
-  color: var(--accent-color);
+  color: var(--accent);
 }
 
 .skill-category ul {
@@ -27,12 +27,12 @@
 
 .skill-category li {
   padding-block: 0.5rem;
-  color: var(--secondary-color);
+  color: var(--secondary);
 }
 
 .skill-category li::before {
   content: '\2713 ';
-  color: var(--accent-color);
+  color: var(--accent);
   font-weight: 700;
   margin-inline-end: 0.5rem;
 }

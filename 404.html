@@ -6,30 +6,30 @@
     <title>Loading Profile...</title>
     <style>
         :root {
-            --accent-color: #b8860b;
-            --hover-color: #8b6914;
+            --accent: #b8860b;
+            --hover: #8b6914;
             --background-color: #fef3c7;
-            --primary-color: #1a1a1a;
-            --secondary-color: #666;
-            --surface-color: #f2f2f2;
-            --border-color: #e5d4b1;
+            --primary: #1a1a1a;
+            --secondary: #666;
+            --surface: #f2f2f2;
+            --border: #e5d4b1;
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
         @media (prefers-color-scheme: dark) {
             :root {
-                --accent-color: #e8c55f;
-                --hover-color: #f0d974;
+                --accent: #e8c55f;
+                --hover: #f0d974;
                 --background-color: #705507;
-                --primary-color: #e0e0e0;
-                --secondary-color: #aaa;
-                --surface-color: #2a2a2a;
-                --border-color: #5a4a30;
+                --primary: #e0e0e0;
+                --secondary: #aaa;
+                --surface: #2a2a2a;
+                --border: #5a4a30;
             }
         }
         body {
             font-family: var(--font-family);
-            color: var(--primary-color);
-            background: var(--surface-color);
+            color: var(--primary);
+            background: var(--surface);
             line-height: 1.6;
             transition: background 0.3s, color 0.3s;
             min-height: 100vh;
@@ -53,7 +53,7 @@
             background: var(--background-color);
             border-radius: 18px;
             box-shadow: 0 2px 24px 0 rgba(0,0,0,0.07);
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
             min-width: 320px;
             max-width: 90vw;
         }
@@ -62,12 +62,12 @@
             margin-bottom: 2rem;
             max-width: 400px;
             line-height: 1.5;
-            color: var(--secondary-color);
+            color: var(--secondary);
         }
         a {
             text-decoration: none;
             color: white;
-            background: var(--accent-color);
+            background: var(--accent);
             padding: 12px 24px;
             border-radius: 8px;
             font-weight: 600;
@@ -76,7 +76,7 @@
         }
         a:hover {
             opacity: 0.8;
-            background: var(--hover-color);
+            background: var(--hover);
         }
         .hidden { display: none; }
     </style>
