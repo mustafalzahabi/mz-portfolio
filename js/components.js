@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
-import { GITHUB_LANGUAGE_COLORS } from "./api.js";
+import { getLanguageColor } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
 import { buildResumePreview } from "./resume.js";
 
@@ -97,19 +97,13 @@ export function buildHeader(profile, contact, opts = {}) {
   knob.id = "theme-knob";
   knob.className = "theme-switch-knob";
 
-  const moonIcon = document.createElement("img");
+  const moonIcon = document.createElement("div");
   moonIcon.className = "theme-icon theme-icon-moon";
-  moonIcon.src = "dark-theme.svg";
-  moonIcon.alt = "moon";
-  moonIcon.width = 30;
-  moonIcon.height = 30;
+  moonIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
-  const sunIcon = document.createElement("img");
+  const sunIcon = document.createElement("div");
   sunIcon.className = "theme-icon theme-icon-sun";
-  sunIcon.src = "light-theme.svg";
-  sunIcon.alt = "sun";
-  sunIcon.width = 30;
-  sunIcon.height = 30;
+  sunIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg>`;
 
   knob.appendChild(moonIcon);
   knob.appendChild(sunIcon);
@@ -313,7 +307,7 @@ export function buildProjects(projects, projectsCfg = {}) {
       const tag = document.createElement("span");
       tag.className = "tech-tag";
       tag.textContent = tech;
-      const color = GITHUB_LANGUAGE_COLORS[tech];
+      const color = getLanguageColor(tech);
       if (color) {
         tag.style.backgroundColor = color;
         tag.style.color = getContrastTextColor(color);
@@ -903,7 +897,7 @@ export function renderProjectDetail(project) {
       const tag = document.createElement("span");
       tag.className = "tech-tag";
       tag.textContent = t;
-      const color = GITHUB_LANGUAGE_COLORS[t];
+      const color = getLanguageColor(t);
       if (color) {
         tag.style.backgroundColor = color;
         tag.style.color = getContrastTextColor(color);

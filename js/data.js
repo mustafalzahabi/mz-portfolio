@@ -372,7 +372,7 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
     }
   }
 
-  // Signal 2: resume url/demo domain appears in repo description
+  // Signal 2: resume url/demo domain appears in repo description or homepage
   const resumeUrls = [resumeUrl, resumeDemo]
     .filter(Boolean)
     .map(extractDomain)
@@ -382,9 +382,10 @@ function findMatchingRepo(resumeProj, ghProjects, matchedIndices) {
     for (let i = 0; i < ghProjects.length; i++) {
       if (matchedIndices.has(i)) continue;
       const desc = (ghProjects[i].description || "").toLowerCase();
+      const homepage = (ghProjects[i].live_link || "").toLowerCase();
       for (const domain of resumeUrls) {
-        if (desc.includes(domain)) {
-          console.log(`  → matched via domain "${domain}" in repo description`);
+        if (desc.includes(domain) || homepage.includes(domain)) {
+          console.log(`  → matched via domain "${domain}" in repo description/homepage`);
           return { repo: ghProjects[i], index: i };
         }
       }

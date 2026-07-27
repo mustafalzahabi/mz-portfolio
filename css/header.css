@@ -105,19 +105,15 @@
   position: absolute;
   inline-size: 1.75rem;
   block-size: 1.75rem;
-  object-fit: contain;
   transition: opacity 0.2s, transform 0.2s, filter 0.2s;
   display: block;
-}
-
-.theme-switch-knob img {
-  display: block;
-}
-
-.theme-switch-knob .theme-icon,
-.theme-switch-knob img {
   color: var(--accent-color);
-  filter: none;
+}
+
+.theme-icon svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
 }
 
 .theme-icon-moon {
@@ -155,17 +151,17 @@
   opacity: 0;
 }
 
-/* Auto mode: show the effective icon but greyed out */
+/* Auto mode: show the effective icon in black */
 .theme-switch-knob[data-auto="true"][data-mode="light"] .theme-icon-sun {
   opacity: 0.6;
   transform: scale(0.9);
-  color: var(--secondary-color);
+  color: #000;
 }
 
 .theme-switch-knob[data-auto="true"][data-mode="dark"] .theme-icon-moon {
   opacity: 0.6;
   transform: scale(0.9);
-  color: var(--secondary-color);
+  color: #000;
 }
 
 /* Explicit modes: show icon in accent color */

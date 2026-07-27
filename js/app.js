@@ -57,6 +57,7 @@ export function showLandingPage() {
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="home-container">
+  <div class="home-theme-toggle" id="home-theme-switch"></div>
   <!-- Hero Section -->
   <header class="hero-section">
     <div class="brand-badge">mz-portfolio</div>
@@ -126,6 +127,26 @@ export function showLandingPage() {
   </section>
 </div>
   `;
+  // Build theme switch into the home container
+  const homeThemeContainer = app.querySelector("#home-theme-switch");
+  if (homeThemeContainer) {
+    homeThemeContainer.innerHTML = `
+      <div class="theme-switch">
+        <div class="theme-switch-track">
+          <div class="theme-switch-knob" id="theme-knob">
+            <div class="theme-icon theme-icon-moon">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </div>
+            <div class="theme-icon theme-icon-sun">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  setupThemeToggle();
+
   // Wire source dropdown
   const sourceSelect = app.querySelector("#source-select");
   const usernameInput = app.querySelector("#username-input");
