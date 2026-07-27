@@ -9,8 +9,8 @@
 }
 
 .project-card {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   overflow: hidden;
   transition: box-shadow 0.2s;
@@ -23,7 +23,7 @@
 .project-image {
   inline-size: 100%;
   block-size: 200px;
-  background: var(--surface-color-light);
+  background: var(--surface-light);
   overflow: hidden;
 }
 
@@ -44,7 +44,7 @@
 }
 
 .project-content p {
-  color: var(--secondary-color);
+  color: var(--secondary);
   margin-block-end: 1rem;
   font-size: 0.8125rem;
 }
@@ -57,8 +57,8 @@
 }
 
 .tech-tag {
-  background: var(--code-color);
-  color: var(--surface-color);
+  background: var(--code);
+  color: var(--surface);
   padding: 0.25rem 0.75rem;
   border-radius: 1.25rem;
   font-size: 0.75rem;
@@ -77,7 +77,7 @@
 }
 
 .project-links a {
-  color: var(--accent-color);
+  color: var(--accent);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.8125rem;
@@ -85,5 +85,5 @@
 }
 
 .project-links a:hover {
-  color: var(--hover-color);
+  color: var(--hover);
 }

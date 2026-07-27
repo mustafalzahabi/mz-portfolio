@@ -34,9 +34,9 @@
   block-size: min(85vh, calc(100vh - 4rem));
   display: flex;
   flex-direction: column;
-  background: var(--surface-color);
+  background: var(--surface);
   border-radius: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   box-shadow: 0 16px 48px light-dark(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.5));
   overflow: hidden;
   transform: translateY(1rem) scale(0.97);
@@ -57,7 +57,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: var(--accent-color);
+  background: var(--accent);
   color: light-dark(#fff, #1a1a1a);
   flex-shrink: 0;
 }
@@ -77,9 +77,9 @@
 .resume-overlay-status {
   padding: 0.5rem 1.25rem;
   font-size: 0.8125rem;
-  color: var(--secondary-color);
+  color: var(--secondary);
   background: var(--background-color);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   text-align: center;
 }

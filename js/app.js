@@ -132,7 +132,7 @@ export function showLandingPage() {
   if (homeThemeContainer) {
     homeThemeContainer.innerHTML = `
       <div class="theme-switch">
-        <div class="theme-switch-track">
+        <div class="theme-switch-track" id="theme-track">
           <div class="theme-switch-knob" id="theme-knob">
             <div class="theme-icon theme-icon-moon">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -146,6 +146,13 @@ export function showLandingPage() {
   }
 
   setupThemeToggle();
+
+  // Attach drag handlers for homepage theme switch
+  const homeTrack = app.querySelector(".theme-switch-track");
+  const homeKnob = app.querySelector("#theme-knob");
+  if (homeTrack && homeKnob) {
+    attachThemeSwitchHandlers(homeTrack, homeKnob);
+  }
 
   // Wire source dropdown
   const sourceSelect = app.querySelector("#source-select");
@@ -233,7 +240,7 @@ import { collectPortfolioData, fetchBlogPosts } from "./data.js";
 
 import { loadModel as preloadModel, buildChatBubble } from "./chat.js";
 
-import { setupThemeToggle } from "./theme.js";
+import { setupThemeToggle, attachThemeSwitchHandlers } from "./theme.js";
 
 // ============================================================================
 // INJECT CUSTOM ACCENT
@@ -278,7 +285,7 @@ function injectCustomAccent(accent) {
   const surfaceColor = shade(accent, 95);
   const borderColor = shade(accent, 70);
   const codeColor = accent;
-  const css = `:root {\n  --accent-color: ${accentColor};\n  --hover-color: ${hoverColor};\n  --background-color: ${backgroundColor};\n  --primary-color: ${primaryColor};\n  --secondary-color: ${secondaryColor};\n  --surface-color: ${surfaceColor};\n  --border-color: ${borderColor};\n  --code-color: ${codeColor};\n}`;
+  const css = `:root {\n  --accent: ${accentColor};\n  --hover: ${hoverColor};\n  --background-color: ${backgroundColor};\n  --primary: ${primaryColor};\n  --secondary: ${secondaryColor};\n  --surface: ${surfaceColor};\n  --border: ${borderColor};\n  --code: ${codeColor};\n}`;
   let styleTag = document.getElementById("mz-custom-accent");
   if (styleTag) styleTag.remove();
   styleTag = document.createElement("style");
@@ -617,7 +624,7 @@ export async function loadData(projectName) {
       console.warn("[loadData] No sections rendered");
       const emptyMsg = document.createElement("div");
       emptyMsg.style.cssText =
-        "text-align:center;padding:4rem 2rem;color:var(--secondary-color);";
+        "text-align:center;padding:4rem 2rem;color:var(--secondary);";
       emptyMsg.innerHTML = `
         <p style="font-size:1.25rem;margin-bottom:0.5rem;">No portfolio data found</p>
         <p style="font-size:0.9rem;">Could not load resume.json${route.type === 'gh' ? ' or GitHub repositories' : ''} for <strong>${route.identifier}</strong>.</p>

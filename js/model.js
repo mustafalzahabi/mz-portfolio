@@ -1,10 +1,11 @@
 // ============================================================================
 // PUTER.JS WRAPPER — Cloud AI via Puter (User-Pays model)
 // CDN loaded in index.html: <script src="https://js.puter.com/v2/"></script>
-//
-// Strategy: try without auth first (free models may work without a token).
-// Only trigger auth (popup) as a last resort.
 // ============================================================================
+
+// Suppress Puter.js dev CTA banner
+if (typeof puter !== "undefined") puter.quiet = true;
+globalThis.PUTER_QUIET = true;
 
 let puterReady = false;
 
