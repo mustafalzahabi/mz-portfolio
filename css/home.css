@@ -71,8 +71,17 @@
   font-size: 0.9em;
 }
 
-/* Source Select Dropdown */
-.source-select {
+/* Source Dropdown */
+.source-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.source-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
   background: var(--surface);
   border: none;
   border-right: 1px solid var(--border);
@@ -80,21 +89,68 @@
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
-  padding: 10px 12px;
   cursor: pointer;
-  outline: none;
+  white-space: nowrap;
+  height: 100%;
   border-radius: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 28px;
-  flex-shrink: 0;
+  transition: background 0.15s;
 }
 
-.source-select:focus {
-  border-color: transparent;
+.source-dropdown-btn:hover {
+  background: var(--background-color);
+}
+
+.source-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.source-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.source-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.source-dropdown-option:hover {
+  background: var(--background-color);
+}
+
+.source-dropdown-option.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.source-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.source-dropdown-option.active .source-icon {
+  opacity: 1;
 }
 
 /* Sleek Modern Input Form */

@@ -80,7 +80,14 @@ window
     }
   });
 
+let _themeMoveHandler = null;
+let _themeUpHandler = null;
+
 export function attachThemeSwitchHandlers(track, knob) {
+  // Remove previous document-level handlers if any
+  if (_themeMoveHandler) document.removeEventListener("pointermove", _themeMoveHandler);
+  if (_themeUpHandler) document.removeEventListener("pointerup", _themeUpHandler);
+
   let isDragging = false;
   let dragStartX = 0;
   let dragStartY = 0;
@@ -146,7 +153,7 @@ export function attachThemeSwitchHandlers(track, knob) {
     }
   });
 
-  document.addEventListener("pointermove", (e) => {
+  _themeMoveHandler = (e) => {
     if (!isDragging) return;
 
     const deltaX = e.clientX - dragStartX;
@@ -168,9 +175,9 @@ export function attachThemeSwitchHandlers(track, knob) {
 
     knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
     knob.style.transition = "none";
-  });
+  };
 
-  document.addEventListener("pointerup", () => {
+  _themeUpHandler = () => {
     if (!isDragging) return;
     isDragging = false;
     knob.classList.remove("dragging");
@@ -181,7 +188,10 @@ export function attachThemeSwitchHandlers(track, knob) {
     } catch (e) {
       /* ignore */
     }
-  });
+  };
+
+  document.addEventListener("pointermove", _themeMoveHandler);
+  document.addEventListener("pointerup", _themeUpHandler);
 
   track.addEventListener("click", (e) => {
     const rect = track.getBoundingClientRect();
