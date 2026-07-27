@@ -91,6 +91,11 @@ export async function fetchAndMergeProjects(githubUsername) {
 
 // GitHub language colors - fetched dynamically
 export let GITHUB_LANGUAGE_COLORS = {};
+const LANGUAGE_COLORS_LOWER = {};
+
+export function getLanguageColor(name) {
+  return GITHUB_LANGUAGE_COLORS[name] || LANGUAGE_COLORS_LOWER[name.toLowerCase()] || null;
+}
 
 // Fetch GitHub language colors from github/linguist languages.yml
 export async function initializeLanguageColors() {
@@ -115,6 +120,7 @@ export async function initializeLanguageColors() {
           );
           if (colorMatch) {
             GITHUB_LANGUAGE_COLORS[langName] = colorMatch[1];
+            LANGUAGE_COLORS_LOWER[langName.toLowerCase()] = colorMatch[1];
             break;
           }
           if (

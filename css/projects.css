@@ -57,8 +57,8 @@
 }
 
 .tech-tag {
-  background: var(--accent-color);
-  color: white;
+  background: var(--code-color);
+  color: var(--surface-color);
   padding: 0.25rem 0.75rem;
   border-radius: 1.25rem;
   font-size: 0.75rem;

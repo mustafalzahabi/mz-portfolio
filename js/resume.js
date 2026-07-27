@@ -198,7 +198,7 @@ async function renderLocalFallbackTheme(resume) {
   renderResumeInterests(doc, resume.interests);
   renderResumeReferences(doc, resume.references);
 
-  const cssUrl = new URL("css/resume-theme.css", import.meta.url).href;
+  const cssUrl = new URL("../css/resume-theme.css", import.meta.url).href;
   return `
     <!DOCTYPE html>
     <html lang="en">
