@@ -63,25 +63,16 @@ export function showLandingPage() {
     <div class="brand-badge">mz-portfolio</div>
     <h1 class="hero-title">Turn Your Resume Into a<br>Live Portfolio.</h1>
     <p class="hero-subtitle">
-      Point us at your <code>resume.json</code> — a GitHub Gist or a Google Drive file — and watch it become a fully themed, responsive portfolio in seconds. Theme-aware, dark mode ready, zero setup.
+      Point us at your <code>resume.json</code> — a GitHub Gist or a Google Drive file — and watch it become a fully themed, responsive portfolio in seconds. Theme-aware rendering, dark mode, project merging, and zero deploy steps.
     </p>
 
     <!-- Interactive Form -->
     <form onsubmit="navigateToUser(event)" class="search-form">
-      <div class="source-dropdown" id="source-dropdown">
-        <button type="button" class="source-dropdown-btn" id="source-dropdown-btn">
-          <svg class="source-icon source-icon-gh" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          <span>GitHub Gist</span>
-        </button>
+      <div class="source-prefix" id="source-prefix">
+        <button type="button" class="source-prefix-btn" id="source-prefix-btn">github.com/gist/</button>
         <div class="source-dropdown-menu" id="source-dropdown-menu">
-          <div class="source-dropdown-option active" data-value="gh">
-            <svg class="source-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            <span>GitHub Gist</span>
-          </div>
-          <div class="source-dropdown-option" data-value="gd">
-            <svg class="source-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span>Google Drive</span>
-          </div>
+          <div class="source-dropdown-option active" data-value="gh" data-prefix="github.com/gist/">github.com/gist/</div>
+          <div class="source-dropdown-option" data-value="gd" data-prefix="drive.google.com/folder/d/">drive.google.com/folder/d/</div>
         </div>
       </div>
       <input type="hidden" id="source-select" value="gh">
@@ -108,33 +99,78 @@ export function showLandingPage() {
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#9733;</div>
+      <div class="feature-icon">&#127912;</div>
       <h3>Theme-Aware Rendering</h3>
-      <p>Picks up your configured JSON Resume theme and renders it natively in the browser. Supports the full ecosystem of community themes.</p>
+      <p>Loads your configured JSON Resume theme from CDN and renders it natively in-browser. Supports the full ecosystem of community themes — not just a static template.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">&#128279;</div>
+      <h3>Smart Project Merging</h3>
+      <p>Projects from your resume and your GitHub repos are intelligently matched and merged — combining your curated descriptions with live stars, languages, and README data.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">&#127769;</div>
+      <h3>Dark Mode & Theming</h3>
+      <p>Native light/dark/auto theme switching with a draggable toggle. Your accent color flows through every component — fully driven by your meta config.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">&#128241;</div>
+      <h3>Fully Responsive</h3>
+      <p>Adapts seamlessly from widescreen monitors to mobile phones. Orientation-aware breakpoints ensure the layout always looks intentional, never broken.</p>
     </div>
 
     <div class="feature-card">
       <div class="feature-icon">&#9881;</div>
       <h3>Zero Bloat</h3>
-      <p>Pure vanilla JS, CSS, and HTML. No frameworks, no bundler, no node_modules. Sub-second load times on any device.</p>
+      <p>Pure vanilla JS, CSS, and HTML. No frameworks, no bundler, no node_modules. Sub-second load times on any device, any network.</p>
     </div>
   </section>
 
-  <!-- Quick Setup Instructions Guide -->
+  <!-- How It Works -->
   <section class="setup-section">
-    <h2>Three Steps to Your Portfolio</h2>
+    <h2>How It Works</h2>
     <div class="steps-container">
       <div class="step-item">
         <div class="step-number">1</div>
-        <p>Create a <strong>public GitHub Gist</strong> or <strong>Google Drive file</strong> named <code>resume.json</code> following the <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema.</p>
+        <h4>Create Your Resume</h4>
+        <p>Write a <code>resume.json</code> following the <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema. Host it as a <strong>public GitHub Gist</strong> or upload it to a <strong>Google Drive folder</strong>.</p>
       </div>
       <div class="step-item">
         <div class="step-number">2</div>
-        <p>Pick your data source above and enter your <strong>GitHub username</strong> or <strong>Drive file ID</strong>.</p>
+        <h4>Point & Generate</h4>
+        <p>Select your data source above and drop in your <strong>username</strong> or <strong>folder ID</strong>. The app fetches your resume, your GitHub profile, and all public repos in parallel.</p>
       </div>
       <div class="step-item">
         <div class="step-number">3</div>
-        <p>Hit <strong>Generate</strong>. Your portfolio is live — complete with projects, skills, and an interactive theme switcher.</p>
+        <h4>Your Portfolio Is Live</h4>
+        <p>A fully styled, theme-aware portfolio — complete with projects, skills, education, and an interactive resume viewer. Share the link, it's done.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Meta Config Teaser -->
+  <section class="meta-section">
+    <h2>Fully Configurable via JSON</h2>
+    <p class="meta-subtitle">Your <code>resume.json</code> meta block controls everything — no code changes needed.</p>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <code>meta.theme</code>
+        <span>Choose any JSON Resume theme from the ecosystem</span>
+      </div>
+      <div class="meta-item">
+        <code>meta.accent</code>
+        <span>Set your brand accent color across the entire site</span>
+      </div>
+      <div class="meta-item">
+        <code>meta.banner</code>
+        <span>Customize banner height, photo shape, and layout</span>
+      </div>
+      <div class="meta-item">
+        <code>meta.sections.order</code>
+        <span>Reorder or hide any section — projects, skills, contact</span>
       </div>
     </div>
   </section>
@@ -168,13 +204,13 @@ export function showLandingPage() {
   }
 
   // Wire custom source dropdown
-  const dropdownBtn = app.querySelector("#source-dropdown-btn");
+  const prefixBtn = app.querySelector("#source-prefix-btn");
   const dropdownMenu = app.querySelector("#source-dropdown-menu");
   const sourceInput = app.querySelector("#source-select");
   const usernameInput = app.querySelector("#username-input");
 
-  if (dropdownBtn && dropdownMenu && sourceInput) {
-    dropdownBtn.addEventListener("click", (e) => {
+  if (prefixBtn && dropdownMenu && sourceInput) {
+    prefixBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       dropdownMenu.classList.toggle("open");
     });
@@ -184,15 +220,10 @@ export function showLandingPage() {
         dropdownMenu.querySelectorAll(".source-dropdown-option").forEach((o) => o.classList.remove("active"));
         opt.classList.add("active");
         sourceInput.value = opt.dataset.value;
-        dropdownBtn.querySelector("span").textContent = opt.querySelector("span").textContent;
-        const ghIcon = dropdownBtn.querySelector(".source-icon-gh");
-        const gdIcon = opt.querySelector(".source-icon");
-        if (ghIcon && gdIcon) {
-          ghIcon.outerHTML = gdIcon.outerHTML;
-        }
+        prefixBtn.textContent = opt.dataset.prefix;
         dropdownMenu.classList.remove("open");
         if (usernameInput) {
-          usernameInput.placeholder = opt.dataset.value === "gd" ? "file id (e.g. 1abc2def3ghi)" : "username";
+          usernameInput.placeholder = opt.dataset.value === "gd" ? "folder id" : "username";
           usernameInput.value = "";
           usernameInput.focus();
         }

@@ -152,13 +152,13 @@
 }
 
 /* Auto mode: show the effective icon in black */
-.theme-switch-knob[data-auto="true"][data-mode="light"] .theme-icon-sun {
+.theme-switch-knob.auto-mode[data-auto="true"][data-mode="light"] .theme-icon-sun {
   opacity: 0.6;
   transform: scale(0.9);
   color: #000;
 }
 
-.theme-switch-knob[data-auto="true"][data-mode="dark"] .theme-icon-moon {
+.theme-switch-knob.auto-mode[data-auto="true"][data-mode="dark"] .theme-icon-moon {
   opacity: 0.6;
   transform: scale(0.9);
   color: #000;

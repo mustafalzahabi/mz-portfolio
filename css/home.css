@@ -71,24 +71,23 @@
   font-size: 0.9em;
 }
 
-/* Source Dropdown */
-.source-dropdown {
+/* Source Prefix Dropdown */
+.source-prefix {
   position: relative;
   flex-shrink: 0;
 }
 
-.source-dropdown-btn {
+.source-prefix-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
   padding: 10px 14px;
   background: var(--surface);
   border: none;
   border-right: 1px solid var(--border);
-  color: var(--primary);
+  color: var(--accent);
   font-size: 14px;
   font-weight: 600;
-  font-family: inherit;
+  font-family: var(--font-family-mono);
   cursor: pointer;
   white-space: nowrap;
   height: 100%;
@@ -96,7 +95,7 @@
   transition: background 0.15s;
 }
 
-.source-dropdown-btn:hover {
+.source-prefix-btn:hover {
   background: var(--background-color);
 }
 
@@ -124,15 +123,14 @@
 }
 
 .source-dropdown-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 10px 14px;
   font-size: 14px;
   font-weight: 500;
+  font-family: var(--font-family-mono);
   color: var(--primary);
   cursor: pointer;
   transition: background 0.12s;
+  white-space: nowrap;
 }
 
 .source-dropdown-option:hover {
@@ -142,15 +140,6 @@
 .source-dropdown-option.active {
   color: var(--accent);
   font-weight: 600;
-}
-
-.source-icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.source-dropdown-option.active .source-icon {
-  opacity: 1;
 }
 
 /* Sleek Modern Input Form */
@@ -304,6 +293,13 @@
   margin: 0;
 }
 
+.step-item h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: var(--primary);
+}
+
 .step-item a {
   color: var(--accent);
   text-decoration: none;
@@ -312,4 +308,65 @@
 
 .step-item a:hover {
   text-decoration: underline;
+}
+
+/* Meta Config Section */
+.meta-section {
+  width: 100%;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  padding-top: 60px;
+}
+
+.meta-section h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+}
+
+.meta-subtitle {
+  font-size: 15px;
+  color: var(--secondary);
+  margin: 0 0 40px 0;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.meta-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.2s;
+}
+
+.meta-item:hover {
+  transform: translateY(-2px);
+}
+
+.meta-item code {
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--background-color);
+  padding: 2px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.meta-item span {
+  font-size: 14px;
+  color: var(--secondary);
+  line-height: 1.4;
 }
