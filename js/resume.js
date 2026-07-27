@@ -93,7 +93,7 @@ async function buildResumeOverlay(resume) {
   const status = document.createElement("div");
   status.className = "resume-overlay-status";
   const requestedTheme = resume.meta?.theme || "default";
-  status.textContent = `Loading theme: ${requestedTheme}...`;
+  status.innerHTML = `<span class="spinner-inline"></span>Loading theme: ${requestedTheme}...`;
   
   container.append(toolbar, status);
 

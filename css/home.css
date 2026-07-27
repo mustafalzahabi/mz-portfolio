@@ -224,8 +224,15 @@
 }
 
 .feature-icon {
-  font-size: 28px;
+  color: var(--accent);
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.feature-icon svg {
+  width: 28px;
+  height: 28px;
 }
 
 .feature-card h3 {
@@ -369,4 +376,83 @@
   font-size: 14px;
   color: var(--secondary);
   line-height: 1.4;
+}
+
+/* Final Conversion CTA Banner */
+.landing-cta-banner {
+  width: 100%;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 60px 24px;
+}
+
+.cta-banner-content h2 {
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 700;
+  margin: 0 0 12px 0;
+}
+
+.cta-banner-content p {
+  font-size: 15px;
+  color: var(--secondary);
+  margin: 0 0 32px 0;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cta-button-large {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--background-color);
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px 32px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.cta-button-large:hover {
+  background: var(--hover);
+  transform: scale(1.02);
+}
+
+/* Landing Page Footer */
+.landing-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 32px;
+  font-size: 13px;
+  color: var(--secondary);
+}
+
+.footer-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.footer-sep {
+  opacity: 0.4;
+}
+
+.footer-right {
+  display: flex;
+  gap: 16px;
+}
+
+.footer-right a {
+  color: var(--secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.footer-right a:hover {
+  color: var(--accent);
 }

@@ -73,7 +73,7 @@ export async function fetchAndMergeProjects(githubUsername) {
           allImages: readmeData?.allImages || [],
           readmeDescription: displayDescription,
           fullReadme: readmeData?.fullText || "",
-          live_link: repo.home || null,
+          live_link: repo.homepage || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
           isGitHubRepo: true,

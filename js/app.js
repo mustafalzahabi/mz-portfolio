@@ -26,7 +26,7 @@ export function setBlogPostsData(data) {
 
 export function showLoading() {
   document.getElementById("app").innerHTML = `
-    <div style="display:flex;justify-content:center;align-items:center;min-height:100vh;flex-direction:column;">
+    <div class="loading-state">
       <div class="spinner"></div>
       <p class="loading-text">Loading portfolio...</p>
     </div>
@@ -77,60 +77,53 @@ export function showLandingPage() {
       </div>
       <input type="hidden" id="source-select" value="gh">
       <div class="input-wrapper">
-        <input
-          id="username-input"
-          type="text"
-          placeholder="username"
-          autocomplete="off"
-          spellcheck="false"
-          required
-        />
+        <input id="username-input" type="text" placeholder="username" autocomplete="off" spellcheck="false" required="">
       </div>
       <button type="submit" class="cta-button">Generate Portfolio</button>
     </form>
   </header>
 
   <!-- Features Grid -->
-  <section class="features-grid">
+  <section class="features-grid" id="features">
     <div class="feature-card">
-      <div class="feature-icon">&#9889;</div>
-      <h3>Instant & Live</h3>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <h3>Instant &amp; Live</h3>
       <p>Your portfolio pulls directly from your <code>resume.json</code>. Edit the gist, your site updates — no redeploy, no build step, no waiting.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#127912;</div>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13.5" r="2.5"/><circle cx="13.5" cy="20.5" r="2.5"/><circle cx="6" cy="13.5" r="2.5"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/></svg></div>
       <h3>Theme-Aware Rendering</h3>
       <p>Loads your configured JSON Resume theme from CDN and renders it natively in-browser. Supports the full ecosystem of community themes — not just a static template.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#128279;</div>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
       <h3>Smart Project Merging</h3>
       <p>Projects from your resume and your GitHub repos are intelligently matched and merged — combining your curated descriptions with live stars, languages, and README data.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#127769;</div>
-      <h3>Dark Mode & Theming</h3>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
+      <h3>Dark Mode &amp; Theming</h3>
       <p>Native light/dark/auto theme switching with a draggable toggle. Your accent color flows through every component — fully driven by your meta config.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#128241;</div>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
       <h3>Fully Responsive</h3>
       <p>Adapts seamlessly from widescreen monitors to mobile phones. Orientation-aware breakpoints ensure the layout always looks intentional, never broken.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon">&#9881;</div>
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
       <h3>Zero Bloat</h3>
       <p>Pure vanilla JS, CSS, and HTML. No frameworks, no bundler, no node_modules. Sub-second load times on any device, any network.</p>
     </div>
   </section>
 
   <!-- How It Works -->
-  <section class="setup-section">
+  <section class="setup-section" id="how-it-works">
     <h2>How It Works</h2>
     <div class="steps-container">
       <div class="step-item">
@@ -140,7 +133,7 @@ export function showLandingPage() {
       </div>
       <div class="step-item">
         <div class="step-number">2</div>
-        <h4>Point & Generate</h4>
+        <h4>Point &amp; Generate</h4>
         <p>Select your data source above and drop in your <strong>username</strong> or <strong>folder ID</strong>. The app fetches your resume, your GitHub profile, and all public repos in parallel.</p>
       </div>
       <div class="step-item">
@@ -152,7 +145,7 @@ export function showLandingPage() {
   </section>
 
   <!-- Meta Config Teaser -->
-  <section class="meta-section">
+  <section class="meta-section" id="config">
     <h2>Fully Configurable via JSON</h2>
     <p class="meta-subtitle">Your <code>resume.json</code> meta block controls everything — no code changes needed.</p>
     <div class="meta-grid">
@@ -174,6 +167,29 @@ export function showLandingPage() {
       </div>
     </div>
   </section>
+
+  <!-- Final Conversion Call to Action Banner -->
+  <section class="landing-cta-banner">
+    <div class="cta-banner-content">
+      <h2>Ready to build your developer profile?</h2>
+      <p>Takes under 2 minutes to hook up your first schema file. Free, open source, and fully customizable.</p>
+      <a href="#username-input" class="cta-button-large" onclick="document.getElementById('username-input').focus();">Get Started Now</a>
+    </div>
+  </section>
+
+  <!-- Landing Page Footer -->
+  <footer class="landing-footer">
+    <div class="footer-left">
+      <span>mz-portfolio engine</span>
+      <span class="footer-sep">•</span>
+      <span>Open Source Architecture</span>
+    </div>
+    <div class="footer-right">
+      <a href="https://github.com" target="_blank" rel="noopener">GitHub Source</a>
+      <a href="https://jsonresume.org" target="_blank" rel="noopener">JSON Resume Spec</a>
+    </div>
+  </footer>
+
 </div>
   `;
   // Build theme switch into the home container
