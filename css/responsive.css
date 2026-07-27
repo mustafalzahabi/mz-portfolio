@@ -110,10 +110,15 @@
   }
 
   .input-wrapper {
-    background: var(--surface-color);
-    border: 1px solid var(--border-color);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 4px 12px;
+  }
+
+  .source-prefix-btn {
+    border-right: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
   }
 
   .cta-button {

@@ -6,6 +6,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 3rem;
+  align-items: start;
+}
+
+.about-container > * {
+  min-width: 0;
 }
 
 .about-text h3 {
@@ -15,22 +20,111 @@
 }
 
 .about-text p {
-  color: var(--secondary-color);
+  color: var(--secondary);
   margin-block-end: 1rem;
 }
 
-.cv-link {
-  display: inline-block;
-  color: var(--accent-color);
-  text-decoration: none;
-  font-weight: 600;
-  border: 2px solid var(--accent-color);
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.375rem;
-  transition: all 0.2s;
+/* ============================================================================
+   RESUME PREVIEW CARD
+   ============================================================================ */
+
+.resume-preview {
+  /* Removed grid-column: 1 / -1 so it flows naturally in the grid */
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface, var(--background-color));
+  box-shadow: 0 4px 12px light-dark(rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.2));
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.cv-link:hover {
-  background: var(--accent-color);
-  color: white;
+.resume-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px light-dark(rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.3));
+}
+
+.resume-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.resume-preview-icon {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.08));
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.resume-preview-icon svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.resume-preview-title-group {
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.resume-preview-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--primary);
+  line-height: 1.2;
+}
+
+.resume-preview-subtitle {
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resume-preview-stats {
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  background: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.03));
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px dashed var(--border);
+}
+
+.resume-preview-stat-text {
+  display: block;
+}
+
+.resume-preview-btn {
+  width: 100%; /* Spans full width of the card for a clean CTA look */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.25rem;
+  background: var(--accent);
+  color: light-dark(#fff, #1a1a1a);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.resume-preview-btn:hover {
+  opacity: 0.9;
+}
+
+.resume-preview-btn:active {
+  transform: scale(0.98);
 }

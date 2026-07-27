@@ -3,9 +3,9 @@
 // ============================================================================
 
 import { getContrastTextColor, markdownToHtml, stripImagesFromMarkdown } from "./utils.js";
-import { GITHUB_LANGUAGE_COLORS } from "./api.js";
+import { getLanguageColor } from "./api.js";
 import { attachThemeSwitchHandlers } from "./theme.js";
-import { chat, isModelReady } from "./slm.js";
+import { buildResumePreview } from "./resume.js";
 
 let allProjectsDataRef = null;
 
@@ -97,19 +97,13 @@ export function buildHeader(profile, contact, opts = {}) {
   knob.id = "theme-knob";
   knob.className = "theme-switch-knob";
 
-  const moonIcon = document.createElement("img");
+  const moonIcon = document.createElement("div");
   moonIcon.className = "theme-icon theme-icon-moon";
-  moonIcon.src = "dark-theme.svg";
-  moonIcon.alt = "moon";
-  moonIcon.width = 30;
-  moonIcon.height = 30;
+  moonIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
-  const sunIcon = document.createElement("img");
+  const sunIcon = document.createElement("div");
   sunIcon.className = "theme-icon theme-icon-sun";
-  sunIcon.src = "light-theme.svg";
-  sunIcon.alt = "sun";
-  sunIcon.width = 30;
-  sunIcon.height = 30;
+  sunIcon.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/></svg>`;
 
   knob.appendChild(moonIcon);
   knob.appendChild(sunIcon);
@@ -123,15 +117,6 @@ export function buildHeader(profile, contact, opts = {}) {
   // Banner links (bottom right)
   const bannerLinks = document.createElement("div");
   bannerLinks.className = "banner-links";
-
-  if (profile.cv_link) {
-    const resumeLink = document.createElement("a");
-    resumeLink.href = profile.cv_link;
-    resumeLink.target = "_blank";
-    resumeLink.className = "banner-link-item";
-      resumeLink.textContent = "Resume";
-    bannerLinks.appendChild(resumeLink);
-  }
 
   if (contact) {
     if (contact.email) {
@@ -202,16 +187,25 @@ export function buildHeader(profile, contact, opts = {}) {
   return header;
 }
 
-export function buildTabSelector() {
+export function buildTabSelector(hasBlog) {
   const tabSelector = document.createElement("nav");
   tabSelector.className = "tab-selector";
 
-  const tabLink = document.createElement("a");
-  tabLink.href = "#";
-  tabLink.className = "tab-link active";
-  tabLink.textContent = "My Profile";
+  const profileTab = document.createElement("a");
+  profileTab.href = "#";
+  profileTab.className = "tab-link active";
+  profileTab.dataset.tab = "profile";
+  profileTab.textContent = "My Profile";
+  tabSelector.appendChild(profileTab);
 
-  tabSelector.appendChild(tabLink);
+  if (hasBlog) {
+    const blogTab = document.createElement("a");
+    blogTab.href = "#";
+    blogTab.className = "tab-link";
+    blogTab.dataset.tab = "blog";
+    blogTab.textContent = "Blog";
+    tabSelector.appendChild(blogTab);
+  }
 
   return tabSelector;
 }
@@ -224,14 +218,13 @@ export function buildAbout(about) {
   const bioDiv = createTextBlock("Biography", about.bio);
   const philDiv = createTextBlock("Philosophy", about.philosophy);
 
-  const cvLink = document.createElement("a");
-  cvLink.href = about.cv_link;
-  cvLink.className = "cv-link";
-  cvLink.download = "";
-  cvLink.textContent = "Download Resume";
-  philDiv.appendChild(cvLink);
-
   container.append(bioDiv, philDiv);
+
+  if (about._rawResume) {
+    const previewCard = buildResumePreview(about._rawResume);
+    container.appendChild(previewCard);
+  }
+
   section.appendChild(container);
   return section;
 }
@@ -314,7 +307,7 @@ export function buildProjects(projects, projectsCfg = {}) {
       const tag = document.createElement("span");
       tag.className = "tech-tag";
       tag.textContent = tech;
-      const color = GITHUB_LANGUAGE_COLORS[tech];
+      const color = getLanguageColor(tech);
       if (color) {
         tag.style.backgroundColor = color;
         tag.style.color = getContrastTextColor(color);
@@ -395,12 +388,12 @@ export function buildSkills(skills, skillsCfg = {}) {
         const bar = document.createElement("div");
         bar.style.flex = "2";
         bar.style.height = "0.5rem";
-        bar.style.background = "var(--border-color)";
+        bar.style.background = "var(--border)";
         bar.style.marginLeft = "0.5rem";
         const fill = document.createElement("div");
         fill.style.height = "100%";
         fill.style.width = Math.floor(40 + Math.random() * 60) + "%";
-        fill.style.background = "var(--accent-color)";
+        fill.style.background = "var(--accent)";
         bar.appendChild(fill);
         wrap.appendChild(label);
         wrap.appendChild(bar);
@@ -490,173 +483,118 @@ export function buildFooter(name) {
 }
 
 // ============================================================================
-// CHAT BUBBLE
+// BLOG BUILDERS
 // ============================================================================
 
-export function buildChatBubble(displayName) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "chat-bubble-wrapper";
+export function buildBlogPostList(posts) {
+  const container = document.createElement("div");
+  container.className = "blog-posts";
+  container.id = "blog-posts";
 
-  const chatHistory = [];
-  let isGenerating = false;
+  for (const post of posts) {
+    const card = document.createElement("article");
+    card.className = "blog-card";
 
-  // --- Floating trigger button ---
-  const trigger = document.createElement("button");
-  trigger.className = "chat-bubble-trigger";
-  trigger.setAttribute("aria-label", "Open chat");
-  trigger.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    const title = document.createElement("h2");
+    title.className = "blog-card-title";
+    const link = document.createElement("a");
+    link.href = `#/blog/${encodeURIComponent(post.slug)}`;
+    link.textContent = post.title;
+    title.appendChild(link);
 
-  // --- Chat window ---
-  const chatWindow = document.createElement("div");
-  chatWindow.className = "chat-window";
+    const meta = document.createElement("div");
+    meta.className = "blog-card-meta";
+    const d = new Date(post.date);
+    meta.textContent = d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
-  // Header
-  const header = document.createElement("div");
-  header.className = "chat-header";
+    card.append(title, meta);
 
-  const headerInfo = document.createElement("div");
-  headerInfo.className = "chat-header-info";
+    if (post.description) {
+      const desc = document.createElement("p");
+      desc.className = "blog-card-description";
+      desc.textContent = post.description;
+      card.appendChild(desc);
+    }
 
-  const avatar = document.createElement("div");
-  avatar.className = "chat-avatar";
-  avatar.textContent = (displayName || "AI").charAt(0).toUpperCase();
-
-  const headerText = document.createElement("div");
-
-  const nameEl = document.createElement("div");
-  nameEl.className = "chat-header-name";
-  nameEl.textContent = displayName || "Portfolio Owner";
-
-  const statusEl = document.createElement("div");
-  statusEl.className = "chat-header-status";
-  statusEl.textContent = "Online";
-
-  headerText.append(nameEl, statusEl);
-  headerInfo.append(avatar, headerText);
-
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "chat-close";
-  closeBtn.setAttribute("aria-label", "Close chat");
-  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-
-  header.append(headerInfo, closeBtn);
-
-  // Messages area
-  const messages = document.createElement("div");
-  messages.className = "chat-messages";
-
-  // Welcome message
-  const welcome = document.createElement("div");
-  welcome.className = "chat-msg bot";
-  welcome.textContent = "Hi! Ask me anything about this portfolio.";
-  messages.appendChild(welcome);
-
-  // Typing indicator
-  const typing = document.createElement("div");
-  typing.className = "chat-typing";
-  typing.style.display = "none";
-  typing.innerHTML = "<span></span><span></span><span></span>";
-  messages.appendChild(typing);
-
-  // Input area
-  const inputArea = document.createElement("div");
-  inputArea.className = "chat-input-area";
-
-  const input = document.createElement("input");
-  input.className = "chat-input";
-  input.type = "text";
-  input.placeholder = "Type a message...";
-
-  const sendBtn = document.createElement("button");
-  sendBtn.className = "chat-send";
-  sendBtn.setAttribute("aria-label", "Send message");
-  sendBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
-
-  inputArea.append(input, sendBtn);
-  chatWindow.append(header, messages, inputArea);
-
-  // --- Helpers ---
-  function addMessage(role, text) {
-    const msg = document.createElement("div");
-    msg.className = `chat-msg ${role}`;
-    msg.textContent = text;
-    messages.insertBefore(msg, typing);
-    messages.scrollTop = messages.scrollHeight;
-    return msg;
-  }
-
-  function setGenerating(gen) {
-    isGenerating = gen;
-    input.disabled = gen;
-    sendBtn.disabled = gen;
-    input.placeholder = gen ? "Thinking..." : "Type a message...";
-    typing.style.display = gen ? "flex" : "none";
-    if (gen) messages.scrollTop = messages.scrollHeight;
-  }
-
-  async function handleSend() {
-    const text = input.value.trim();
-    if (!text || isGenerating || !isModelReady()) return;
-
-    input.value = "";
-    addMessage("user", text);
-    chatHistory.push({ role: "user", content: text });
-
-    setGenerating(true);
-
-    // Create bot message element for streaming
-    const botMsg = document.createElement("div");
-    botMsg.className = "chat-msg bot";
-    botMsg.textContent = "";
-    messages.insertBefore(botMsg, typing);
-    messages.scrollTop = messages.scrollHeight;
-
-    let fullReply = "";
-
-    try {
-      await chat(text, (token) => {
-        fullReply = token;
-        botMsg.textContent = fullReply;
-        messages.scrollTop = messages.scrollHeight;
+    if (post.tags?.length > 0) {
+      const tags = document.createElement("div");
+      tags.className = "blog-card-tags";
+      post.tags.forEach((tag) => {
+        const tagEl = document.createElement("span");
+        tagEl.className = "blog-card-tag";
+        tagEl.textContent = tag;
+        tags.appendChild(tagEl);
       });
-
-      if (fullReply) {
-        chatHistory.push({ role: "assistant", content: fullReply });
-      } else {
-        botMsg.textContent = "No response generated.";
-      }
-    } catch (e) {
-      console.warn("[chat] inference error:", e);
-      botMsg.textContent = "Sorry, something went wrong. Please try again.";
-    } finally {
-      setGenerating(false);
+      card.appendChild(tags);
     }
+
+    container.appendChild(card);
   }
 
-  // --- Events ---
-  sendBtn.addEventListener("click", handleSend);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  });
+  return container;
+}
 
-  trigger.addEventListener("click", () => {
-    chatWindow.classList.toggle("open");
-    trigger.setAttribute(
-      "aria-label",
-      chatWindow.classList.contains("open") ? "Close chat" : "Open chat",
-    );
-  });
+export function renderBlogPostDetail(post) {
+  const app = document.getElementById("app");
+  const frag = document.createDocumentFragment();
+  const main = document.createElement("main");
 
-  closeBtn.addEventListener("click", () => {
-    chatWindow.classList.remove("open");
-    trigger.setAttribute("aria-label", "Open chat");
-  });
+  const page = document.createElement("div");
+  page.className = "blog-detail";
 
-  wrapper.append(trigger, chatWindow);
-  return wrapper;
+  const backBtn = document.createElement("a");
+  backBtn.href = "#blog";
+  backBtn.className = "blog-detail-back";
+  backBtn.textContent = "\u2190 Back to Blog";
+  page.appendChild(backBtn);
+
+  const title = document.createElement("h1");
+  title.className = "blog-detail-title";
+  title.textContent = post.title;
+  page.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "blog-detail-meta";
+  const d = new Date(post.date);
+  meta.textContent = d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  page.appendChild(meta);
+
+  if (post.tags?.length > 0) {
+    const tags = document.createElement("div");
+    tags.className = "blog-detail-tags";
+    post.tags.forEach((tag) => {
+      const tagEl = document.createElement("span");
+      tagEl.className = "blog-card-tag";
+      tagEl.textContent = tag;
+      tags.appendChild(tagEl);
+    });
+    page.appendChild(tags);
+  }
+
+  const content = document.createElement("div");
+  content.className = "blog-detail-content";
+  content.innerHTML = markdownToHtml(post.body);
+  page.appendChild(content);
+
+  const gistLink = document.createElement("a");
+  gistLink.href = post.gistUrl;
+  gistLink.target = "_blank";
+  gistLink.className = "blog-detail-gist-link";
+  gistLink.textContent = "View on GitHub Gist \u2192";
+  page.appendChild(gistLink);
+
+  main.appendChild(page);
+  frag.appendChild(main);
+  app.innerHTML = "";
+  app.appendChild(frag);
 }
 
 // ============================================================================
@@ -959,7 +897,7 @@ export function renderProjectDetail(project) {
       const tag = document.createElement("span");
       tag.className = "tech-tag";
       tag.textContent = t;
-      const color = GITHUB_LANGUAGE_COLORS[t];
+      const color = getLanguageColor(t);
       if (color) {
         tag.style.backgroundColor = color;
         tag.style.color = getContrastTextColor(color);
