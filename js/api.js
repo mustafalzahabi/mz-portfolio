@@ -34,7 +34,7 @@ export async function fetchGithubUserAvatar(username) {
   return user?.avatar_url || null;
 }
 
-export async function fetchAndMergeProjects(manualProjects, githubUsername) {
+export async function fetchAndMergeProjects(githubUsername) {
   try {
     const url = `https://api.github.com/users/${githubUsername}/repos?type=public&sort=stars&per_page=100`;
     console.log("[fetchAndMergeProjects] fetching repos:", url);
@@ -73,7 +73,7 @@ export async function fetchAndMergeProjects(manualProjects, githubUsername) {
           allImages: readmeData?.allImages || [],
           readmeDescription: displayDescription,
           fullReadme: readmeData?.fullText || "",
-          live_link: repo.home || null,
+          live_link: repo.homepage || null,
           github_link: repo.html_url,
           stars: repo.stargazers_count,
           isGitHubRepo: true,
@@ -81,17 +81,21 @@ export async function fetchAndMergeProjects(manualProjects, githubUsername) {
       }),
     );
 
-    const result = [...(manualProjects || []), ...reposWithData];
-    console.log(`[fetchAndMergeProjects] total ${result.length} projects (${manualProjects?.length || 0} manual + ${reposWithData.length} repos)`);
-    return result;
+    console.log(`[fetchAndMergeProjects] fetched ${reposWithData.length} repos with data`);
+    return reposWithData;
   } catch (e) {
     console.warn("[fetchAndMergeProjects] Could not fetch GitHub repos:", e.message);
-    return manualProjects || [];
+    return [];
   }
 }
 
 // GitHub language colors - fetched dynamically
 export let GITHUB_LANGUAGE_COLORS = {};
+const LANGUAGE_COLORS_LOWER = {};
+
+export function getLanguageColor(name) {
+  return GITHUB_LANGUAGE_COLORS[name] || LANGUAGE_COLORS_LOWER[name.toLowerCase()] || null;
+}
 
 // Fetch GitHub language colors from github/linguist languages.yml
 export async function initializeLanguageColors() {
@@ -116,6 +120,7 @@ export async function initializeLanguageColors() {
           );
           if (colorMatch) {
             GITHUB_LANGUAGE_COLORS[langName] = colorMatch[1];
+            LANGUAGE_COLORS_LOWER[langName.toLowerCase()] = colorMatch[1];
             break;
           }
           if (

@@ -1,35 +1,116 @@
 /* ============================================================================
-   LOADING & ERROR STATES
+   UNIFIED LOADING & ERROR STATES
    ============================================================================ */
 
+/* --- Full-page loading container --- */
 .loading-state {
   display: flex;
   align-items: center;
   justify-content: center;
   min-block-size: 60vh;
   flex-direction: column;
+  gap: 1.25rem;
 }
 
+/* --- Unified Spinner (dual-ring) --- */
 .spinner {
-  border: 4px solid var(--surface-color);
-  border-block-start-color: var(--accent-color);
+  position: relative;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+}
+
+.spinner::before,
+.spinner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  inline-size: 2.5rem;
-  block-size: 2.5rem;
-  animation: spin 0.8s linear infinite;
-  margin-block-end: 1rem;
+}
+
+/* Track ring */
+.spinner::before {
+  border: 2.5px solid var(--border);
+}
+
+/* Accent arc */
+.spinner::after {
+  border: 2.5px solid transparent;
+  border-block-start-color: var(--accent);
+  border-inline-end-color: var(--accent);
+  animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
+/* --- Loading text --- */
 .loading-text {
-  color: var(--secondary-color);
-  font-size: 1rem;
+  color: var(--secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
+/* --- Inline spinner (for status bars, buttons) --- */
+.spinner-inline {
+  display: inline-block;
+  position: relative;
+  inline-size: 1rem;
+  block-size: 1rem;
+  vertical-align: middle;
+  margin-inline-end: 0.5rem;
+}
+
+.spinner-inline::before,
+.spinner-inline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.spinner-inline::before {
+  border: 2px solid var(--border);
+}
+
+.spinner-inline::after {
+  border: 2px solid transparent;
+  border-block-start-color: var(--accent);
+  border-inline-end-color: var(--accent);
+  animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* --- Loading dots (3-dot pulse) --- */
+.loading-dots {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.loading-dots span {
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dotPulse 1.4s infinite ease-in-out;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* --- Error state --- */
 .error-state {
   display: flex;
   align-items: center;
@@ -45,17 +126,17 @@
 }
 
 .error-state h2 {
-  color: var(--primary-color);
+  color: var(--primary);
   margin-block-end: 0.5rem;
 }
 
 .error-state p {
-  color: var(--secondary-color);
+  color: var(--secondary);
   margin-block-end: 1.5rem;
 }
 
 .retry-btn {
-  background: var(--accent-color);
+  background: var(--accent);
   color: white;
   border: none;
   padding: 0.75rem 2rem;

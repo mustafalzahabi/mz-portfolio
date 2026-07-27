@@ -6,30 +6,30 @@
     <title>Loading Profile...</title>
     <style>
         :root {
-            --accent-color: #b8860b;
-            --hover-color: #8b6914;
+            --accent: #b8860b;
+            --hover: #8b6914;
             --background-color: #fef3c7;
-            --primary-color: #1a1a1a;
-            --secondary-color: #666;
-            --surface-color: #f2f2f2;
-            --border-color: #e5d4b1;
+            --primary: #1a1a1a;
+            --secondary: #666;
+            --surface: #f2f2f2;
+            --border: #e5d4b1;
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
         @media (prefers-color-scheme: dark) {
             :root {
-                --accent-color: #e8c55f;
-                --hover-color: #f0d974;
+                --accent: #e8c55f;
+                --hover: #f0d974;
                 --background-color: #705507;
-                --primary-color: #e0e0e0;
-                --secondary-color: #aaa;
-                --surface-color: #2a2a2a;
-                --border-color: #5a4a30;
+                --primary: #e0e0e0;
+                --secondary: #aaa;
+                --surface: #2a2a2a;
+                --border: #5a4a30;
             }
         }
         body {
             font-family: var(--font-family);
-            color: var(--primary-color);
-            background: var(--surface-color);
+            color: var(--primary);
+            background: var(--surface);
             line-height: 1.6;
             transition: background 0.3s, color 0.3s;
             min-height: 100vh;
@@ -53,7 +53,7 @@
             background: var(--background-color);
             border-radius: 18px;
             box-shadow: 0 2px 24px 0 rgba(0,0,0,0.07);
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--border);
             min-width: 320px;
             max-width: 90vw;
         }
@@ -62,12 +62,12 @@
             margin-bottom: 2rem;
             max-width: 400px;
             line-height: 1.5;
-            color: var(--secondary-color);
+            color: var(--secondary);
         }
         a {
             text-decoration: none;
             color: white;
-            background: var(--accent-color);
+            background: var(--accent);
             padding: 12px 24px;
             border-radius: 8px;
             font-weight: 600;
@@ -76,14 +76,45 @@
         }
         a:hover {
             opacity: 0.8;
-            background: var(--hover-color);
+            background: var(--hover);
         }
         .hidden { display: none; }
+
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.25rem;
+        }
+        .spinner {
+            position: relative;
+            width: 2.25rem;
+            height: 2.25rem;
+        }
+        .spinner::before, .spinner::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+        }
+        .spinner::before {
+            border: 2.5px solid var(--border);
+        }
+        .spinner::after {
+            border: 2.5px solid transparent;
+            border-top-color: var(--accent);
+            border-right-color: var(--accent);
+            animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="content">
-        <p id="status-message">Loading profile...</p>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p id="status-message">Loading profile...</p>
+        </div>
         <a href="/" id="home-link" class="hidden">Return to Portfolio</a>
     </div>
 
@@ -93,27 +124,43 @@
             const msgElement = document.getElementById('status-message');
             const homeLink = document.getElementById('home-link');
 
-            // 1. Check for explicit errors from your API
             if (url.searchParams.has('error')) {
                 const failedUser = url.searchParams.get('user');
-                msgElement.innerText = `The GitHub user "${failedUser || 'requested'}" could not be found.`;
+                msgElement.innerText = `The user "${failedUser || 'requested'}" could not be found.`;
+                const spinner = msgElement.parentElement.querySelector('.spinner');
+                if (spinner) spinner.remove();
                 homeLink.classList.remove('hidden');
                 return;
             }
 
-            // 2. Rescue Logic: Capture path and redirect to home
             const pathParts = window.location.pathname.split('/').filter(p => p && p !== 'index.html' && p !== '404.html');
-            const potentialUsername = pathParts[pathParts.length - 1];
 
+            // Detect route pattern: /gh/username or /gd/folderId
+            if (pathParts.length >= 2) {
+                const prefix = pathParts[0].toLowerCase();
+                if (prefix === 'gh') {
+                    sessionStorage.setItem('attempted_user', pathParts.slice(1).join('/'));
+                    sessionStorage.setItem('source_type', 'gh');
+                    window.location.replace('/');
+                    return;
+                } else if (prefix === 'gd') {
+                    sessionStorage.setItem('attempted_user', pathParts.slice(1).join('/'));
+                    sessionStorage.setItem('source_type', 'gd');
+                    window.location.replace('/');
+                    return;
+                }
+            }
+
+            // Fallback: treat last path segment as GitHub username (backward compat)
+            const potentialUsername = pathParts[pathParts.length - 1];
             if (potentialUsername) {
-                // Store username in sessionStorage
                 sessionStorage.setItem('attempted_user', potentialUsername);
-                
-                // Redirect to root, but keep the current path as a fallback
-                // This ensures index.html knows exactly what was requested
+                sessionStorage.setItem('source_type', 'gh');
                 window.location.replace('/');
             } else {
                 msgElement.innerText = "The page you're looking for doesn't exist.";
+                const spinner = msgElement.parentElement.querySelector('.spinner');
+                if (spinner) spinner.remove();
                 homeLink.classList.remove('hidden');
             }
         })();

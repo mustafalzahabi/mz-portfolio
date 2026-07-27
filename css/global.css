@@ -10,6 +10,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 html[data-theme="light"] {
@@ -23,8 +24,8 @@ html[data-theme="dark"] {
 body {
   font-family: var(--font-family);
   line-height: 1.6;
-  color: var(--primary-color);
-  background: var(--surface-color);
+  color: var(--primary);
+  background: var(--surface);
   transition: background 0.3s, color 0.3s;
 }
 
@@ -46,7 +47,7 @@ main {
 .section {
   padding-inline: 1.5rem;
   padding-block: 3.75rem;
-  border-block-end: 1px solid var(--border-color);
+  border-block-end: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -66,5 +67,5 @@ main {
   font-size: 2rem;
   font-weight: 700;
   margin-block-end: 2rem;
-  color: var(--primary-color);
+  color: var(--primary);
 }
