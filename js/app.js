@@ -61,17 +61,30 @@ export function showLandingPage() {
   <!-- Hero Section -->
   <header class="hero-section">
     <div class="brand-badge">mz-portfolio</div>
-    <h1 class="hero-title">Your <code>resume.json</code>.<br>Your Instant Portfolio.</h1>
+    <h1 class="hero-title">Turn Your Resume Into a<br>Live Portfolio.</h1>
     <p class="hero-subtitle">
-      Transform a simple <code>resume.json</code> from a public GitHub gist or Google Drive folder into a stunning, responsive, and highly customizable personal website. Zero dependencies, pure performance.
+      Point us at your <code>resume.json</code> — a GitHub Gist or a Google Drive file — and watch it become a fully themed, responsive portfolio in seconds. Theme-aware, dark mode ready, zero setup.
     </p>
 
     <!-- Interactive Form -->
     <form onsubmit="navigateToUser(event)" class="search-form">
-      <select id="source-select" class="source-select">
-        <option value="gh">github.com</option>
-        <option value="gd">drive.google.com/file/d</option>
-      </select>
+      <div class="source-dropdown" id="source-dropdown">
+        <button type="button" class="source-dropdown-btn" id="source-dropdown-btn">
+          <svg class="source-icon source-icon-gh" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span>GitHub Gist</span>
+        </button>
+        <div class="source-dropdown-menu" id="source-dropdown-menu">
+          <div class="source-dropdown-option active" data-value="gh">
+            <svg class="source-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            <span>GitHub Gist</span>
+          </div>
+          <div class="source-dropdown-option" data-value="gd">
+            <svg class="source-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>Google Drive</span>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="source-select" value="gh">
       <div class="input-wrapper">
         <input
           id="username-input"
@@ -89,39 +102,39 @@ export function showLandingPage() {
   <!-- Features Grid -->
   <section class="features-grid">
     <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Dynamic Rendering</h3>
-      <p>Fetches data directly from your public GitHub gist or Google Drive folder on the fly. Update your <code>resume.json</code>, your portfolio updates instantly.</p>
+      <div class="feature-icon">&#9889;</div>
+      <h3>Instant & Live</h3>
+      <p>Your portfolio pulls directly from your <code>resume.json</code>. Edit the gist, your site updates — no redeploy, no build step, no waiting.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Advanced Meta Config</h3>
-      <p>Fine-tune accent colors, toggle themes, inject custom tags, or reorder/hide layout sections directly from your JSON.</p>
+      <div class="feature-icon">&#9733;</div>
+      <h3>Theme-Aware Rendering</h3>
+      <p>Picks up your configured JSON Resume theme and renders it natively in the browser. Supports the full ecosystem of community themes.</p>
     </div>
 
     <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Pure Vanilla Power</h3>
-      <p>Built with raw HTML, CSS, and JS. No heavy frameworks, zero bloat, lightning-fast load times, and native light/dark mode.</p>
+      <div class="feature-icon">&#9881;</div>
+      <h3>Zero Bloat</h3>
+      <p>Pure vanilla JS, CSS, and HTML. No frameworks, no bundler, no node_modules. Sub-second load times on any device.</p>
     </div>
   </section>
 
   <!-- Quick Setup Instructions Guide -->
   <section class="setup-section">
-    <h2>Get Started in 60 Seconds</h2>
+    <h2>Three Steps to Your Portfolio</h2>
     <div class="steps-container">
       <div class="step-item">
         <div class="step-number">1</div>
-        <p>Create a <strong>public GitHub gist</strong> or <strong>Google Drive file</strong> named <strong><code>resume.json</code></strong>.</p>
+        <p>Create a <strong>public GitHub Gist</strong> or <strong>Google Drive file</strong> named <code>resume.json</code> following the <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema.</p>
       </div>
       <div class="step-item">
         <div class="step-number">2</div>
-        <p>Structure your data using the standard <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> specification.</p>
+        <p>Pick your data source above and enter your <strong>GitHub username</strong> or <strong>Drive file ID</strong>.</p>
       </div>
       <div class="step-item">
         <div class="step-number">3</div>
-        <p>Select a source above and drop your username or folder ID.</p>
+        <p>Hit <strong>Generate</strong>. Your portfolio is live — complete with projects, skills, and an interactive theme switcher.</p>
       </div>
     </div>
   </section>
@@ -154,16 +167,40 @@ export function showLandingPage() {
     attachThemeSwitchHandlers(homeTrack, homeKnob);
   }
 
-  // Wire source dropdown
-  const sourceSelect = app.querySelector("#source-select");
+  // Wire custom source dropdown
+  const dropdownBtn = app.querySelector("#source-dropdown-btn");
+  const dropdownMenu = app.querySelector("#source-dropdown-menu");
+  const sourceInput = app.querySelector("#source-select");
   const usernameInput = app.querySelector("#username-input");
-  if (sourceSelect && usernameInput) {
-    sourceSelect.addEventListener("change", () => {
-      usernameInput.placeholder = sourceSelect.value === "gd" ? "file id (e.g. 1abc2def3ghi)" : "username";
-      usernameInput.value = "";
-      usernameInput.focus();
+
+  if (dropdownBtn && dropdownMenu && sourceInput) {
+    dropdownBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle("open");
     });
-    usernameInput.focus();
+
+    dropdownMenu.querySelectorAll(".source-dropdown-option").forEach((opt) => {
+      opt.addEventListener("click", () => {
+        dropdownMenu.querySelectorAll(".source-dropdown-option").forEach((o) => o.classList.remove("active"));
+        opt.classList.add("active");
+        sourceInput.value = opt.dataset.value;
+        dropdownBtn.querySelector("span").textContent = opt.querySelector("span").textContent;
+        const ghIcon = dropdownBtn.querySelector(".source-icon-gh");
+        const gdIcon = opt.querySelector(".source-icon");
+        if (ghIcon && gdIcon) {
+          ghIcon.outerHTML = gdIcon.outerHTML;
+        }
+        dropdownMenu.classList.remove("open");
+        if (usernameInput) {
+          usernameInput.placeholder = opt.dataset.value === "gd" ? "file id (e.g. 1abc2def3ghi)" : "username";
+          usernameInput.value = "";
+          usernameInput.focus();
+        }
+      });
+    });
+
+    document.addEventListener("click", () => dropdownMenu.classList.remove("open"));
+    if (usernameInput) usernameInput.focus();
   }
 }
 

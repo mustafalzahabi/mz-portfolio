@@ -116,7 +116,7 @@
     padding: 4px 12px;
   }
 
-  .source-select {
+  .source-dropdown-btn {
     border-right: 1px solid var(--border);
     border-radius: 8px 8px 0 0;
   }
