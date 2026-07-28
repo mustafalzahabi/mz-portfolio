@@ -79,42 +79,11 @@
             background: var(--hover);
         }
         .hidden { display: none; }
-
-        .loading-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1.25rem;
-        }
-        .spinner {
-            position: relative;
-            width: 2.25rem;
-            height: 2.25rem;
-        }
-        .spinner::before, .spinner::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-        }
-        .spinner::before {
-            border: 2.5px solid var(--border);
-        }
-        .spinner::after {
-            border: 2.5px solid transparent;
-            border-top-color: var(--accent);
-            border-right-color: var(--accent);
-            animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="content">
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p id="status-message">Loading profile...</p>
-        </div>
+        <p id="status-message">Loading profile...</p>
         <a href="/" id="home-link" class="hidden">Return to Portfolio</a>
     </div>
 
@@ -127,8 +96,6 @@
             if (url.searchParams.has('error')) {
                 const failedUser = url.searchParams.get('user');
                 msgElement.innerText = `The user "${failedUser || 'requested'}" could not be found.`;
-                const spinner = msgElement.parentElement.querySelector('.spinner');
-                if (spinner) spinner.remove();
                 homeLink.classList.remove('hidden');
                 return;
             }
@@ -159,8 +126,6 @@
                 window.location.replace('/');
             } else {
                 msgElement.innerText = "The page you're looking for doesn't exist.";
-                const spinner = msgElement.parentElement.querySelector('.spinner');
-                if (spinner) spinner.remove();
                 homeLink.classList.remove('hidden');
             }
         })();
