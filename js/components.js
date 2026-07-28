@@ -431,14 +431,28 @@ export function buildContact(contact) {
   const links = document.createElement("div");
   links.className = "contact-links";
 
-  if (contact.email) {
+  // Normalize URL for comparison (strip trailing slash, lowercase protocol/host)
+  const normalizeUrl = (url) => {
+    try {
+      const u = new URL(url);
+      return (u.origin + u.pathname).replace(/\/+$/, "").toLowerCase();
+    } catch {
+      return url.replace(/\/+$/, "").toLowerCase();
+    }
+  };
+
+  const currentPageUrl = normalizeUrl(window.location.href);
+
+  const isCurrentPage = (url) => normalizeUrl(url) === currentPageUrl;
+
+  if (contact.email && !isCurrentPage(`mailto:${contact.email}`)) {
     const emailLink = document.createElement("a");
     emailLink.href = `mailto:${contact.email}`;
     emailLink.textContent = "Email";
     links.appendChild(emailLink);
   }
 
-  if (contact.github) {
+  if (contact.github && !isCurrentPage(contact.github)) {
     const ghLink = document.createElement("a");
     ghLink.href = contact.github;
     ghLink.target = "_blank";
@@ -446,7 +460,7 @@ export function buildContact(contact) {
     links.appendChild(ghLink);
   }
 
-  if (contact.linkedin) {
+  if (contact.linkedin && !isCurrentPage(contact.linkedin)) {
     const liLink = document.createElement("a");
     liLink.href = contact.linkedin;
     liLink.target = "_blank";
@@ -457,6 +471,7 @@ export function buildContact(contact) {
   // Additional profile links (website, blog, etc.)
   if (Array.isArray(contact.profiles)) {
     for (const profile of contact.profiles) {
+      if (isCurrentPage(profile.url)) continue;
       const a = document.createElement("a");
       a.href = profile.url;
       a.target = "_blank";
