@@ -10,7 +10,7 @@
 
 .profile-banner {
   inline-size: 100%;
-  block-size: 200px;
+  aspect-ratio: 5 / 1;
   background: var(--gradient-banner);
   position: relative;
 }
@@ -254,12 +254,4 @@
   color: var(--accent);
   font-weight: 600;
   margin-block-end: 0.5rem;
-}
-
-.profile-tagline {
-  font-size: 0.9375rem;
-  color: var(--secondary);
-  margin-block: 0 0.75rem;
-  max-inline-size: 37.5rem;
-  line-height: 1.5;
 }

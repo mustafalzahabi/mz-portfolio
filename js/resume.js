@@ -192,6 +192,7 @@ async function renderLocalFallbackTheme(resume) {
   renderResumeSkills(doc, resume.skills);
   renderResumeProjects(doc, resume.projects);
   renderResumeAwards(doc, resume.awards);
+  renderResumeCertificates(doc, resume.certificates);
   renderResumePublications(doc, resume.publications);
   renderResumeVolunteer(doc, resume.volunteer);
   renderResumeLanguages(doc, resume.languages);
@@ -517,6 +518,39 @@ function renderResumeAwards(doc, awards) {
       p.className = "resume-entry-text";
       p.textContent = a.summary;
       entry.appendChild(p);
+    }
+
+    return entry;
+  });
+}
+
+function renderResumeCertificates(doc, certificates) {
+  renderResumeSection(doc, "Certificates", certificates, (c) => {
+    const entry = document.createElement("div");
+    entry.className = "resume-entry";
+
+    const title = document.createElement("div");
+    title.className = "resume-entry-title";
+    title.textContent = c.name || c.title || "";
+    entry.appendChild(title);
+
+    const details = [];
+    if (c.date) details.push(c.date);
+    if (c.issuer) details.push(c.issuer);
+    if (details.length > 0) {
+      const sub = document.createElement("div");
+      sub.className = "resume-entry-subtitle";
+      sub.textContent = details.join(" · ");
+      entry.appendChild(sub);
+    }
+
+    if (c.url) {
+      const link = document.createElement("a");
+      link.href = c.url;
+      link.target = "_blank";
+      link.className = "resume-entry-link";
+      link.textContent = "View Certificate";
+      entry.appendChild(link);
     }
 
     return entry;
