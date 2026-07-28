@@ -233,7 +233,7 @@ You can fully customize the design and text of your portfolio by adding a `meta.
         "photoShape": "circle" // circle | rounded | square
       },
       "banner": {
-        "height": "220px"
+        "image": "https://example.com/banner.jpg"
       },
       "themeToggle": {
         "style": "icon" // icon | slider | switch
@@ -269,3 +269,9 @@ You can fully customize the design and text of your portfolio by adding a `meta.
 - All colors are derived from `accent` for a cohesive look.
 - `blog: false` (boolean) also works as shorthand to disable the blog.
 - See `js/app.js` for all supported options.
+
+### Banner Image
+
+Set `banner.image` to any URL (hosted image, gist raw link, base64 data URI) to use a custom banner instead of the default gradient.
+
+The banner has a fixed **5:1 aspect ratio**. Images are rendered with `background-size: cover` and `background-position: center`, so images with a different ratio will be **auto-cropped to center** both horizontally and vertically. The height adapts automatically to the viewport width.

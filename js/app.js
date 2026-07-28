@@ -606,7 +606,7 @@ export async function loadData(projectName) {
           linkedin: liProfileEntry?.url || "",
         },
         {
-          bannerHeight: bannerCfg.height || "200px",
+          bannerImage: bannerCfg.image || "",
           themeToggleStyle: themeToggleCfg.style || "icon",
         },
       ),
