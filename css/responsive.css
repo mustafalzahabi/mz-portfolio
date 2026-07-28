@@ -8,10 +8,6 @@
     display: none;
   }
 
-  .profile-banner {
-    block-size: 8.75rem;
-  }
-
   .profile-photo {
     margin-block-start: -4.375rem;
     inline-size: 8.75rem;
@@ -33,10 +29,6 @@
 
   .profile-title {
     font-size: 0.9375rem;
-  }
-
-  .profile-tagline {
-    font-size: 0.8125rem;
   }
 
   .banner-link-item {
@@ -79,10 +71,6 @@
 
 /* Landscape orientation (typically desktop/tablet horizontal) */
 @media (orientation: landscape) and (max-height: 500px) {
-  .profile-banner {
-    block-size: 8.75rem;
-  }
-
   .profile-photo {
     margin-block-start: -4.375rem;
     inline-size: 7.5rem;

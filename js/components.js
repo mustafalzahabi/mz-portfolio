@@ -79,7 +79,11 @@ export function buildHeader(profile, contact, opts = {}) {
   // Background banner
   const banner = document.createElement("div");
   banner.className = "profile-banner";
-  if (opts.bannerHeight) banner.style.height = opts.bannerHeight;
+  if (opts.bannerImage) {
+    banner.style.backgroundImage = `url(${opts.bannerImage})`;
+    banner.style.backgroundSize = "cover";
+    banner.style.backgroundPosition = "center";
+  }
 
   // Theme toggle switch (top right) - draggable
   const themeSwitch = document.createElement("div");
@@ -176,11 +180,7 @@ export function buildHeader(profile, contact, opts = {}) {
   title.className = "profile-title";
   title.textContent = profile.title;
 
-  const tagline = document.createElement("p");
-  tagline.className = "profile-tagline";
-  tagline.textContent = profile.tagline;
-
-  details.append(h1, title, tagline);
+  details.append(h1, title);
   profileInfo.appendChild(details);
   header.appendChild(profileInfo);
 
