@@ -74,9 +74,9 @@ export function showLandingPage() {
     <!-- Interactive Form -->
     <form onsubmit="navigateToUser(event)" class="search-form">
       <div class="source-prefix" id="source-prefix">
-        <button type="button" class="source-prefix-btn" id="source-prefix-btn">github.com/gist/</button>
+        <button type="button" class="source-prefix-btn" id="source-prefix-btn">https://www.github.com/</button>
         <div class="source-dropdown-menu" id="source-dropdown-menu">
-          <div class="source-dropdown-option active" data-value="gh" data-prefix="github.com/gist/">github.com/gist/</div>
+          <div class="source-dropdown-option active" data-value="gh" data-prefix="https://www.github.com/">https://www.github.com/</div>
           <div class="source-dropdown-option" data-value="gd" data-prefix="drive.google.com/folder/d/">drive.google.com/folder/d/</div>
         </div>
       </div>
