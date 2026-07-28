@@ -334,7 +334,7 @@ function mergePair(resumeProj, repo) {
     repo.image || resumeProj.image || mergedImages[0] || "";
 
   return {
-    name: repo.name || resumeProj.name || "",
+    name: resumeProj.name || repo.name || "",
     description,
     technologies: mergedTech,
     github_link: repo.github_link || resumeProj.github || resumeProj.url || "",

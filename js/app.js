@@ -57,6 +57,11 @@ export function showLandingPage() {
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="home-container">
+  <div class="home-bg" aria-hidden="true">
+    <div class="home-bg-orb home-bg-orb--1"></div>
+    <div class="home-bg-orb home-bg-orb--2"></div>
+    <div class="home-bg-orb home-bg-orb--3"></div>
+  </div>
   <div class="home-theme-toggle" id="home-theme-switch"></div>
   <!-- Hero Section -->
   <header class="hero-section">
@@ -320,7 +325,7 @@ import {
   initializeLanguageColors,
 } from "./api.js";
 
-import { collectPortfolioData, fetchBlogPosts } from "./data.js";
+import { collectPortfolioData, fetchBlogPosts, getCachedData } from "./data.js";
 
 import { loadModel as preloadModel, buildChatBubble } from "./chat.js";
 
@@ -457,6 +462,19 @@ export async function loadData(projectName) {
     // 1. Determine source and identifier from URL
     const route = getRouteInfo();
     if (!route.identifier) {
+      // If we have a project name from hash routing, try cached data
+      if (projectName) {
+        const cached = getCachedData();
+        if (cached?.projects) {
+          const project = cached.projects.find((p) => p.name === projectName);
+          if (project) {
+            allProjectsData = cached.projects;
+            currentPage = "project-detail";
+            renderProjectDetail(project);
+            return;
+          }
+        }
+      }
       showLandingPage();
       return;
     }
@@ -588,7 +606,7 @@ export async function loadData(projectName) {
           linkedin: liProfileEntry?.url || "",
         },
         {
-          bannerHeight: bannerCfg.height || "200px",
+          bannerImage: bannerCfg.image || "",
           themeToggleStyle: themeToggleCfg.style || "icon",
         },
       ),

@@ -79,7 +79,11 @@ export function buildHeader(profile, contact, opts = {}) {
   // Background banner
   const banner = document.createElement("div");
   banner.className = "profile-banner";
-  if (opts.bannerHeight) banner.style.height = opts.bannerHeight;
+  if (opts.bannerImage) {
+    banner.style.backgroundImage = `url(${opts.bannerImage})`;
+    banner.style.backgroundSize = "cover";
+    banner.style.backgroundPosition = "center";
+  }
 
   // Theme toggle switch (top right) - draggable
   const themeSwitch = document.createElement("div");
@@ -176,11 +180,7 @@ export function buildHeader(profile, contact, opts = {}) {
   title.className = "profile-title";
   title.textContent = profile.title;
 
-  const tagline = document.createElement("p");
-  tagline.className = "profile-tagline";
-  tagline.textContent = profile.tagline;
-
-  details.append(h1, title, tagline);
+  details.append(h1, title);
   profileInfo.appendChild(details);
   header.appendChild(profileInfo);
 
@@ -325,12 +325,14 @@ export function buildProjects(projects, projectsCfg = {}) {
       liveLink.onclick = (e) => e.stopPropagation();
       links.appendChild(liveLink);
     }
-    const ghLink = document.createElement("a");
-    ghLink.href = proj.github_link;
-    ghLink.target = "_blank";
-    ghLink.textContent = "GitHub";
-    ghLink.onclick = (e) => e.stopPropagation();
-    links.appendChild(ghLink);
+    if (proj.github_link) {
+      const ghLink = document.createElement("a");
+      ghLink.href = proj.github_link;
+      ghLink.target = "_blank";
+      ghLink.textContent = /github\.com/.test(proj.github_link) ? "GitHub" : "Visit";
+      ghLink.onclick = (e) => e.stopPropagation();
+      links.appendChild(ghLink);
+    }
     // Layout/image position
     if (projectsCfg.layout === "horizontal") {
       card.style.display = "flex";
@@ -429,14 +431,28 @@ export function buildContact(contact) {
   const links = document.createElement("div");
   links.className = "contact-links";
 
-  if (contact.email) {
+  // Normalize URL for comparison (strip trailing slash, lowercase protocol/host)
+  const normalizeUrl = (url) => {
+    try {
+      const u = new URL(url);
+      return (u.origin + u.pathname).replace(/\/+$/, "").toLowerCase();
+    } catch {
+      return url.replace(/\/+$/, "").toLowerCase();
+    }
+  };
+
+  const currentPageUrl = normalizeUrl(window.location.href);
+
+  const isCurrentPage = (url) => normalizeUrl(url) === currentPageUrl;
+
+  if (contact.email && !isCurrentPage(`mailto:${contact.email}`)) {
     const emailLink = document.createElement("a");
     emailLink.href = `mailto:${contact.email}`;
     emailLink.textContent = "Email";
     links.appendChild(emailLink);
   }
 
-  if (contact.github) {
+  if (contact.github && !isCurrentPage(contact.github)) {
     const ghLink = document.createElement("a");
     ghLink.href = contact.github;
     ghLink.target = "_blank";
@@ -444,7 +460,7 @@ export function buildContact(contact) {
     links.appendChild(ghLink);
   }
 
-  if (contact.linkedin) {
+  if (contact.linkedin && !isCurrentPage(contact.linkedin)) {
     const liLink = document.createElement("a");
     liLink.href = contact.linkedin;
     liLink.target = "_blank";
@@ -455,6 +471,7 @@ export function buildContact(contact) {
   // Additional profile links (website, blog, etc.)
   if (Array.isArray(contact.profiles)) {
     for (const profile of contact.profiles) {
+      if (isCurrentPage(profile.url)) continue;
       const a = document.createElement("a");
       a.href = profile.url;
       a.target = "_blank";
@@ -762,6 +779,7 @@ export function buildSlideshow(images) {
 // ============================================================================
 
 export function renderProjectDetail(project) {
+  document.title = `${project.name} | Portfolio`;
   const app = document.getElementById("app");
   const frag = document.createDocumentFragment();
   const main = document.createElement("main");
@@ -770,12 +788,29 @@ export function renderProjectDetail(project) {
   const page = document.createElement("div");
   page.className = "project-detail";
 
+  // -- Hero image (full-width within card) --
+  const heroImg = project.image || (project.allImages && project.allImages[0]);
+  if (heroImg) {
+    const hero = document.createElement("div");
+    hero.className = "project-detail-hero";
+    const img = document.createElement("img");
+    img.src = heroImg;
+    img.alt = project.name;
+    img.loading = "eager";
+    hero.appendChild(img);
+    page.appendChild(hero);
+  }
+
+  // -- Body wrapper --
+  const body = document.createElement("div");
+  body.className = "project-detail-body";
+
   // -- Back button --
   const backBtn = document.createElement("a");
   backBtn.href = "#";
   backBtn.className = "project-detail-back";
-  backBtn.textContent = "\u2190 Back to Projects";
-  page.appendChild(backBtn);
+  backBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Projects`;
+  body.appendChild(backBtn);
 
   // -- Project header --
   const header = document.createElement("div");
@@ -801,13 +836,13 @@ export function renderProjectDetail(project) {
   if (project.stars != null && project.stars > 0) {
     const starBadge = document.createElement("span");
     starBadge.className = "project-detail-badge";
-      starBadge.textContent = `${project.stars}`;
+    starBadge.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${project.stars}`;
     badges.appendChild(starBadge);
   }
   if (project.isGitHubRepo) {
     const repoBadge = document.createElement("span");
     repoBadge.className = "project-detail-badge";
-    repoBadge.textContent = "Public Repo";
+    repoBadge.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> Public Repo`;
     badges.appendChild(repoBadge);
   }
   if (badges.children.length > 0) header.appendChild(badges);
@@ -820,31 +855,58 @@ export function renderProjectDetail(project) {
     liveBtn.href = project.live_link;
     liveBtn.target = "_blank";
     liveBtn.className = "project-detail-btn primary";
-    liveBtn.innerHTML = "Live Demo";
+    liveBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Live Demo`;
     actions.appendChild(liveBtn);
   }
-  const ghBtn = document.createElement("a");
-  ghBtn.href = project.github_link;
-  ghBtn.target = "_blank";
-  ghBtn.className = "project-detail-btn secondary";
-  ghBtn.innerHTML = "View on GitHub";
-  actions.appendChild(ghBtn);
+  if (project.github_link) {
+    const ghBtn = document.createElement("a");
+    ghBtn.href = project.github_link;
+    ghBtn.target = "_blank";
+    ghBtn.className = "project-detail-btn secondary";
+    const isGh = /github\.com/.test(project.github_link);
+    ghBtn.innerHTML = isGh
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> View on GitHub`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Visit`;
+    actions.appendChild(ghBtn);
+  }
   if (actions.children.length > 0) header.appendChild(actions);
 
-  page.appendChild(header);
+  body.appendChild(header);
 
-  // -- Image gallery --
+  // -- Overview card (key facts at a glance) --
+  const overviewItems = [];
+  if (project.technologies?.length > 0) {
+    overviewItems.push({ label: "Stack", value: project.technologies.slice(0, 5).join(", ") + (project.technologies.length > 5 ? ` +${project.technologies.length - 5} more` : "") });
+  }
+  if (project.stars != null) {
+    overviewItems.push({ label: "Stars", value: `${project.stars}` });
+  }
+  if (project.github_link && /github\.com/.test(project.github_link)) {
+    const repoName = project.github_link.replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+    overviewItems.push({ label: "Repository", value: repoName });
+  }
+  if (overviewItems.length > 0) {
+    const overview = document.createElement("div");
+    overview.className = "project-detail-overview";
+    const overviewTitle = document.createElement("h2");
+    overviewTitle.textContent = "Overview";
+    const grid = document.createElement("div");
+    grid.className = "project-detail-overview-grid";
+    overviewItems.forEach((item) => {
+      const el = document.createElement("div");
+      el.className = "project-detail-overview-item";
+      el.innerHTML = `<span class="project-detail-overview-label">${item.label}</span><span class="project-detail-overview-value">${item.value}</span>`;
+      grid.appendChild(el);
+    });
+    overview.append(overviewTitle, grid);
+    body.appendChild(overview);
+  }
+
+  // -- Image gallery (if more than the hero image) --
   const allImages = project.allImages || [];
-  if (allImages.length > 0) {
-    page.appendChild(buildSlideshow(allImages));
-  } else if (project.image) {
-    const singleImg = document.createElement("div");
-    singleImg.className = "project-detail-single-image";
-    const img = document.createElement("img");
-    img.src = project.image;
-    img.alt = project.name;
-    singleImg.appendChild(img);
-    page.appendChild(singleImg);
+  const remainingImages = allImages.filter((img) => img !== heroImg);
+  if (remainingImages.length > 0) {
+    body.appendChild(buildSlideshow(remainingImages));
   }
 
   // -- Content grid --
@@ -923,7 +985,10 @@ export function renderProjectDetail(project) {
       ghLink.href = project.github_link;
       ghLink.target = "_blank";
       ghLink.className = "project-detail-link-item";
-      ghLink.innerHTML = "Repository";
+      const isGh = /github\.com/.test(project.github_link);
+      ghLink.innerHTML = isGh
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> Repository`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Link`;
       linksList.appendChild(ghLink);
     }
     if (project.live_link) {
@@ -931,7 +996,7 @@ export function renderProjectDetail(project) {
       liveLink.href = project.live_link;
       liveLink.target = "_blank";
       liveLink.className = "project-detail-link-item";
-      liveLink.innerHTML = "Live Demo";
+      liveLink.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Live Demo`;
       linksList.appendChild(liveLink);
     }
     linksSection.append(linksTitle, linksList);
@@ -975,7 +1040,8 @@ export function renderProjectDetail(project) {
   }
 
   contentGrid.append(leftCol, rightCol);
-  page.appendChild(contentGrid);
+  body.appendChild(contentGrid);
+  page.appendChild(body);
 
   main.appendChild(page);
   frag.appendChild(main);
