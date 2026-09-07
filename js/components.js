@@ -215,10 +215,8 @@ export function buildAbout(about) {
   const container = document.createElement("div");
   container.className = "about-container";
 
-  const bioDiv = createTextBlock("Biography", about.bio);
-  const philDiv = createTextBlock("Philosophy", about.philosophy);
-
-  container.append(bioDiv, philDiv);
+  if (about.bio) container.appendChild(createTextBlock("Biography", about.bio));
+  if (about.philosophy) container.appendChild(createTextBlock("Philosophy", about.philosophy));
 
   if (about._rawResume) {
     const previewCard = buildResumePreview(about._rawResume);

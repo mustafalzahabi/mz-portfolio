@@ -518,6 +518,10 @@ export async function loadData(projectName) {
     const blogCfg = custom.blog === false ? { enabled: false } : (custom.blog || {});
     const blogEnabled = blogCfg.enabled !== false;
 
+    // Philosophy: check mz-portfolio-config → meta → basics (most specific wins)
+    const philosophy =
+      text.philosophy || d.meta?.philosophy || d.basics?.philosophy || "";
+
     let blogPosts = [];
     if (blogEnabled && route.type === "gh") {
       blogPosts = await fetchBlogPosts(route.identifier);
@@ -629,10 +633,10 @@ export async function loadData(projectName) {
     // Build section data from unified data
     const sectionData = {
       about:
-        text.bio || text.philosophy || d.basics.summary
+        text.bio || philosophy || d.basics.summary
           ? {
               bio: text.bio || d.basics.summary || "",
-              philosophy: text.philosophy ?? "",
+              philosophy,
               cv_link: cvProfile?.url || "",
               _rawResume: d._rawResume
                 ? { ...d._rawResume, projects: d.projects || d._rawResume.projects }
