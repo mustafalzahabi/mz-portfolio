@@ -79,7 +79,7 @@ export function showLandingPage() {
         <button type="button" class="source-prefix-btn" id="source-prefix-btn">https://www.github.com/</button>
         <div class="source-dropdown-menu" id="source-dropdown-menu">
           <div class="source-dropdown-option active" data-value="gh" data-prefix="https://www.github.com/">https://www.github.com/</div>
-          <div class="source-dropdown-option" data-value="gd" data-prefix="drive.google.com/folder/d/">drive.google.com/folder/d/</div>
+          <div class="source-dropdown-option" data-value="gd" data-prefix="https://drive.google.com/folder/d/">https://drive.google.com/folder/d/</div>
         </div>
       </div>
       <input type="hidden" id="source-select" value="gh">
@@ -136,7 +136,7 @@ export function showLandingPage() {
       <div class="step-item">
         <div class="step-number">1</div>
         <h4>Create Your Resume</h4>
-        <p>Write a <code>resume.json</code> following the <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema. Host it as a <strong>public GitHub Gist</strong> or upload it to a <strong>Google Drive folder</strong>.</p>
+        <p>Write a <code>resume.json</code> following the <a href="https://jsonresume.org/schema/" target="_blank" rel="noopener">JSON Resume</a> schema. Host it as a <strong>public GitHub Gist</strong> or upload it to a <strong>public Google Drive folder</strong>.</p>
       </div>
       <div class="step-item">
         <div class="step-number">2</div>
