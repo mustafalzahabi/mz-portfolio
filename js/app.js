@@ -7,6 +7,8 @@ export let allProjectsData = [];
 export let blogPostsData = [];
 let pendingTab = "profile";
 let pendingBlogSlug = null;
+let currentUnifiedData = null;
+let currentRouteId = null;
 
 export function setCurrentPage(page) {
   currentPage = page;
@@ -190,7 +192,7 @@ export function showLandingPage() {
       <span>Open Source Architecture</span>
     </div>
     <div class="footer-right">
-      <a href="https://github.com" target="_blank" rel="noopener">GitHub Source</a>
+      <a href="https://github.com/mustafalzahabi/mz-portfolio" target="_blank" rel="noopener">GitHub Source</a>
       <a href="https://jsonresume.org" target="_blank" rel="noopener">JSON Resume Spec</a>
     </div>
   </footer>
@@ -435,6 +437,9 @@ function handleRoute() {
     } else {
       loadDataThenRoute(projectName);
     }
+  } else if (hash && !hash.startsWith("#/")) {
+    // Section anchor like #about, #education — let browser scroll natively
+    return;
   } else {
     currentPage = "home";
     loadData();
@@ -457,10 +462,26 @@ async function loadDataThenRoute(projectName) {
 
 export async function loadData(projectName) {
   console.log("[loadData] started, projectName:", projectName);
-  showLoading();
+
+  // If navigating to a project detail and data is already loaded, render directly
+  if (currentUnifiedData && projectName && currentUnifiedData.projects) {
+    const project = currentUnifiedData.projects.find((p) => p.name === projectName);
+    if (project) {
+      allProjectsData = currentUnifiedData.projects;
+      currentPage = "project-detail";
+      renderProjectDetail(project);
+      return;
+    }
+  }
+
   try {
     // 1. Determine source and identifier from URL
     const route = getRouteInfo();
+    // Clear cache if navigating to a different profile
+    if (route.identifier && route.identifier !== currentRouteId) {
+      currentUnifiedData = null;
+      currentRouteId = route.identifier;
+    }
     if (!route.identifier) {
       // If we have a project name from hash routing, try cached data
       if (projectName) {
@@ -480,7 +501,21 @@ export async function loadData(projectName) {
     }
 
     // 2. Collect all data from resume.json + GitHub into a unified structure
-    const d = await collectPortfolioData(route.identifier, route.type);
+    //    Use cached data if already loaded, otherwise fetch fresh
+    let d;
+    if (currentUnifiedData) {
+      d = currentUnifiedData;
+    } else {
+      showLoading();
+      d = currentUnifiedData = await collectPortfolioData(route.identifier, route.type);
+      console.log("[loadData] unified data:", {
+        name: d.basics.name,
+        hasEducation: !!d.education?.length,
+        hasSkills: !!d.skills?.length,
+        hasProjects: !!d.projects?.length,
+        contactLinks: d.basics.profiles.length,
+      });
+    }
     console.log("[loadData] unified data:", {
       name: d.basics.name,
       hasEducation: !!d.education?.length,
@@ -489,18 +524,7 @@ export async function loadData(projectName) {
       contactLinks: d.basics.profiles.length,
     });
 
-    // 3. If navigating directly to a project, find and render it
-    if (projectName && d.projects) {
-      const project = d.projects.find((p) => p.name === projectName);
-      if (project) {
-        allProjectsData = d.projects;
-        currentPage = "project-detail";
-        renderProjectDetail(project);
-        return;
-      }
-    }
-
-    // 4. Customization config (from resume.json meta)
+    // 3. Customization config (from resume.json meta)
     const custom = d.meta?.["mz-portfolio-config"]
       ? Array.isArray(d.meta["mz-portfolio-config"])
         ? d.meta["mz-portfolio-config"][0] || {}
@@ -806,12 +830,12 @@ export async function loadData(projectName) {
       pendingBlogSlug = null;
     }
 
-    // Chat bubble
-    document.querySelectorAll(".chat-bubble-wrapper").forEach((el) =>
-      el.remove(),
-    );
-    document.body.appendChild(buildChatBubble(d.basics.name));
-    setTimeout(() => preloadModel().catch(() => {}), 1000);
+    // Chat bubble (disabled — needs fixing before re-enabling)
+    // document.querySelectorAll(".chat-bubble-wrapper").forEach((el) =>
+    //   el.remove(),
+    // );
+    // document.body.appendChild(buildChatBubble(d.basics.name));
+    // setTimeout(() => preloadModel().catch(() => {}), 1000);
 
   } catch (e) {
     console.error(e);
@@ -845,7 +869,7 @@ export function init() {
   // Check if there's a hash route on page load
   const hash = window.location.hash;
   if (hash.startsWith("#/project/")) {
-    loadDataThenRoute();
+    loadDataThenRoute(decodeURIComponent(hash.slice(10)));
   } else if (hash === "#blog" || hash.startsWith("#/blog/")) {
     if (hash.startsWith("#/blog/")) {
       pendingBlogSlug = decodeURIComponent(hash.slice(7));
@@ -857,4 +881,14 @@ export function init() {
   }
 
   window.addEventListener("hashchange", handleRoute);
+
+  // Expose for component callbacks (avoids circular imports)
+  window.__mz_loadDataAndScroll = (sectionId) => {
+    loadData().then(() => {
+      if (sectionId) {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+  };
 }

@@ -808,6 +808,11 @@ export function renderProjectDetail(project) {
   backBtn.href = "#";
   backBtn.className = "project-detail-back";
   backBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Projects`;
+  backBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.history.pushState(null, "", window.location.pathname);
+    window.__mz_loadDataAndScroll("projects");
+  });
   body.appendChild(backBtn);
 
   // -- Project header --
