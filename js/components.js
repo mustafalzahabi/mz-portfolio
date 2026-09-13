@@ -20,8 +20,14 @@ export function buildNavbar() {
   const sections = [
     { id: "about", label: "About" },
     { id: "education", label: "Education" },
+    { id: "certificates", label: "Certificates" },
+    { id: "work", label: "Work" },
+    { id: "volunteer", label: "Volunteer" },
     { id: "projects", label: "Projects" },
+    { id: "publications", label: "Publications" },
     { id: "skills", label: "Skills" },
+    { id: "languages", label: "Languages" },
+    { id: "awards", label: "Awards" },
     { id: "contact", label: "Contact" },
   ];
 
@@ -259,6 +265,279 @@ export function buildEducation(education) {
       card.appendChild(notes);
     }
 
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// CERTIFICATES SECTION
+// ============================================================================
+
+export function buildCertificates(certificates) {
+  if (!certificates || !certificates.length) return null;
+  const section = createSection("Certificates", "certificates");
+  const list = document.createElement("div");
+  list.className = "certificates-list";
+
+  certificates.forEach((cert) => {
+    const card = document.createElement("div");
+    card.className = "certificate-card";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = cert.name;
+
+    const issuer = document.createElement("div");
+    issuer.className = "issuer";
+    issuer.textContent = cert.issuer;
+
+    const date = document.createElement("div");
+    date.className = "date";
+    date.textContent = cert.date;
+
+    card.append(h3, issuer, date);
+
+    if (cert.url) {
+      const link = document.createElement("a");
+      link.href = cert.url;
+      link.target = "_blank";
+      link.textContent = "View Certificate";
+      card.appendChild(link);
+    }
+
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// WORK SECTION
+// ============================================================================
+
+export function buildWork(work) {
+  if (!work || !work.length) return null;
+  const section = createSection("Work Experience", "work");
+  const list = document.createElement("div");
+  list.className = "work-list";
+
+  work.forEach((job) => {
+    const card = document.createElement("div");
+    card.className = "work-card";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = job.position;
+
+    const company = document.createElement("div");
+    company.className = "company";
+    company.textContent = job.company;
+
+    const dates = document.createElement("div");
+    dates.className = "dates";
+    dates.textContent = `${job.start_date} \u2013 ${job.end_date || "Present"}`;
+
+    if (job.location) {
+      const location = document.createElement("div");
+      location.className = "location";
+      location.textContent = job.location;
+      card.append(h3, company, dates, location);
+    } else {
+      card.append(h3, company, dates);
+    }
+
+    if (job.summary) {
+      const summary = document.createElement("div");
+      summary.className = "summary";
+      summary.textContent = job.summary;
+      card.appendChild(summary);
+    }
+
+    if (job.highlights && job.highlights.length > 0) {
+      const ul = document.createElement("ul");
+      ul.className = "highlights";
+      job.highlights.forEach((h) => {
+        const li = document.createElement("li");
+        li.textContent = h;
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
+
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// VOLUNTEER SECTION
+// ============================================================================
+
+export function buildVolunteer(volunteer) {
+  if (!volunteer || !volunteer.length) return null;
+  const section = createSection("Volunteer", "volunteer");
+  const list = document.createElement("div");
+  list.className = "volunteer-list";
+
+  volunteer.forEach((vol) => {
+    const card = document.createElement("div");
+    card.className = "volunteer-card";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = vol.position;
+
+    const org = document.createElement("div");
+    org.className = "organization";
+    org.textContent = vol.organization;
+
+    const dates = document.createElement("div");
+    dates.className = "dates";
+    dates.textContent = `${vol.start_date} \u2013 ${vol.end_date || "Present"}`;
+
+    card.append(h3, org, dates);
+
+    if (vol.summary) {
+      const summary = document.createElement("div");
+      summary.className = "summary";
+      summary.textContent = vol.summary;
+      card.appendChild(summary);
+    }
+
+    if (vol.highlights && vol.highlights.length > 0) {
+      const ul = document.createElement("ul");
+      ul.className = "highlights";
+      vol.highlights.forEach((h) => {
+        const li = document.createElement("li");
+        li.textContent = h;
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
+
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// AWARDS SECTION
+// ============================================================================
+
+export function buildAwards(awards) {
+  if (!awards || !awards.length) return null;
+  const section = createSection("Awards", "awards");
+  const list = document.createElement("div");
+  list.className = "awards-list";
+
+  awards.forEach((award) => {
+    const card = document.createElement("div");
+    card.className = "award-card";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = award.title;
+
+    const awarder = document.createElement("div");
+    awarder.className = "awarder";
+    awarder.textContent = award.awarder;
+
+    const date = document.createElement("div");
+    date.className = "date";
+    date.textContent = award.date;
+
+    card.append(h3, awarder, date);
+
+    if (award.summary) {
+      const summary = document.createElement("div");
+      summary.className = "summary";
+      summary.textContent = award.summary;
+      card.appendChild(summary);
+    }
+
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// PUBLICATIONS SECTION
+// ============================================================================
+
+export function buildPublications(publications) {
+  if (!publications || !publications.length) return null;
+  const section = createSection("Publications", "publications");
+  const list = document.createElement("div");
+  list.className = "publications-list";
+
+  publications.forEach((pub) => {
+    const card = document.createElement("div");
+    card.className = "publication-card";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = pub.name;
+
+    const publisher = document.createElement("div");
+    publisher.className = "publisher";
+    publisher.textContent = pub.publisher;
+
+    const date = document.createElement("div");
+    date.className = "date";
+    date.textContent = pub.releaseDate;
+
+    card.append(h3, publisher, date);
+
+    if (pub.summary) {
+      const summary = document.createElement("div");
+      summary.className = "summary";
+      summary.textContent = pub.summary;
+      card.appendChild(summary);
+    }
+
+    if (pub.url) {
+      const link = document.createElement("a");
+      link.href = pub.url;
+      link.target = "_blank";
+      link.textContent = "Read More";
+      card.appendChild(link);
+    }
+
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+// ============================================================================
+// LANGUAGES SECTION
+// ============================================================================
+
+export function buildLanguages(languages) {
+  if (!languages || !languages.length) return null;
+  const section = createSection("Languages", "languages");
+  const list = document.createElement("div");
+  list.className = "languages-list";
+
+  languages.forEach((lang) => {
+    const card = document.createElement("div");
+    card.className = "language-card";
+
+    const name = document.createElement("div");
+    name.className = "language-name";
+    name.textContent = lang.language;
+
+    const fluency = document.createElement("div");
+    fluency.className = "fluency";
+    fluency.textContent = lang.fluency;
+
+    card.append(name, fluency);
     list.appendChild(card);
   });
 

@@ -54,7 +54,169 @@ export function showError(message) {
   if (p) p.textContent = message;
 }
 
+export function hideLoading() {
+  const loading = document.querySelector(".loading-state");
+  if (loading) loading.remove();
+}
+
+export function showNotFound(username) {
+  console.log("[showNotFound] called for:", username);
+  document.title = "404 - Not Found";
+  document.getElementById("app").innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;">
+      <div style="font-size:6rem;font-weight:800;color:var(--accent);line-height:1;opacity:0.3;">404</div>
+      <h1 style="font-size:1.5rem;font-weight:600;margin:1rem 0 0.5rem;color:var(--primary);">User not found</h1>
+      <p style="color:var(--secondary);max-width:400px;line-height:1.6;margin-bottom:1.5rem;">
+        GitHub user <strong>${username}</strong> doesn't exist or has no public profile.
+      </p>
+      <a href="#home" style="display:inline-block;padding:0.6rem 1.5rem;background:var(--accent);color:#fff;border-radius:0.375rem;text-decoration:none;font-weight:500;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+        Go Home
+      </a>
+    </div>
+  `;
+}
+
+export function showRateLimited(resetMs) {
+  console.log("[showRateLimited] called, resetMs:", resetMs);
+  const app = document.getElementById("app");
+
+  function render() {
+    // Get the actual reset timestamp from GitHub's rate limit headers
+    const resetAt = getRateLimitResetAt();
+    const now = Date.now();
+
+    // Calculate remaining seconds from the actual reset timestamp
+    let secs;
+    if (resetAt > now) {
+      secs = Math.ceil((resetAt - now) / 1000);
+    } else {
+      // Fallback: use the passed resetMs
+      secs = Math.max(0, Math.ceil(resetMs / 1000));
+    }
+
+    const mins = Math.floor(secs / 60);
+    const s = secs % 60;
+
+    if (secs <= 0) {
+      location.reload();
+      return;
+    }
+
+    // Real clock angles based on current time
+    const nowDate = new Date();
+    const realHours = nowDate.getHours() % 12;
+    const realMinutes = nowDate.getMinutes();
+    const realSeconds = nowDate.getSeconds();
+    const realMs = nowDate.getMilliseconds();
+
+    const secAngle = (realSeconds + realMs / 1000) / 60 * 360;
+    const minAngle = (realMinutes + realSeconds / 60) / 60 * 360;
+    const hourAngle = (realHours + realMinutes / 60) / 12 * 360;
+
+    // Target time in 12-hour format (from actual reset timestamp)
+    const endDate = resetAt > now ? new Date(resetAt) : new Date(now + resetMs);
+    const targetH24 = endDate.getHours();
+    const targetM = endDate.getMinutes();
+    const targetH12 = targetH24 % 12 || 12;
+    const ampm = targetH24 < 12 ? "AM" : "PM";
+    const targetTimeStr = `${targetH12}:${String(targetM).padStart(2, "0")} ${ampm}`;
+
+    // Progress (0 to 1) based on initial total
+    const totalSecs = Math.ceil(resetMs / 1000);
+    const progress = 1 - (secs / totalSecs);
+
+    const cx = 100, cy = 100;
+    const faceR = 88;
+
+    const hourMarkers = [];
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * 30 - 90) * Math.PI / 180;
+      const x1 = cx + faceR * Math.cos(angle);
+      const y1 = cy + faceR * Math.sin(angle);
+      const x2 = cx + (faceR - (i % 3 === 0 ? 10 : 6)) * Math.cos(angle);
+      const y2 = cy + (faceR - (i % 3 === 0 ? 10 : 6)) * Math.sin(angle);
+      const sw = i % 3 === 0 ? 2 : 1;
+      hourMarkers.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--secondary)" stroke-width="${sw}" stroke-linecap="round" opacity="${i % 3 === 0 ? 0.7 : 0.35}"/>`);
+    }
+
+    app.innerHTML = `
+      <div class="rate-limit-page">
+        <div class="clock-container">
+          <svg class="clock-svg" viewBox="0 0 200 200" width="200" height="200">
+            <circle cx="${cx}" cy="${cy}" r="${faceR}" fill="none" stroke="var(--border)" stroke-width="1.5" opacity="0.25"/>
+            ${hourMarkers.join("\n            ")}
+            <line x1="${cx}" y1="${cy + 8}" x2="${cx}" y2="${cy - 30}"
+              stroke="var(--primary)" stroke-width="5" stroke-linecap="round"
+              transform="rotate(${hourAngle} ${cx} ${cy})"/>
+            <line x1="${cx}" y1="${cy + 6}" x2="${cx}" y2="${cy - 48}"
+              stroke="var(--primary)" stroke-width="3" stroke-linecap="round"
+              transform="rotate(${minAngle} ${cx} ${cy})"/>
+            <line x1="${cx}" y1="${cy + 14}" x2="${cx}" y2="${cy - 56}"
+              stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"
+              transform="rotate(${secAngle} ${cx} ${cy})"/>
+            <circle cx="${cx}" cy="${cy}" r="5" fill="var(--accent)"/>
+            <circle cx="${cx}" cy="${cy}" r="2.5" fill="var(--surface)"/>
+          </svg>
+        </div>
+        <h1 class="rate-limit-title">Please wait</h1>
+        <p class="rate-limit-text">This user exists. You're temporarily offline.</p>
+        <div class="rate-limit-countdown">${String(mins).padStart(2, "0")}:${String(s).padStart(2, "0")}</div>
+        <p class="rate-limit-resume-text">Opens again at <strong>${targetTimeStr}</strong></p>
+        <div class="rate-limit-bar-track">
+          <div class="rate-limit-bar-fill" style="width:${progress * 100}%"></div>
+        </div>
+        <p class="rate-limit-hint">This page will refresh automatically.</p>
+      </div>
+    `;
+
+    setTimeout(render, 1000);
+  }
+
+  render();
+}
+
+export function showOfflineBanner(resetMs) {
+  // Remove existing banner if any
+  const existing = document.querySelector(".offline-banner");
+  if (existing) existing.remove();
+
+  const banner = document.createElement("div");
+  banner.className = "offline-banner";
+  banner.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:9999;
+    background:#dc2626;color:#fff;padding:0.5rem 1rem;
+    text-align:center;font-size:0.85rem;font-weight:500;
+    display:flex;align-items:center;justify-content:center;gap:0.75rem;
+  `;
+
+  const secs = Math.max(0, Math.ceil(resetMs / 1000));
+  const mins = Math.floor(secs / 60);
+  const s = secs % 60;
+
+  banner.innerHTML = `
+    <span>You're offline — showing saved data</span>
+    <span style="opacity:0.8;font-variant-numeric:tabular-nums;">Refreshes in ${mins}:${String(s).padStart(2, "0")}</span>
+  `;
+  document.body.prepend(banner);
+
+  // Update countdown
+  const start = Date.now();
+  const interval = setInterval(() => {
+    const elapsed = Date.now() - start;
+    const left = Math.max(0, Math.ceil(resetMs / 1000 - elapsed / 1000));
+    if (left <= 0) {
+      clearInterval(interval);
+      location.reload();
+      return;
+    }
+    const m = Math.floor(left / 60);
+    const sec = left % 60;
+    banner.querySelector("span:last-child").textContent = `Refreshes in ${m}:${String(sec).padStart(2, "0")}`;
+  }, 1000);
+}
+
 export function showLandingPage() {
+  console.log("[showLandingPage] called");
   document.title = "GitHub Portfolio";
   const app = document.getElementById("app");
   app.innerHTML = `
@@ -266,18 +428,8 @@ window.navigateToUser = function (event) {
   const value = input?.value.trim();
   if (!value) return;
 
-  const base =
-    window.location.origin +
-    (window.location.pathname.endsWith("/")
-      ? window.location.pathname
-      : window.location.pathname + "/");
-  const cleanBase = base.replace(/\/+$/, "/");
-
-  if (source === "gd") {
-    window.location.href = `${cleanBase}gd/${encodeURIComponent(value)}`;
-  } else {
-    window.location.href = `${cleanBase}gh/${encodeURIComponent(value)}`;
-  }
+  const prefix = source === "gd" ? "gd" : "gh";
+  window.location.href = `${window.location.origin}/${prefix}/${encodeURIComponent(value)}`;
 };
 
 // ============================================================================
@@ -285,22 +437,32 @@ window.navigateToUser = function (event) {
 // ============================================================================
 
 function getRouteInfo() {
-  const pathParts = window.location.pathname.split("/").filter(Boolean);
+  const pathname = window.location.pathname;
+  const pathParts = pathname.split("/").filter(Boolean);
+
+  console.log("[getRouteInfo] pathname:", pathname, "pathParts:", pathParts);
 
   if (pathParts.length >= 2) {
     const prefix = pathParts[0].toLowerCase();
     if (prefix === "gh") {
-      return { type: "gh", identifier: pathParts.slice(1).join("/") };
+      const id = pathParts.slice(1).join("/");
+      console.log("[getRouteInfo] gh route, identifier:", id);
+      return { type: "gh", identifier: id };
     }
     if (prefix === "gd") {
-      return { type: "gd", identifier: pathParts.slice(1).join("/") };
+      const id = pathParts.slice(1).join("/");
+      console.log("[getRouteInfo] gd route, identifier:", id);
+      return { type: "gd", identifier: id };
     }
   }
 
   if (pathParts.length >= 1) {
-    return { type: "gh", identifier: pathParts[pathParts.length - 1] };
+    const id = pathParts[pathParts.length - 1];
+    console.log("[getRouteInfo] fallback route, identifier:", id);
+    return { type: "gh", identifier: id };
   }
 
+  console.log("[getRouteInfo] no route (landing page)");
   return { type: "", identifier: "" };
 }
 
@@ -319,12 +481,20 @@ import {
   renderProjectDetail,
   buildBlogPostList,
   renderBlogPostDetail,
+  buildCertificates,
+  buildWork,
+  buildVolunteer,
+  buildAwards,
+  buildPublications,
+  buildLanguages,
 } from "./components.js";
 
 import {
   fetchGithubUserAvatar,
   fetchGithubUserProfile,
   initializeLanguageColors,
+  getRateLimitResetMs,
+  getRateLimitResetAt,
 } from "./api.js";
 
 import { collectPortfolioData, fetchBlogPosts, getCachedData } from "./data.js";
@@ -503,25 +673,59 @@ export async function loadData(projectName) {
     // 2. Collect all data from resume.json + GitHub into a unified structure
     //    Use cached data if already loaded, otherwise fetch fresh
     let d;
-    if (currentUnifiedData) {
+    if (currentUnifiedData && !currentUnifiedData._rateLimited && !currentUnifiedData._notFound) {
       d = currentUnifiedData;
+      console.log("[loadData] using existing currentUnifiedData for:", currentRouteId);
     } else {
       showLoading();
-      d = currentUnifiedData = await collectPortfolioData(route.identifier, route.type);
-      console.log("[loadData] unified data:", {
-        name: d.basics.name,
-        hasEducation: !!d.education?.length,
-        hasSkills: !!d.skills?.length,
-        hasProjects: !!d.projects?.length,
-        contactLinks: d.basics.profiles.length,
+      console.log("[loadData] calling collectPortfolioData for:", route.identifier, route.type);
+      d = await collectPortfolioData(route.identifier, route.type);
+      console.log("[loadData] collectPortfolioData returned:", {
+        hasBasics: !!d?.basics,
+        _notFound: d?._notFound,
+        _rateLimited: d?._rateLimited,
+        _offline: d?._offline,
+        _stale: d?._stale,
+        _resetMs: d?._resetMs,
+        keys: d ? Object.keys(d).slice(0, 10) : [],
       });
     }
+
+    // Handle special status flags from collectPortfolioData
+    // Do NOT store these in currentUnifiedData so they don't persist across navigation
+    if (d._notFound) {
+      console.log("[loadData] _notFound, showing 404 for:", route.identifier);
+      currentUnifiedData = null;
+      hideLoading();
+      showNotFound(route.identifier);
+      return;
+    }
+
+    if (d._rateLimited) {
+      console.log("[loadData] _rateLimited, showing clock. resetMs:", d._resetMs);
+      currentUnifiedData = null;
+      hideLoading();
+      showRateLimited(d._resetMs || getRateLimitResetMs());
+      return;
+    }
+
+    // If we got here with valid data, store it
+    if (d && d.basics && !d._notFound && !d._rateLimited) {
+      currentUnifiedData = d;
+    }
+
+    // Show offline banner if using stale cached data, or if rate limited
+    let isOffline = !!d._offline;
+    let isStale = !!d._stale;
+
     console.log("[loadData] unified data:", {
-      name: d.basics.name,
+      name: d.basics?.name,
       hasEducation: !!d.education?.length,
       hasSkills: !!d.skills?.length,
       hasProjects: !!d.projects?.length,
-      contactLinks: d.basics.profiles.length,
+      contactLinks: d.basics?.profiles?.length || 0,
+      offline: isOffline,
+      stale: isStale,
     });
 
     // 3. Customization config (from resume.json meta)
@@ -645,8 +849,14 @@ export async function loadData(projectName) {
     const defaultOrder = [
       "about",
       "education",
+      "certificates",
+      "awards",
+      "work",
+      "volunteer",
       "projects",
+      "publications",
       "skills",
+      "languages",
       "contact",
     ];
     const order = Array.isArray(sectionsCfg.order)
@@ -695,6 +905,66 @@ export async function loadData(projectName) {
             }))
           : null,
       skills: d.skills || null,
+      certificates:
+        d.certificates && d.certificates.length
+          ? d.certificates.map((cert) => ({
+              name: cert.name || "",
+              issuer: cert.issuer || "",
+              date: cert.date || "",
+              url: cert.url || "",
+            }))
+          : null,
+      work:
+        d.work && d.work.length
+          ? d.work.map((w) => ({
+              position: w.position || "",
+              company: w.name || "",
+              start_date: w.startDate || "",
+              end_date: w.endDate || "",
+              location: w.location || "",
+              summary: w.summary || "",
+              highlights: w.highlights || [],
+              url: w.url || "",
+            }))
+          : null,
+      languages:
+        d.languages && d.languages.length
+          ? d.languages.map((lang) => ({
+              language: lang.language || "",
+              fluency: lang.fluency || "",
+            }))
+          : null,
+      awards:
+        d.awards && d.awards.length
+          ? d.awards.map((award) => ({
+              title: award.title || "",
+              date: award.date || "",
+              awarder: award.awarder || "",
+              summary: award.summary || "",
+            }))
+          : null,
+      volunteer:
+        d.volunteer && d.volunteer.length
+          ? d.volunteer.map((vol) => ({
+              organization: vol.organization || "",
+              position: vol.position || "",
+              start_date: vol.startDate || "",
+              end_date: vol.endDate || "",
+              summary: vol.summary || "",
+              highlights: vol.highlights || [],
+              url: vol.url || "",
+            }))
+          : null,
+      publications:
+        d.publications && d.publications.length
+          ? d.publications.map((pub) => ({
+              name: pub.name || "",
+              publisher: pub.publisher || "",
+              releaseDate: pub.releaseDate || "",
+              url: pub.url || "",
+              summary: pub.summary || "",
+            }))
+          : null,
       contact: (() => {
         const email = d.basics.email || "";
         const github = ghProfileEntry?.url || `https://github.com/${route.identifier}`;
@@ -738,6 +1008,18 @@ export async function loadData(projectName) {
         sections.appendChild(buildProjects(sectionData.projects, projectsCfg));
       if (key === "skills")
         sections.appendChild(buildSkills(sectionData.skills, skillsCfg));
+      if (key === "certificates")
+        sections.appendChild(buildCertificates(sectionData.certificates));
+      if (key === "work")
+        sections.appendChild(buildWork(sectionData.work));
+      if (key === "languages")
+        sections.appendChild(buildLanguages(sectionData.languages));
+      if (key === "awards")
+        sections.appendChild(buildAwards(sectionData.awards));
+      if (key === "volunteer")
+        sections.appendChild(buildVolunteer(sectionData.volunteer));
+      if (key === "publications")
+        sections.appendChild(buildPublications(sectionData.publications));
       if (key === "contact")
         sections.appendChild(buildContact(sectionData.contact));
     }
@@ -754,17 +1036,39 @@ export async function loadData(projectName) {
       console.warn("[loadData] No sections rendered");
       const emptyMsg = document.createElement("div");
       emptyMsg.style.cssText =
-        "text-align:center;padding:4rem 2rem;color:var(--secondary);";
+        "text-align:center;padding:4rem 2rem;color:var(--secondary);max-width:600px;margin:0 auto;";
+      const targetFile = "resume.json";
       emptyMsg.innerHTML = `
-        <p style="font-size:1.25rem;margin-bottom:0.5rem;">No portfolio data found</p>
-        <p style="font-size:0.9rem;">Could not load resume.json${route.type === 'gh' ? ' or GitHub repositories' : ''} for <strong>${route.identifier}</strong>.</p>
-        <p style="font-size:0.9rem;">Check the browser console for details, or try again later.</p>
+        <p style="font-size:1.25rem;margin-bottom:0.5rem;color:var(--primary);">No portfolio data found</p>
+        <p style="font-size:0.9rem;margin-bottom:1rem;">Could not load <strong>${targetFile}</strong> or GitHub repositories for <strong>${route.identifier}</strong>.</p>
+        <p style="font-size:0.85rem;margin-bottom:1.5rem;line-height:1.6;">
+          This usually means one of:
+        </p>
+        <ul style="font-size:0.85rem;text-align:left;line-height:1.8;max-width:400px;margin:0 auto 1.5rem;">
+          <li>The user has no gist named <code>resume.json</code></li>
+          <li>GitHub API rate limit exceeded (60 requests/hour for unauthenticated)</li>
+          <li>The gist is private or the username is invalid</li>
+        </ul>
+        <p style="font-size:0.85rem;margin-bottom:1rem;">
+          To use a different filename, add <code>?gistname=your-file</code> to the URL.
+        </p>
+        <button onclick="location.reload()" style="padding:0.5rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:0.375rem;cursor:pointer;font-size:0.9rem;">
+          Try Again
+        </button>
+        <p style="font-size:0.8rem;margin-top:1rem;color:var(--secondary);">
+          Check the browser console for details.
+        </p>
       `;
       sections.appendChild(emptyMsg);
     }
 
     main.appendChild(buildNavbar());
     main.appendChild(sections);
+
+    // Show offline banner if rate limited/stale but using cached data
+    if (isOffline || isStale) {
+      showOfflineBanner(d._resetMs || 3600000);
+    }
 
     // Blog container (hidden by default)
     const blogContainer = document.createElement("div");
@@ -850,16 +1154,32 @@ export async function loadData(projectName) {
 import { initDarkMode } from "./theme.js";
 
 export function init() {
-  // Route rescue and URL rewrite logic
-  const attemptedUser = sessionStorage.getItem("attempted_user");
-  const sourceType = sessionStorage.getItem("source_type") || "gh";
-  if (attemptedUser) {
-    sessionStorage.removeItem("attempted_user");
-    sessionStorage.removeItem("source_type");
-    if (sourceType === "gd") {
-      window.history.replaceState(null, "", `/gd/${encodeURIComponent(attemptedUser)}`);
-    } else {
-      window.history.replaceState(null, "", `/gh/${encodeURIComponent(attemptedUser)}`);
+  console.log("[init] called, pathname:", window.location.pathname, "hash:", window.location.hash);
+
+  // Route rescue: check query params first, then sessionStorage fallback
+  const urlParams = new URLSearchParams(window.location.search);
+  const userFromQuery = urlParams.get("user");
+  const sourceFromQuery = urlParams.get("source") || "gh";
+
+  if (userFromQuery) {
+    const newPath = sourceFromQuery === "gd"
+      ? `/gd/${encodeURIComponent(userFromQuery)}`
+      : `/gh/${encodeURIComponent(userFromQuery)}`;
+    console.log("[init] query param user found, replaceState:", newPath);
+    window.history.replaceState(null, "", newPath);
+  } else {
+    // Legacy sessionStorage fallback
+    const attemptedUser = sessionStorage.getItem("attempted_user");
+    const sourceType = sessionStorage.getItem("source_type") || "gh";
+    console.log("[init] sessionStorage user:", attemptedUser, "sourceType:", sourceType);
+    if (attemptedUser) {
+      sessionStorage.removeItem("attempted_user");
+      sessionStorage.removeItem("source_type");
+      const newPath = sourceType === "gd"
+        ? `/gd/${encodeURIComponent(attemptedUser)}`
+        : `/gh/${encodeURIComponent(attemptedUser)}`;
+      console.log("[init] replaceState:", newPath);
+      window.history.replaceState(null, "", newPath);
     }
   }
 
@@ -868,6 +1188,7 @@ export function init() {
 
   // Check if there's a hash route on page load
   const hash = window.location.hash;
+  console.log("[init] hash:", hash);
   if (hash.startsWith("#/project/")) {
     loadDataThenRoute(decodeURIComponent(hash.slice(10)));
   } else if (hash === "#blog" || hash.startsWith("#/blog/")) {
@@ -881,6 +1202,27 @@ export function init() {
   }
 
   window.addEventListener("hashchange", handleRoute);
+
+  // Handle back/forward navigation
+  window.addEventListener("popstate", () => {
+    console.log("[init] popstate fired, pathname:", window.location.pathname);
+    currentUnifiedData = null;
+    currentRouteId = null;
+    loadData();
+  });
+
+  // Safety net: watch for URL changes that don't trigger hashchange or popstate
+  let lastPathname = window.location.pathname;
+  setInterval(() => {
+    const current = window.location.pathname;
+    if (current !== lastPathname) {
+      console.log("[init] pathname changed:", lastPathname, "->", current);
+      lastPathname = current;
+      currentUnifiedData = null;
+      currentRouteId = null;
+      loadData();
+    }
+  }, 500);
 
   // Expose for component callbacks (avoids circular imports)
   window.__mz_loadDataAndScroll = (sectionId) => {

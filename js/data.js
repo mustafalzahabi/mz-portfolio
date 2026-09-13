@@ -7,36 +7,155 @@
 import {
   fetchGithubUserProfile,
   fetchAndMergeProjects,
+  checkUserExists,
+  isRateLimited,
+  getRateLimitResetMs,
 } from "./api.js";
 
 import { parseFrontmatter, slugify } from "./utils.js";
 
 const STORAGE_KEY = "mz-portfolio-data";
+const GIST_LIST_CACHE_KEY = "mz-cache-gist-list";
+const GIST_LIST_TTL = 60 * 60 * 1000; // 1 hour
+const MAX_GIST_PAGES = 3; // Fetch up to 300 gists (3 pages x 100)
+const LAST_USER_KEY = "mz-last-user";
 
 // ---------------------------------------------------------------------------
-// Gist fetcher (3-tier: inline content → single-gist endpoint → raw_url)
+// Cache key helpers (per-user caching)
+// ---------------------------------------------------------------------------
+
+function getUserCacheKey(username) {
+  return `${STORAGE_KEY}-${username || "unknown"}`;
+}
+
+// ---------------------------------------------------------------------------
+// Get resume filename from URL (?gistname= parameter) or default to resume.json
+// ---------------------------------------------------------------------------
+
+function getResumeFilename() {
+  const params = new URLSearchParams(window.location.search);
+  const gistname = params.get("gistname");
+  // Sanitize: strip .json extension if user includes it, we add it back
+  if (gistname) {
+    const clean = gistname.replace(/\.json$/i, "");
+    // Only allow alphanumeric, hyphens, underscores
+    if (/^[a-zA-Z0-9_-]+$/.test(clean)) {
+      return `${clean}.json`;
+    }
+  }
+  return "resume.json";
+}
+
+// ---------------------------------------------------------------------------
+// Gist list fetcher (paginated, cached, shared between resume + blog)
+// ---------------------------------------------------------------------------
+
+async function fetchGistList(username) {
+  const cacheKey = `${GIST_LIST_CACHE_KEY}-${username}`;
+  const now = Date.now();
+
+  // Check cache first - but only if data is non-empty
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+    if (cached && cached.data && Array.isArray(cached.data) && cached.data.length > 0 && now - cached.timestamp < GIST_LIST_TTL) {
+      console.log("[data] using cached gist list for", username, `(${cached.data.length} gists)`);
+      return cached.data;
+    }
+  } catch (_) { /* ignore */ }
+
+  // Fetch paginated gist list
+  const allGists = [];
+  let page = 1;
+  let rateLimited = false;
+
+  while (page <= MAX_GIST_PAGES) {
+    try {
+      const headers = {};
+      // Try ETag conditional request on first page only
+      if (page === 1) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+          if (cached?.etag) headers["If-None-Match"] = cached.etag;
+        } catch (_) { /* ignore */ }
+      }
+
+      const res = await fetch(
+        `https://api.github.com/users/${username}/gists?per_page=100&page=${page}`,
+        { headers },
+      );
+
+      if (res.status === 304) {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+        if (cached?.data && cached.data.length > 0) {
+          console.log("[data] gist list 304, using cache for", username);
+          cached.timestamp = Date.now();
+          localStorage.setItem(cacheKey, JSON.stringify(cached));
+          return cached.data;
+        }
+        // 304 but no cached data - break and return what we have
+        break;
+      }
+
+      if (res.status === 403) {
+        console.warn(`[data] GitHub API rate limited (403) on page ${page}`);
+        rateLimited = true;
+        break;
+      }
+
+      if (!res.ok) {
+        console.warn(`[data] GitHub API returned ${res.status} on page ${page}`);
+        break;
+      }
+
+      const gists = await res.json();
+      if (!Array.isArray(gists) || gists.length === 0) break;
+
+      allGists.push(...gists);
+
+      // If we got fewer than 100, there are no more pages
+      if (gists.length < 100) break;
+
+      page++;
+    } catch (e) {
+      console.warn(`[data] Could not fetch gist list page ${page}:`, e.message);
+      break;
+    }
+  }
+
+  // Cache the results (even if empty, but not if rate limited)
+  if (!rateLimited && allGists.length > 0) {
+    try {
+      const etag = ""; // ETag only works for page 1, skip for multi-page
+      localStorage.setItem(cacheKey, JSON.stringify({ data: allGists, etag, timestamp: Date.now() }));
+    } catch (_) { /* quota exceeded */ }
+  }
+
+  console.log(`[data] fetched ${allGists.length} gists across ${page} page(s) for ${username}${rateLimited ? ' (rate limited)' : ''}`);
+  return allGists;
+}
+
+// ---------------------------------------------------------------------------
+// Gist fetcher (exact filename match, content from list → single → raw_url)
 // ---------------------------------------------------------------------------
 
 async function fetchResumeGist(username) {
+  const targetFile = getResumeFilename();
+  console.log(`[data] looking for gist with file: ${targetFile}`);
+
   try {
-    const gistsRes = await fetch(
-      `https://api.github.com/users/${username}/gists`,
-    );
-    if (!gistsRes.ok) return null;
+    const gists = await fetchGistList(username);
+    if (!gists || gists.length === 0) return null;
 
-    const gists = await gistsRes.json();
+    // Find gist containing the target file
     const gist = gists.find(
-      (g) =>
-        g.files &&
-        Object.keys(g.files).some(
-          (n) => n.toLowerCase() === "resume.json",
-        ),
+      (g) => g.files && Object.keys(g.files).some((n) => n === targetFile),
     );
-    if (!gist) return null;
+    if (!gist) {
+      console.warn(`[data] no gist found with file "${targetFile}" for ${username}`);
+      return null;
+    }
 
-    const fileKey = Object.keys(gist.files).find(
-      (n) => n.toLowerCase() === "resume.json",
-    );
+    const fileKey = Object.keys(gist.files).find((n) => n === targetFile);
 
     // 1) Inline content (list endpoint — usually absent)
     if (gist.files[fileKey]?.content) {
@@ -54,9 +173,7 @@ async function fetchResumeGist(username) {
       );
       if (singleRes.ok) {
         const single = await singleRes.json();
-        const key = Object.keys(single.files).find(
-          (n) => n.toLowerCase() === "resume.json",
-        );
+        const key = Object.keys(single.files).find((n) => n === targetFile);
         if (key && single.files[key]?.content) {
           return JSON.parse(single.files[key].content);
         }
@@ -69,7 +186,7 @@ async function fetchResumeGist(username) {
     const rawRes = await fetch(gist.files[fileKey].raw_url);
     if (rawRes.ok) return await rawRes.json();
   } catch (e) {
-    console.warn("[data] Could not fetch resume.json gist:", e.message);
+    console.warn("[data] Could not fetch resume gist:", e.message);
   }
   return null;
 }
@@ -107,17 +224,15 @@ async function fetchResumeFromGDrive(fileId) {
 
 export async function fetchBlogPosts(username) {
   try {
-    const res = await fetch(
-      `https://api.github.com/users/${username}/gists?per_page=100`,
-    );
-    if (!res.ok) return [];
+    const gists = await fetchGistList(username);
+    if (!gists || gists.length === 0) return [];
 
-    const gists = await res.json();
+    const targetFile = getResumeFilename();
     const mdGists = gists.filter((g) => {
       const files = Object.keys(g.files);
       return (
         files.some((f) => f.endsWith(".md")) &&
-        !files.some((f) => f.toLowerCase() === "resume.json")
+        !files.some((f) => f === targetFile)
       );
     });
 
@@ -470,26 +585,125 @@ function extractUrlRepo(url) {
 export async function collectPortfolioData(identifier, source = 'gh') {
   console.log("[data] collecting for:", identifier, "source:", source);
 
-  let resume, ghProfile, repos;
-
-  if (source === 'gd') {
-    // Google Drive source: fetch resume.json from public file only
-    resume = await fetchResumeFromGDrive(identifier);
-    ghProfile = null;
-    repos = null;
-  } else {
-    // GitHub source: fetch resume.json gist + GitHub profile + repos
-    [resume, ghProfile] = await Promise.all([
-      fetchResumeGist(identifier),
-      fetchGithubUserProfile(identifier),
-    ]);
-    repos = await fetchAndMergeProjects(identifier);
+  if (!identifier) {
+    console.error("[data] no identifier provided!");
+    return { _notFound: true };
   }
 
+  const userCacheKey = getUserCacheKey(identifier);
+
+  // 1. Read cache — keep both fresh (<1hr) and stale (any age)
+  const CACHE_TTL = 60 * 60 * 1000;
+  let freshCache = null;
+  let staleCache = null;
+  try {
+    const raw = localStorage.getItem(userCacheKey);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      if (cached && cached._cachedAt) {
+        staleCache = cached;
+        if (Date.now() - cached._cachedAt < CACHE_TTL) {
+          freshCache = cached;
+        }
+      }
+    }
+  } catch (_) {}
+  console.log("[data] cache lookup:", { hasFresh: !!freshCache, hasStale: !!staleCache });
+
+  // 2. If cached data exists and we're rate limited, return it with offline flag
+  const cacheToReturn = freshCache || staleCache;
+  if (cacheToReturn && isRateLimited()) {
+    console.log("[data] returning cached data with offline flag (rate limited)");
+    return { ...cacheToReturn, _offline: true, _resetMs: getRateLimitResetMs() };
+  }
+
+  // 3. If fresh cache exists and NOT rate limited, skip API entirely
+  if (freshCache) {
+    console.log("[data] returning fresh cached data (age:", Math.round((Date.now() - freshCache._cachedAt) / 1000), "s)");
+    return freshCache;
+  }
+
+  // 4. No cache at all — if rate limited, show countdown page
+  if (isRateLimited()) {
+    console.log("[data] no cache, rate limited → showing clock");
+    return { _rateLimited: true, _resetMs: getRateLimitResetMs() };
+  }
+
+  // 5. For Google Drive, skip user existence check
+  if (source === 'gd') {
+    const resume = await fetchResumeFromGDrive(identifier);
+    if (!resume) {
+      if (staleCache) return { ...staleCache, _offline: true, _resetMs: getRateLimitResetMs() };
+      return { _notFound: true };
+    }
+    const unified = buildUnifiedData(resume, null, null, identifier);
+    return unified;
+  }
+
+  // 5. Check if user exists — uses fetchWithCache so ETag 304 doesn't consume rate limit
+  console.log("[data] checking user existence for:", identifier);
+  const { exists, rateLimited } = await checkUserExists(identifier);
+  console.log("[data] checkUserExists result:", { exists, rateLimited });
+
+  if (rateLimited) {
+    // Rate limited — show clock (with or without cache)
+    const cached = staleCache || freshCache;
+    if (cached) {
+      console.log("[data] rate limited, returning cached data with offline flag");
+      return { ...cached, _offline: true, _resetMs: getRateLimitResetMs() };
+    }
+    console.log("[data] rate limited, no cache → showing clock");
+    return { _rateLimited: true, _resetMs: getRateLimitResetMs() };
+  }
+
+  if (!exists) {
+    // User doesn't exist — but if rate limited, show clock instead of 404
+    if (isRateLimited()) {
+      const cached = staleCache || freshCache;
+      if (cached) return { ...cached, _offline: true, _resetMs: getRateLimitResetMs() };
+      return { _rateLimited: true, _resetMs: getRateLimitResetMs() };
+    }
+    if (staleCache) {
+      console.log("[data] user not found, returning stale cache with offline flag");
+      return { ...staleCache, _offline: true, _resetMs: getRateLimitResetMs() };
+    }
+    console.log("[data] user not found, no cache → 404");
+    return { _notFound: true };
+  }
+
+  // 6. Fetch everything
+  let resume, ghProfile, repos;
+
+  [resume, ghProfile] = await Promise.all([
+    fetchResumeGist(identifier),
+    fetchGithubUserProfile(identifier),
+  ]);
+  repos = await fetchAndMergeProjects(identifier);
+
   console.log("[data] resume loaded:", !!resume);
-  if (source !== 'gd') console.log("[data] gh profile loaded:", !!ghProfile);
+  console.log("[data] gh profile loaded:", !!ghProfile);
   console.log("[data] repos loaded:", repos?.length || 0);
 
+  // If we got no data at all, figure out why
+  if (!resume && !ghProfile && repos?.length === 0) {
+    // Rate limited — show clock instead of empty page
+    if (isRateLimited()) {
+      const cached = staleCache || freshCache;
+      if (cached) return { ...cached, _offline: true, _resetMs: getRateLimitResetMs() };
+      return { _rateLimited: true, _resetMs: getRateLimitResetMs() };
+    }
+    // Has stale cache — show that
+    if (staleCache) {
+      return { ...staleCache, _stale: true };
+    }
+  }
+
+  const unified = buildUnifiedData(resume, ghProfile, repos, identifier);
+  console.log("[data] unified data built, basics:", !!unified?.basics);
+  return unified;
+}
+
+function buildUnifiedData(resume, ghProfile, repos, identifier) {
   // --- Merge basics ---
   const resumeBasics = resume?.basics || {};
   const profiles = mergeProfiles(
@@ -511,16 +725,24 @@ export async function collectPortfolioData(identifier, source = 'gh') {
   const education = resume?.education || null;
   const skills = mergeSkills(resume?.skills, repos);
   const projects = mergeProjects(resume?.projects, repos);
+  const certificates = resume?.certificates || null;
+  const work = resume?.work || null;
+  const languages = resume?.languages || null;
+  const awards = resume?.awards || null;
+  const volunteer = resume?.volunteer || null;
+  const publications = resume?.publications || null;
 
   // --- Meta config ---
   const meta = resume?.meta || {};
 
-  const unified = { basics, education, skills, projects, meta, _rawResume: resume };
+  const unified = { basics, education, certificates, skills, projects, meta, work, languages, awards, volunteer, publications, _rawResume: resume, _cachedAt: Date.now() };
 
-  // Store in localStorage for debugging / caching
+  // Store in user-specific localStorage key
+  const userCacheKey = getUserCacheKey(identifier);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(unified, null, 2));
-    console.log("[data] unified data stored in localStorage");
+    localStorage.setItem(userCacheKey, JSON.stringify(unified, null, 2));
+    localStorage.setItem(LAST_USER_KEY, identifier);
+    console.log("[data] unified data stored in localStorage for", identifier);
   } catch (_) {
     /* quota exceeded or private browsing — ignore */
   }
@@ -532,15 +754,42 @@ export async function collectPortfolioData(identifier, source = 'gh') {
 // Read cached data (synchronous, for quick access)
 // ---------------------------------------------------------------------------
 
-export function getCachedData() {
+export function getCachedData(username) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    // If no username provided, try to find the last active user
+    if (!username) {
+      username = localStorage.getItem(LAST_USER_KEY);
+      if (!username) return null;
+    }
+    const cacheKey = getUserCacheKey(username);
+    const raw = localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data._cachedAt) return data; // backward compat
+    const CACHE_TTL = 60 * 60 * 1000;
+    if (Date.now() - data._cachedAt > CACHE_TTL) return null;
+    return data;
   } catch (_) {
     return null;
   }
 }
 
-export function clearCachedData() {
+export function clearCachedData(username) {
+  if (username) {
+    localStorage.removeItem(getUserCacheKey(username));
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
+export function clearAllCache() {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LAST_USER_KEY);
+  // Clear all gist list caches and user-specific caches
+  const keys = Object.keys(localStorage);
+  for (const key of keys) {
+    if (key.startsWith(GIST_LIST_CACHE_KEY) || key.startsWith(STORAGE_KEY + "-")) {
+      localStorage.removeItem(key);
+    }
+  }
 }
