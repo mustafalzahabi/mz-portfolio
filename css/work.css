@@ -1,0 +1,56 @@
+/* ============================================================================
+   WORK SECTION
+   ============================================================================ */
+
+.work-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.work-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border-inline-start: 4px solid var(--accent);
+}
+
+.work-card h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-block-end: 0.5rem;
+}
+
+.work-card .company {
+  color: var(--accent);
+  font-weight: 600;
+  margin-block-end: 0.5rem;
+}
+
+.work-card .dates {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  margin-block-end: 0.75rem;
+}
+
+.work-card .location {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  margin-block-end: 0.75rem;
+}
+
+.work-card .summary {
+  font-size: 0.9rem;
+  margin-block-end: 0.75rem;
+  line-height: 1.5;
+}
+
+.work-card .highlights {
+  padding-inline-start: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.work-card .highlights li {
+  margin-block-end: 0.25rem;
+}
