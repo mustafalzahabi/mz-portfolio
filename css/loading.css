@@ -149,3 +149,79 @@
 .retry-btn:hover {
   opacity: 0.8;
 }
+
+/* --- Rate limit waiting page --- */
+.rate-limit-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 2rem;
+}
+
+.clock-container {
+  margin-bottom: 2rem;
+}
+
+.clock-svg {
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1));
+}
+
+.rate-limit-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--primary);
+}
+
+.rate-limit-text {
+  color: var(--secondary);
+  max-width: 400px;
+  line-height: 1.6;
+  margin: 0 0 2rem;
+}
+
+.rate-limit-countdown {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.rate-limit-resume-text {
+  font-size: 0.85rem;
+  color: var(--secondary);
+  margin: 0 0 1.5rem;
+}
+
+.rate-limit-resume-text strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.rate-limit-bar-track {
+  width: 200px;
+  height: 4px;
+  background: var(--surface);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.rate-limit-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.rate-limit-hint {
+  font-size: 0.8rem;
+  color: var(--secondary);
+  line-height: 1.6;
+  margin: 0;
+}

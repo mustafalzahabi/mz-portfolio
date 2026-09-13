@@ -1,0 +1,28 @@
+/* ============================================================================
+   LANGUAGES SECTION
+   ============================================================================ */
+
+.languages-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.language-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border-inline-start: 4px solid var(--accent);
+  text-align: center;
+}
+
+.language-card .language-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-block-end: 0.5rem;
+}
+
+.language-card .fluency {
+  color: var(--accent);
+  font-size: 0.875rem;
+}
