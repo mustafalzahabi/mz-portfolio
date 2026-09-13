@@ -90,8 +90,7 @@ export function showRateLimited(resetMs) {
     if (resetAt > now) {
       secs = Math.ceil((resetAt - now) / 1000);
     } else {
-      // Fallback: use the passed resetMs
-      secs = Math.max(0, Math.ceil(resetMs / 1000));
+      secs = 0;
     }
 
     const mins = Math.floor(secs / 60);
@@ -120,10 +119,6 @@ export function showRateLimited(resetMs) {
     const targetH12 = targetH24 % 12 || 12;
     const ampm = targetH24 < 12 ? "AM" : "PM";
     const targetTimeStr = `${targetH12}:${String(targetM).padStart(2, "0")} ${ampm}`;
-
-    // Progress (0 to 1) based on initial total
-    const totalSecs = Math.ceil(resetMs / 1000);
-    const progress = 1 - (secs / totalSecs);
 
     const cx = 100, cy = 100;
     const faceR = 88;
@@ -162,9 +157,6 @@ export function showRateLimited(resetMs) {
         <p class="rate-limit-text">This user exists. You're temporarily offline.</p>
         <div class="rate-limit-countdown">${String(mins).padStart(2, "0")}:${String(s).padStart(2, "0")}</div>
         <p class="rate-limit-resume-text">Opens again at <strong>${targetTimeStr}</strong></p>
-        <div class="rate-limit-bar-track">
-          <div class="rate-limit-bar-fill" style="width:${progress * 100}%"></div>
-        </div>
         <p class="rate-limit-hint">This page will refresh automatically.</p>
       </div>
     `;
