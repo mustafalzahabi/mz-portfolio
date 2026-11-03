@@ -34,9 +34,9 @@
 
   /* Palette Helm (Variable) */
   --accent: #2f5d62;  /* primary buttons, active links, selection */
-  --variant: #7a6a9b; /* hover, focused inputs, pressed states */
-  --surface: #ebe6df; /* cards, banners, sidebars, nav headers */
-  --depth: #b3aa9e;   /* borders, dividers, recessed wells/inputs */
+  --variant: #6c5c91; /* hover, focused inputs, pressed states */
+  --surface: #c6dfd7; /* cards, banners, sidebars, nav headers */
+  --depth: #6f9e96;   /* borders, dividers, recessed wells/inputs */
 
   /* Signal Flags (Additional) */
   --optimal: #3f8f5f; /* success */
@@ -111,7 +111,8 @@
   --ink-soft: color-mix(in oklab, var(--color-c) 55%, var(--color-b));
   --line: var(--color-d);
   --line-soft: color-mix(in oklab, var(--color-d) 45%, var(--color-b));
-  --card: color-mix(in oklab, var(--color-s) 55%, var(--color-b));
+  --line-strong: color-mix(in oklab, var(--color-d) 72%, var(--color-c)); /* form fields: ≥3:1 in both modes */
+  --card: light-dark(color-mix(in oklab, var(--color-s) 55%, var(--color-b)), var(--color-s));
   --well: color-mix(in oklab, var(--color-s) 70%, var(--color-d));
   --tint-a: color-mix(in oklab, var(--color-a) 12%, var(--color-b));
   --tint-v: color-mix(in oklab, var(--color-v) 14%, var(--color-b));
