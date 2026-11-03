@@ -388,4 +388,5 @@ export function resetStyleConfig(root = document.documentElement) {
     root.style.removeProperty(prop);
   }
   root.classList.remove("hover-lift", "hover-shadow", "hover-glow");
+  delete root.dataset.navLabels;
 }

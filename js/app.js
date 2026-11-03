@@ -41,6 +41,7 @@ import {
 // ============================================================================
 
 const state = {
+  loadId: 0, // bumps on every navigation; stale async work checks it
   key: null, // "gh:user" | "gd:id" | "preview"
   vm: null,
   config: null,
@@ -81,6 +82,7 @@ async function route() {
       return;
     }
     if (state.key !== "preview") {
+      resetPortfolio();
       try {
         const { resume } = analyzeResume(json);
         await showPortfolio({ resume, github: null, repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } }, "preview");
@@ -100,11 +102,10 @@ async function route() {
   }
 
   resetPortfolio();
+  const loadId = state.loadId;
   showLoading();
   const result = await collectPortfolioData(path.source, path.id);
-  // Navigated elsewhere while loading?
-  const now = parsePath();
-  if (now.view !== "portfolio" || `${now.source}:${now.id.toLowerCase()}` !== key) return;
+  if (loadId !== state.loadId) return; // navigated elsewhere while loading
 
   switch (result.status) {
     case "notfound":
@@ -119,15 +120,18 @@ async function route() {
 
   const { data } = result;
   if (!data.resume && !data.repos.length) return showEmpty(path.id);
-  await showPortfolio(data, key);
+  if (!(await showPortfolio(data, key, loadId))) return;
   if (result.offline) showOfflineBanner(result);
   renderSubRoute();
 }
 
+// Clears everything one portfolio applied (its colors, fonts, radius, motion,
+// theme default) so the next page never inherits another owner's look.
 function resetPortfolio() {
+  state.loadId++;
   teardownAnimations();
   document.querySelector(".offline-banner")?.remove();
-  if (state.key) resetStyleConfig();
+  resetStyleConfig();
   state.key = null;
   state.vm = null;
   state.introPlayed = false;
@@ -140,16 +144,19 @@ function resetPortfolio() {
 // PORTFOLIO SHELL
 // ============================================================================
 
-async function showPortfolio(data, key) {
+/** Renders a portfolio; returns false if the visitor navigated away meanwhile. */
+async function showPortfolio(data, key, loadId = state.loadId) {
   const { config, warnings } = normalizeConfig(data.resume?.meta || {});
   if (warnings.length) debug("config warnings", warnings);
-
-  applyStyleConfig(config);
-  setOwnerDefault(config.theme.mode);
 
   const vm = buildViewModel(data, config);
   // README covers for GitHub-backed project cards (raw host, capped wait)
   await Promise.race([enrichProjectCovers(vm.projects), new Promise((r) => setTimeout(r, 2500))]);
+  if (loadId !== state.loadId) return false;
+
+  // This owner's look applies only now, while their portfolio is shown
+  applyStyleConfig(config);
+  setOwnerDefault(config.theme.mode);
 
   state.key = key;
   state.vm = vm;
@@ -160,6 +167,7 @@ async function showPortfolio(data, key) {
 
   updateHead(vm, config);
   renderShell();
+  return true;
 }
 
 function pickPhoto(vm, config) {
