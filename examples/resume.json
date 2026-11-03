@@ -16,9 +16,21 @@
       "region": "Massachusetts"
     },
     "profiles": [
-      { "network": "LinkedIn", "username": "linahaddad", "url": "https://www.linkedin.com/in/linahaddad" },
-      { "network": "Behance", "username": "linahaddad", "url": "https://www.behance.net/linahaddad" },
-      { "network": "GitHub", "username": "linahaddad", "url": "https://github.com/linahaddad" }
+      {
+        "network": "LinkedIn",
+        "username": "linahaddad",
+        "url": "https://www.linkedin.com/in/linahaddad"
+      },
+      {
+        "network": "Behance",
+        "username": "linahaddad",
+        "url": "https://www.behance.net/linahaddad"
+      },
+      {
+        "network": "GitHub",
+        "username": "linahaddad",
+        "url": "https://github.com/linahaddad"
+      }
     ]
   },
   "work": [
@@ -42,7 +54,9 @@
       "startDate": "2015-09",
       "endDate": "2019-03",
       "summary": "Concept and detailed design for galleries and private homes.",
-      "highlights": ["Designed the extension of a 1930s gallery, shortlisted for a regional award"]
+      "highlights": [
+        "Designed the extension of a 1930s gallery, shortlisted for a regional award"
+      ]
     }
   ],
   "volunteer": [
@@ -53,7 +67,9 @@
       "startDate": "2021-10",
       "endDate": "2023-10",
       "summary": "Guided public tours of contemporary buildings.",
-      "highlights": ["Wrote the tour notes used by 30 guides"]
+      "highlights": [
+        "Wrote the tour notes used by 30 guides"
+      ]
     }
   ],
   "education": [
@@ -65,7 +81,11 @@
       "startDate": "2013-09",
       "endDate": "2015-06",
       "score": "4.0",
-      "courses": ["Daylighting Design", "Timber Structures", "Urban Housing"]
+      "courses": [
+        "Daylighting Design",
+        "Timber Structures",
+        "Urban Housing"
+      ]
     },
     {
       "institution": "American University of Beirut",
@@ -76,31 +96,99 @@
     }
   ],
   "awards": [
-    { "title": "Emerging Architect Prize", "date": "2022-11-01", "awarder": "Boston Society for Architecture", "summary": "For the Cedar Court housing scheme." }
+    {
+      "title": "Emerging Architect Prize",
+      "date": "2022-11-01",
+      "awarder": "Boston Society for Architecture",
+      "summary": "For the Cedar Court housing scheme."
+    }
   ],
   "certificates": [
-    { "name": "Licensed Architect (NCARB)", "date": "2018-05-01", "issuer": "NCARB", "url": "https://example.com/ncarb" },
-    { "name": "LEED AP BD+C", "date": "2020-02-01", "issuer": "USGBC" }
+    {
+      "name": "Licensed Architect (NCARB)",
+      "date": "2018-05-01",
+      "issuer": "NCARB",
+      "url": "https://example.com/ncarb"
+    },
+    {
+      "name": "LEED AP BD+C",
+      "date": "2020-02-01",
+      "issuer": "USGBC"
+    }
   ],
   "publications": [
-    { "name": "Light as Material", "publisher": "Architecture Quarterly", "releaseDate": "2021-03-01", "url": "https://example.com/light", "summary": "An essay on daylight in small homes." }
+    {
+      "name": "Light as Material",
+      "publisher": "Architecture Quarterly",
+      "releaseDate": "2021-03-01",
+      "url": "https://example.com/light",
+      "summary": "An essay on daylight in small homes."
+    }
   ],
   "skills": [
-    { "name": "Design", "level": "Master", "keywords": ["Concept design", "Interior design", "Daylighting"] },
-    { "name": "Tools", "level": "Advanced", "keywords": ["Revit", "Rhino", "AutoCAD", "SketchUp"] },
-    { "name": "Delivery", "level": "Intermediate", "keywords": ["Site supervision", "Cost planning"] }
+    {
+      "name": "Design",
+      "level": "Master",
+      "keywords": [
+        "Concept design",
+        "Interior design",
+        "Daylighting"
+      ]
+    },
+    {
+      "name": "Tools",
+      "level": "Advanced",
+      "keywords": [
+        "Revit",
+        "Rhino",
+        "AutoCAD",
+        "SketchUp"
+      ]
+    },
+    {
+      "name": "Delivery",
+      "level": "Intermediate",
+      "keywords": [
+        "Site supervision",
+        "Cost planning"
+      ]
+    }
   ],
   "languages": [
-    { "language": "English", "fluency": "Native speaker" },
-    { "language": "Arabic", "fluency": "Native speaker" },
-    { "language": "French", "fluency": "Professional working proficiency" }
+    {
+      "language": "English",
+      "fluency": "Native speaker"
+    },
+    {
+      "language": "Arabic",
+      "fluency": "Native speaker"
+    },
+    {
+      "language": "French",
+      "fluency": "Professional working proficiency"
+    }
   ],
   "interests": [
-    { "name": "Craft", "keywords": ["Woodworking", "Ceramics"] },
-    { "name": "Travel", "keywords": ["Vernacular architecture", "Sketching"] }
+    {
+      "name": "Craft",
+      "keywords": [
+        "Woodworking",
+        "Ceramics"
+      ]
+    },
+    {
+      "name": "Travel",
+      "keywords": [
+        "Vernacular architecture",
+        "Sketching"
+      ]
+    }
   ],
   "references": [
-    { "name": "Omar Rami, Atelier Rami", "reference": "Lina brings clarity to every project and every team she joins." }
+    {
+      "name": "Omar Rami, Atelier Rami",
+      "reference": "Lina brings clarity to every project and every team she joins."
+    }
   ],
   "projects": [
     {
@@ -108,21 +196,35 @@
       "startDate": "2020-01",
       "endDate": "2022-06",
       "description": "Forty timber homes arranged around a shared garden.",
-      "highlights": ["Mass-timber structure", "Passive-house certified"],
+      "highlights": [
+        "Mass-timber structure",
+        "Passive-house certified"
+      ],
       "url": "https://example.com/cedar-court",
-      "roles": ["Lead Architect"],
+      "roles": [
+        "Lead Architect"
+      ],
       "entity": "Studio North",
       "type": "application",
-      "keywords": ["Housing", "Timber", "Sustainability"]
+      "keywords": [
+        "Housing",
+        "Timber",
+        "Sustainability"
+      ]
     },
     {
       "name": "Gallery Extension",
       "startDate": "2017-03",
       "endDate": "2018-12",
       "description": "A quiet top-lit extension to a 1930s gallery.",
-      "roles": ["Project Architect"],
+      "roles": [
+        "Project Architect"
+      ],
       "entity": "Atelier Rami",
-      "keywords": ["Cultural", "Renovation"]
+      "keywords": [
+        "Cultural",
+        "Renovation"
+      ]
     }
   ],
   "meta": {
@@ -131,13 +233,74 @@
     "lastModified": "2026-10-01T10:00:00",
     "theme": "even",
     "mz-portfolio-config": {
-      "theme": { "mode": "auto", "toggle": "switch" },
-      "text": { "tagline": "Calm, light-filled spaces.", "cta": "View resume", "locale": "en-US" },
-      "profile": { "photoShape": "rounded" },
-      "projects": { "layout": "grid", "sort": "resume", "github": "matched" },
-      "skills": { "display": "progress" },
-      "sections": { "order": ["about", "work", "projects", "skills", "education", "awards", "certificates", "publications", "volunteer", "languages", "interests", "references", "contact"] },
-      "animation": { "intro": "code", "hover": { "lift": true, "shadow": true } }
+      "theme": {
+        "mode": "auto",
+        "toggle": "switch"
+      },
+      "text": {
+        "tagline": "Calm, light-filled spaces.",
+        "cta": "View resume",
+        "locale": "en-US"
+      },
+      "profile": {
+        "photoShape": "rounded"
+      },
+      "projects": {
+        "layout": "grid",
+        "sort": "resume",
+        "github": "matched"
+      },
+      "skills": {
+        "display": "progress"
+      },
+      "sections": {
+        "order": [
+          "about",
+          "work",
+          "projects",
+          "skills",
+          "education",
+          "awards",
+          "certificates",
+          "publications",
+          "volunteer",
+          "languages",
+          "interests",
+          "references",
+          "contact"
+        ]
+      },
+      "animation": {
+        "intro": "code",
+        "hover": {
+          "lift": true,
+          "shadow": true
+        }
+      },
+      "tabs": [
+        {
+          "label": "Studio notes",
+          "type": "markdown",
+          "content": "## How I work\n\n1. Listen first\n2. Sketch many options\n3. Build models early\n\n> Good buildings are made of good questions."
+        },
+        {
+          "label": "Snippet",
+          "type": "code",
+          "language": "js",
+          "content": "// Area of a room in square meters\nexport function area(width, depth) {\n  return Math.round(width * depth * 100) / 100;\n}\n"
+        },
+        {
+          "label": "Light study",
+          "type": "html",
+          "height": 260,
+          "content": "<style>body{margin:0;display:grid;place-items:center;height:100vh;background:linear-gradient(135deg,#f6d365,#fda085);font:600 1.2rem system-ui}</style><div id=o>Light study</div><script>var r=[];try{parent.document.title;r.push('parent DOM: LEAK')}catch(e){r.push('parent DOM: blocked')}try{localStorage.length;r.push('storage: LEAK')}catch(e){r.push('storage: blocked')}document.getElementById('o').textContent=r.join(' · ')</script>"
+        },
+        {
+          "label": "Website",
+          "type": "link",
+          "url": "https://example.com"
+        }
+      ]
     }
   }
 }

@@ -1,0 +1,472 @@
+/* ============================================================================
+   STANDALONE PAGES — page bar, project page, custom tab pages (mobile first)
+   ============================================================================ */
+
+/* ---------- page bar ---------- */
+
+.page-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(0.5rem + env(safe-area-inset-top)) var(--gutter) 0.5rem;
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.page-bar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  min-width: 0;
+  color: var(--color-c);
+  text-decoration: none;
+}
+
+.page-bar-avatar {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.page-bar-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.page-bar-text strong,
+.page-bar-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-bar-text span {
+  font-size: 0.8rem;
+}
+
+.page-bar .theme-toggle--icon {
+  background: var(--well);
+  color: var(--color-c);
+}
+
+/* ---------- hero ---------- */
+
+.project-page {
+  display: grid;
+  gap: clamp(2rem, 6vw, 3.5rem);
+  padding: 1.5rem 0 2.5rem;
+}
+
+.project-hero {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 5vw, 2.75rem);
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 1.6);
+  background:
+    radial-gradient(120% 120% at 0% 0%, color-mix(in oklab, var(--color-a) 22%, transparent), transparent 60%),
+    radial-gradient(120% 120% at 100% 100%, color-mix(in oklab, var(--color-v) 18%, transparent), transparent 55%),
+    var(--card);
+  border: 1px solid var(--line-soft);
+}
+
+.project-hero-text {
+  display: grid;
+  gap: 0.75rem;
+  align-content: center;
+  min-width: 0;
+}
+
+.project-hero-title {
+  color: var(--color-p);
+  font-size: clamp(1.9rem, 8vw, 3.2rem);
+  font-weight: 780;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+:root[data-scheme="dark"] .project-hero-title {
+  color: var(--color-c);
+}
+
+.project-hero-lead {
+  max-width: 40rem;
+  color: color-mix(in oklab, var(--color-c) 82%, var(--color-b));
+  font-size: clamp(1.02rem, 3.5vw, 1.2rem);
+}
+
+.project-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.project-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.project-hero-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-b) 70%, transparent);
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.project-hero-media {
+  display: none;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  box-shadow: var(--shadow-lg);
+}
+
+.project-hero.has-media .project-hero-media {
+  display: block;
+}
+
+.frame-bar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--card);
+}
+
+.frame-bar span {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--color-d);
+}
+
+.project-hero-media img {
+  width: 100%;
+  max-height: 26rem;
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* ---------- body ---------- */
+
+.project-layout {
+  display: grid;
+  gap: 1.75rem;
+  min-width: 0;
+}
+
+.project-main {
+  display: grid;
+  gap: 2rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.project-block {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.project-block[hidden] {
+  display: none;
+}
+
+.project-block-title {
+  font-size: 1.25rem;
+}
+
+.highlight-grid {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+.highlight-grid li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+}
+
+.highlight-grid .icon {
+  margin-top: 0.15rem;
+  color: var(--color-o);
+}
+
+.project-readme .prose {
+  max-width: none;
+  padding: clamp(1rem, 4vw, 1.75rem);
+}
+
+.project-aside {
+  min-width: 0;
+}
+
+.glance {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.glance-title {
+  font-size: 1rem;
+}
+
+.glance-sub {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.glance .tags {
+  margin-top: -0.4rem;
+}
+
+.facts {
+  display: grid;
+  gap: 0;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.92rem;
+}
+
+.fact dt {
+  color: var(--ink-muted);
+}
+
+.fact dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.glance-links {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.glance-links a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ---------- more projects ---------- */
+
+.project-more {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.project-more-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.more-card {
+  display: grid;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+.more-card img {
+  width: calc(100% + 2.2rem);
+  max-width: none;
+  height: 9rem;
+  margin: -1.1rem -1.1rem 0.5rem;
+  object-fit: cover;
+}
+
+.more-dir {
+  color: var(--color-a);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.more-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@media (min-width: 600px) {
+  .highlight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-more-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .project-hero.has-media {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .project-layout {
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    gap: 2.5rem;
+  }
+
+  .project-aside .glance {
+    position: sticky;
+    top: 5rem;
+  }
+}
+
+/* ============================================================================
+   CUSTOM TAB PAGES
+   ============================================================================ */
+
+.tab-page {
+  display: grid;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.tab-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tab-page-head .section-title {
+  flex: 1;
+  margin: 0;
+}
+
+.tab-page-body {
+  min-width: 0;
+}
+
+.tab-page-body .prose {
+  max-width: none;
+  padding: clamp(1rem, 4vw, 1.75rem);
+}
+
+.embed-frame {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.embed-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  border: 0;
+  background: var(--color-b);
+}
+
+.embed-frame > .html-sandbox {
+  height: auto;
+}
+
+.code-card {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+
+.code-card-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--card);
+  font-family: var(--font-family-mono);
+  font-size: 0.85rem;
+}
+
+.code-card-bar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-card-bar .btn {
+  min-height: 34px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.code-view {
+  margin: 0;
+  max-height: 75vh;
+  padding: 1rem;
+  overflow: auto;
+  background: color-mix(in oklab, var(--color-c) 92%, var(--color-p));
+  color: color-mix(in oklab, var(--color-b) 92%, var(--color-d));
+  font-size: 0.85rem;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+:root[data-scheme="dark"] .code-view {
+  background: color-mix(in oklab, var(--color-b) 70%, var(--color-p));
+  color: var(--color-c);
+}
+
+/* Wide README content (long code lines, tables) scrolls inside its card
+   instead of widening the column into the sidebar. */
+.project-block > *,
+.tab-page-body > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.project-readme .prose pre,
+.project-readme .prose .table-wrap {
+  max-width: 100%;
+}

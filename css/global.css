@@ -515,8 +515,7 @@ pre {
 
 .offline-banner,
 .preview-bar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 60;
   display: flex;
   flex-wrap: wrap;
@@ -623,4 +622,14 @@ pre {
 
 .profile-facts a span:not(.icon) {
   overflow-wrap: anywhere;
+}
+
+/* GitHub language colors on tags (set per tag by js/languages.js) */
+.tag.tag-lang {
+  background: var(--lang);
+  color: var(--on-lang);
+}
+
+.prose > :first-child {
+  margin-top: 0;
 }

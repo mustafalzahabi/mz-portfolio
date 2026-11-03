@@ -3,8 +3,9 @@
 // Path:  /                     landing page
 //        /preview              local preview (drop / paste a resume.json)
 //        /docs                 configuration reference
-//        /:id                  portfolio, source auto-detected (GitHub or Drive)
-// Hash:  #/project/:name  #/blog  #/blog/:slug  #/resume  #section-id
+//        /preview/view/...     the previewed portfolio
+//        /:id/...              portfolio, source auto-detected (GitHub or Drive)
+// Hash:  #section-id           scroll to a profile section
 // The app may live in a sub-folder (e.g. GitHub Pages project site): the base
 // path is derived from this module's own URL.
 // ============================================================================
@@ -56,30 +57,50 @@ export function detectSource(input) {
   return { source: looksLikeDriveId(value) ? "gd" : "auto", id: value };
 }
 
-/** Parses the path (relative to BASE_PATH) into a view. */
+/**
+ * Parses the path (relative to BASE_PATH) into a view.
+ * Portfolio pages:  /:id                 profile
+ *                   /:id/blog            blog list
+ *                   /:id/blog/:slug      blog post
+ *                   /:id/project/:slug   project page
+ *                   /:id/tab/:slug       custom tab
+ *                   /:id/resume          profile with the resume viewer open
+ * Preview uses the same sub-pages under /preview/view.
+ */
 export function parsePath(pathname = location.pathname, base = BASE_PATH) {
   let rel = pathname.startsWith(base) ? pathname.slice(base.length) : pathname.replace(/^\//, "");
   rel = rel.replace(/^index\.html$/, "");
-  const parts = rel.split("/").filter(Boolean).map(decodeURIComponent);
+  const parts = rel.split("/").filter(Boolean).map(safeDecode);
 
   if (!parts.length) return { view: "landing" };
-  if (parts.length === 1 && RESERVED.has(parts[0].toLowerCase())) return { view: parts[0].toLowerCase() };
+  const first = parts[0].toLowerCase();
+  if (first === "docs" && parts.length === 1) return { view: "docs" };
+  if (first === "preview") {
+    if (parts[1] !== "view") return { view: "preview" };
+    return { view: "portfolio", preview: true, source: "preview", id: "preview", base: `${base}preview/view`, sub: parseSub(parts.slice(2)) };
+  }
+  if (RESERVED.has(first)) return { view: "landing" };
 
-  if (parts.length > 1) return { view: "landing" };
   const detected = detectSource(parts[0]);
   if (!detected.id) return { view: "landing" };
-  return { view: "portfolio", source: detected.source || "auto", id: detected.id };
+  return {
+    view: "portfolio",
+    source: detected.source || "auto",
+    id: detected.id,
+    base: `${base}${encodeURIComponent(detected.id)}`,
+    sub: parseSub(parts.slice(1)),
+  };
 }
 
-/** Parses location.hash into a sub-route. */
-export function parseHash(hash = location.hash) {
-  const h = hash || "";
-  if (h.startsWith("#/project/")) return { name: "project", param: safeDecode(h.slice(10)) };
-  if (h.startsWith("#/blog/")) return { name: "post", param: safeDecode(h.slice(7)) };
-  if (h === "#/blog" || h === "#blog") return { name: "blog" };
-  if (h === "#/resume") return { name: "resume" };
-  if (h.length > 1 && !h.startsWith("#/")) return { name: "section", param: safeDecode(h.slice(1)) };
-  return { name: "profile" };
+function parseSub(parts) {
+  const [kind, slug, ...rest] = parts.map((p) => p.trim());
+  if (!kind) return { name: "profile" };
+  if (rest.length) return { name: "missing" };
+  if (kind === "blog") return slug ? { name: "post", param: slug } : { name: "blog" };
+  if (kind === "project" && slug) return { name: "project", param: slug };
+  if (kind === "tab" && slug) return { name: "tab", param: slug };
+  if (kind === "resume" && !slug) return { name: "resume" };
+  return { name: "missing" };
 }
 
 function safeDecode(s) {
@@ -119,8 +140,14 @@ export function interceptLinks(root = document) {
     if (!a || a.target === "_blank" || a.hasAttribute("download") || a.dataset.external !== undefined) return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(BASE_PATH)) return;
-    if (url.pathname === location.pathname && url.search === location.search) return; // hash-only → native
+    const samePage = url.pathname === location.pathname && url.search === location.search;
+    if (samePage && url.hash) return; // in-page anchor → native
     e.preventDefault();
+    if (samePage) {
+      if (location.hash) history.replaceState(null, "", url.pathname + url.search);
+      scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     navigate(url.pathname + url.search + url.hash);
   });
 }

@@ -5,7 +5,7 @@
 import { h, svgIcon, safeUrl } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
-import { BASE_PATH, parsePath, parseHash, rescueRedirect, interceptLinks } from "./router.js";
+import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "./router.js";
 import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
 import { collectPortfolioData } from "./data.js";
@@ -18,9 +18,13 @@ import {
   buildFooter,
   buildBlogList,
   buildBlogPost,
-  buildProjectDetail,
+  buildProjectPage,
+  buildPageBar,
+  buildTabPage,
+  setTagOptions,
   enrichProjectCovers,
 } from "./components.js";
+import { loadLanguageColors } from "./languages.js";
 import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
@@ -42,16 +46,20 @@ import {
 
 const state = {
   loadId: 0, // bumps on every navigation; stale async work checks it
-  key: null, // "gh:user" | "gd:id" | "preview"
+  key: null, // "gh:user" | "gd:id" | "auto:user" | "preview"
+  base: "", // "/<id>" or "/preview/view" — prefix for sub-page links
   vm: null,
   config: null,
   photo: "",
+  shell: null, // "profile" (banner + tabs) | "page" (slim bar, e.g. project pages)
+  page: null, // which view is rendered inside the shell
   introPlayed: false,
   profileScroll: 0,
-  lastHashName: null,
   blogState: { query: "", tag: "", page: 1 },
   resumeOverlay: null,
 };
+
+let lastRoutedHref = null;
 
 // ============================================================================
 // ROUTING
@@ -61,51 +69,41 @@ async function route() {
   const path = parsePath();
   debug("route", path, location.hash);
 
-  if (path.view !== "portfolio" && path.view !== "preview") {
+  if (path.view !== "portfolio") {
     closeResume();
     resetPortfolio();
     if (path.view === "docs") renderDocs();
+    else if (path.view === "preview") renderPreviewEditor(() => navigate(`${BASE_PATH}preview/view`));
     else renderLanding();
     focusMain();
     return;
   }
 
-  if (path.view === "preview") {
-    const json = getPreviewJson();
-    if (!location.hash || location.hash === "#edit" || !json) {
-      closeResume();
-      resetPortfolio();
-      renderPreviewEditor(() => {
-        state.key = null;
-        location.hash = "#/view";
-      });
-      return;
-    }
-    if (state.key !== "preview") {
-      resetPortfolio();
-      try {
-        const { resume } = analyzeResume(json);
-        await showPortfolio({ resume, github: null, repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } }, "preview");
-      } catch {
-        location.hash = "#edit";
-        return;
-      }
-    }
-    renderSubRoute();
-    return;
-  }
-
-  const key = `${path.source}:${path.id.toLowerCase()}`;
+  const key = path.preview ? "preview" : `${path.source}:${path.id.toLowerCase()}`;
   if (state.key === key && state.vm) {
-    renderSubRoute();
+    renderSub(path.sub);
     return;
   }
 
   resetPortfolio();
   const loadId = state.loadId;
-  showLoading();
-  const result = await collectPortfolioData(path.source, path.id);
-  if (loadId !== state.loadId) return; // navigated elsewhere while loading
+  let result;
+
+  if (path.preview) {
+    const json = getPreviewJson();
+    try {
+      if (!json) throw new Error("no preview");
+      const { resume } = analyzeResume(json);
+      result = { status: "ok", data: { resume, github: null, repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } } };
+    } catch {
+      navigate(`${BASE_PATH}preview`, { replace: true });
+      return;
+    }
+  } else {
+    showLoading();
+    result = await collectPortfolioData(path.source, path.id);
+    if (loadId !== state.loadId) return; // navigated elsewhere while loading
+  }
 
   switch (result.status) {
     case "notfound":
@@ -120,9 +118,9 @@ async function route() {
 
   const { data } = result;
   if (!data.resume && !data.repos.length) return showEmpty(path.id);
-  if (!(await showPortfolio(data, key, loadId))) return;
+  if (!(await showPortfolio(data, key, path.base, loadId))) return;
+  renderSub(path.sub);
   if (result.offline) showOfflineBanner(result);
-  renderSubRoute();
 }
 
 // Clears everything one portfolio applied (its colors, fonts, radius, motion,
@@ -134,39 +132,44 @@ function resetPortfolio() {
   resetStyleConfig();
   state.key = null;
   state.vm = null;
+  state.shell = null;
+  state.page = null;
   state.introPlayed = false;
-  state.lastHashName = null;
+  state.profileScroll = 0;
   state.blogState = { query: "", tag: "", page: 1 };
   setOwnerDefault("auto");
 }
 
 // ============================================================================
-// PORTFOLIO SHELL
+// PORTFOLIO DATA → STATE
 // ============================================================================
 
-/** Renders a portfolio; returns false if the visitor navigated away meanwhile. */
-async function showPortfolio(data, key, loadId = state.loadId) {
+/** Prepares a portfolio; returns false if the visitor navigated away meanwhile. */
+async function showPortfolio(data, key, base, loadId = state.loadId) {
   const { config, warnings } = normalizeConfig(data.resume?.meta || {});
   if (warnings.length) debug("config warnings", warnings);
 
   const vm = buildViewModel(data, config);
-  // README covers for GitHub-backed project cards (raw host, capped wait)
-  await Promise.race([enrichProjectCovers(vm.projects), new Promise((r) => setTimeout(r, 2500))]);
+  // README covers (raw host) and GitHub language colors, with a capped wait
+  await Promise.race([
+    Promise.all([enrichProjectCovers(vm.projects), config.tags.languageColors ? loadLanguageColors() : null]),
+    new Promise((r) => setTimeout(r, 2500)),
+  ]);
   if (loadId !== state.loadId) return false;
 
   // This owner's look applies only now, while their portfolio is shown
   applyStyleConfig(config);
   setOwnerDefault(config.theme.mode);
+  setTagOptions({ languageColors: config.tags.languageColors });
 
   state.key = key;
+  state.base = base;
   state.vm = vm;
   state.config = config;
   state.photo = pickPhoto(vm, config);
+  state.shell = null;
+  state.page = null;
   state.introPlayed = false;
-  state.lastHashName = null;
-
-  updateHead(vm, config);
-  renderShell();
   return true;
 }
 
@@ -180,102 +183,117 @@ function pickPhoto(vm, config) {
 function ctx() {
   const { config } = state;
   return {
+    base: state.base,
     locale: config.text.locale,
     present: config.text.present,
     photo: state.photo,
     bannerImage: safeUrl(config.banner.image, { allowDataImage: true }),
     homeHref: BASE_PATH,
-    openResume: () => {
-      location.hash = "#/resume";
-    },
+    openResume: () => navigate(`${state.base}/resume`),
   };
 }
 
-function renderShell() {
+// ============================================================================
+// SHELLS — "profile": banner, identity, tabs · "page": slim bar (project pages)
+// ============================================================================
+
+function ensureShell(kind, active) {
+  if (state.shell === kind) return;
   const { vm, config } = state;
+  const c = ctx();
   const app = document.getElementById("app");
   app.setAttribute("aria-busy", "false");
 
-  const view = h("div.view", { id: "view" });
-  const main = h("main.portfolio", { id: "main", tabindex: "-1" }, view);
+  const top =
+    kind === "profile"
+      ? [buildHeader(vm, config, c), buildTabs(vm, config, c, active)]
+      : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
 
   app.replaceChildren(
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
       vm.source.type === "preview" ? buildPreviewBar() : null,
-      buildHeader(vm, config, ctx()),
-      buildTabs(config, config.blog.enabled && vm.posts.length > 0, "profile"),
-      main,
-      buildFooter(vm, config, ctx()),
+      ...top,
+      h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
+      buildFooter(vm, config, c),
     ].filter(Boolean),
   );
+  state.shell = kind;
+  state.page = null;
 }
 
 function buildPreviewBar() {
   return h("div.preview-bar", { role: "status" },
     h("span", svgIcon(ICONS.eye), "Preview — only you can see this"),
-    h("a.btn.btn-ghost", { href: `${BASE_PATH}preview#edit` }, "Edit JSON"),
+    h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Edit JSON"),
   );
 }
 
 // ============================================================================
-// SUB-ROUTES (hash): profile, blog, post, project, resume, section anchors
+// SUB-PAGES: profile · resume · blog · post · project · tab
 // ============================================================================
 
-function renderSubRoute() {
+function renderSub(sub) {
   const { vm, config } = state;
   if (!vm) return;
-  const hr = parseHash();
-  const view = document.getElementById("view");
-  const blogEnabled = config.blog.enabled && vm.posts.length > 0;
+  if (sub.name !== "resume") closeResume();
+  if (state.page === "profile") state.profileScroll = scrollY;
 
-  if (hr.name !== "resume") closeResume();
-
-  // Anchors inside the profile just scroll (rebuild the profile first if needed)
-  if (hr.name === "section" || hr.name === "resume" || hr.name === "profile") {
-    if (state.lastHashName !== "profile") {
-      renderProfile(view);
-      if (hr.name === "profile" && state.profileScroll) scrollTo({ top: state.profileScroll });
-    }
-    if (hr.name === "section") document.getElementById(hr.param)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (hr.name === "resume") openResume();
-    setActiveTab("profile");
-    state.lastHashName = "profile";
+  // Project pages get their own layout
+  if (sub.name === "project") {
+    const project = vm.projects.find((p) => p.slug === sub.param);
+    ensureShell("page");
+    teardownAnimations();
+    showView(
+      `project:${sub.param}`,
+      project ? buildProjectPage(project, vm, config, ctx()) : notFoundInline("That project doesn't exist.", `${state.base}#projects`, "All projects"),
+      project ? `${project.name} — ${vm.basics.name}` : null,
+    );
     return;
   }
 
-  if (state.lastHashName === "profile") state.profileScroll = scrollY;
+  const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" || sub.name === "post" ? "blog" : "profile";
+  ensureShell("profile", tabKey);
+  setActiveTab(tabKey);
+
+  if (sub.name === "profile" || sub.name === "resume") {
+    if (state.page !== "profile") {
+      renderProfile(document.getElementById("view"));
+      state.page = "profile";
+      const target = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (target) target.scrollIntoView();
+      else scrollTo({ top: state.profileScroll });
+    } else if (location.hash.length > 1) {
+      document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (sub.name === "resume") openResume();
+    return;
+  }
+
   teardownAnimations();
+  const blogOn = config.blog.enabled && vm.posts.length > 0;
+  const back = (msg) => notFoundInline(msg, state.base, config.text.tabs.profile || "Profile");
 
-  if ((hr.name === "blog" || hr.name === "post") && blogEnabled) {
-    if (hr.name === "post") {
-      const post = vm.posts.find((p) => p.slug === hr.param);
-      view.replaceChildren(post ? buildBlogPost(post, vm, config, ctx()) : notFoundInline("That post doesn't exist.", "#/blog", "All posts"));
-      document.title = post ? `${post.title} — ${vm.basics.name}` : document.title;
-    } else {
-      view.replaceChildren(buildBlogList(vm, config, ctx(), state.blogState));
-      document.title = `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`;
-    }
-    setActiveTab("blog");
-    state.lastHashName = hr.name;
-    scrollTo({ top: 0 });
-    focusMain();
-    return;
+  if (sub.name === "blog" && blogOn) {
+    showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
+  } else if (sub.name === "post" && blogOn) {
+    const post = vm.posts.find((p) => p.slug === sub.param);
+    showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : null);
+  } else if (sub.name === "tab") {
+    const tab = config.tabs.find((t) => t.slug === sub.param && t.type !== "link");
+    showView(`tab:${sub.param}`, tab ? buildTabPage(tab, vm, config, ctx()) : back("That page doesn't exist."), tab ? `${tab.label} — ${vm.basics.name}` : null);
+  } else {
+    showView("missing", back("That page doesn't exist."), null);
   }
+}
 
-  if (hr.name === "project") {
-    const project = vm.projects.find((p) => p.slug === hr.param || p.name === hr.param);
-    view.replaceChildren(project ? buildProjectDetail(project, vm, config, ctx()) : notFoundInline("That project doesn't exist.", "#projects", "All projects"));
-    if (project) document.title = `${project.name} — ${vm.basics.name}`;
-    setActiveTab("profile");
-    state.lastHashName = "project";
-    scrollTo({ top: 0 });
-    focusMain();
-    return;
-  }
-
-  // Blog hash while blog is disabled → profile
-  location.replace("#");
+function showView(page, node, title) {
+  if (state.page === page) return;
+  document.getElementById("view").replaceChildren(node);
+  state.page = page;
+  if (title) document.title = title;
+  scrollTo({ top: 0 });
+  focusMain();
 }
 
 function renderProfile(view) {
@@ -321,7 +339,7 @@ function setActiveTab(name) {
 }
 
 // ============================================================================
-// RESUME OVERLAY (#/resume)
+// RESUME OVERLAY (/<id>/resume)
 // ============================================================================
 
 function openResume() {
@@ -333,7 +351,10 @@ function openResume() {
     allowPrint: config.resume.print,
     onClose: () => {
       state.resumeOverlay = null;
-      if (location.hash === "#/resume") history.replaceState(null, "", location.pathname + location.search);
+      if (parsePath().sub?.name === "resume") {
+        history.replaceState(null, "", state.base + location.search);
+        lastRoutedHref = location.href;
+      }
     },
   });
 }
@@ -414,10 +435,9 @@ export function init() {
 
   // Fragment navigation fires both popstate and hashchange in most browsers;
   // route once per URL.
-  let lastHref = null;
   const onNavigate = () => {
-    if (location.href === lastHref) return;
-    lastHref = location.href;
+    if (location.href === lastRoutedHref) return;
+    lastRoutedHref = location.href;
     const path = parsePath();
     if (path.view === "docs" && document.querySelector(".docs-main") && location.hash) return; // in-page anchors
     route();

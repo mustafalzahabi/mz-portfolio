@@ -5,7 +5,8 @@ Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive 
 ## Features
 
 - **Live from your resume.** The resume loads from a public GitHub gist or Google Drive. Edit it and the site updates.
-- **Projects, merged.** Resume projects are matched with your GitHub repos, adding stars, READMEs and cover images.
+- **Projects, merged.** Resume projects are matched with your GitHub repos, adding stars, READMEs and cover images. Each project has its own page.
+- **Tabs.** Profile, Blog, and up to 8 custom tabs: links, embeds, Markdown, code files or sandboxed HTML demos.
 - **Built-in resume viewer.** Native ports of 8 JSON Resume themes, with print/PDF and download.
 - **Blog.** Public gists with a `.md` file, or `.md` files in your Drive folder, become posts. Includes search, tags and pagination.
 - **Colors.** The TwOP-Architecture color system: 10 tokens, with dark mode generated automatically.
@@ -26,9 +27,13 @@ Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive 
 | `/` | Landing page |
 | `/username` | GitHub user's portfolio (gist `resume.json` + repos) |
 | `/<drive-file-or-folder-id>` | Google Drive portfolio |
-| `/preview` | Check a resume.json locally |
+| `/<id>/project/<slug>` | A project's own page |
+| `/<id>/blog`, `/<id>/blog/<slug>` | Blog list and posts |
+| `/<id>/tab/<slug>` | A custom tab |
+| `/<id>/resume` | Profile with the resume viewer open |
+| `/preview`, `/preview/view/...` | Check a resume.json locally, then view it |
 | `/docs` | Every configuration option |
-| `#/project/<slug>`, `#/blog`, `#/blog/<slug>`, `#/resume` | Sub-pages, all shareable |
+| `/<id>#projects` | Scroll to a profile section |
 
 **How the source is detected:**
 - GitHub usernames are at most 39 characters of letters, digits and single hyphens.
@@ -37,6 +42,30 @@ Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive 
 So the id alone tells the sources apart, and you can also paste a full `drive.google.com/...` link. In the rare case an id could be either, GitHub is tried first, then Drive. `preview` and `docs` are reserved paths.
 
 `?gistname=cv` loads `cv.json` instead of `resume.json`.
+
+## Tabs
+
+Profile is always the first tab. Blog appears when you have posts. You can add up to 8 tabs of your own in `meta["mz-portfolio-config"].tabs`:
+
+```json
+"tabs": [
+  { "label": "Talks", "type": "embed", "url": "https://www.youtube.com/embed/VIDEO_ID" },
+  { "label": "Notes", "type": "markdown", "url": "https://gist.githubusercontent.com/you/ID/raw/notes.md" },
+  { "label": "Snippet", "type": "code", "language": "js", "content": "export const x = 1;" },
+  { "label": "Demo", "type": "html", "height": 400, "url": "https://raw.githubusercontent.com/you/repo/main/demo.html" },
+  { "label": "Website", "type": "link", "url": "https://example.com" }
+]
+```
+
+| Type | What it does | Safety |
+|---|---|---|
+| `link` | Opens the URL in a new browser tab | https only |
+| `embed` | Shows another site in a frame | https only, never this site's own pages; the frame can't navigate the portfolio |
+| `markdown` | Renders Markdown | The safe built-in renderer; no raw scripts or unsafe links |
+| `code` | Shows a code file with highlighting | Displayed as text, never run |
+| `html` | Runs a small HTML/CSS/JS demo | Runs in `sandbox.html` inside a sandboxed frame with an opaque origin, so it can't read the portfolio's page, storage or cookies |
+
+Files can come from `content` (inline text) or a `url` on `raw.githubusercontent.com` or `gist.githubusercontent.com`.
 
 ## Configuration
 
@@ -95,7 +124,7 @@ For any other theme name, the viewer asks the JSON Resume registry. If that fail
 **How dark mode is generated:**
 - The `--color-*` outputs pass each token through TwOP's `--dm-*` formulas (oklch lightness inversion and chroma scaling).
 - The formulas are written inline as relative colors, so they work in every current browser.
-- Every other shade is a `color-mix()` of these outputs. The app uses no other colors.
+- Every other shade is a `color-mix()` of these outputs. The only exception is tags naming a programming language, which use GitHub's language colors (from linguist; turn off with `tags.languageColors: false`).
 
 ## Google Drive setup (site owner)
 
