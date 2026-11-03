@@ -1,6 +1,6 @@
 /* ============================================================================
    GLOBAL — reset, base typography, shared primitives (mobile first)
-   Colors: only --color-* outputs and derived mixes from tokens.css.
+   Colors: only --color-* outputs and derived mixes from style.css.
    ============================================================================ */
 
 *,
@@ -216,7 +216,7 @@ pre {
   width: 100%;
   min-height: 44px;
   padding: 0.65rem 0.9rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--color-b);
   color: var(--color-c);
@@ -515,8 +515,7 @@ pre {
 
 .offline-banner,
 .preview-bar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 60;
   display: flex;
   flex-wrap: wrap;
@@ -623,4 +622,14 @@ pre {
 
 .profile-facts a span:not(.icon) {
   overflow-wrap: anywhere;
+}
+
+/* GitHub language colors on tags (set per tag by js/languages.js) */
+.tag.tag-lang {
+  background: var(--lang);
+  color: var(--on-lang);
+}
+
+.prose > :first-child {
+  margin-top: 0;
 }

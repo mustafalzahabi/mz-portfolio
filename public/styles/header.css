@@ -344,24 +344,45 @@
    ============================================================================ */
 
 .tabs {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 90%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.tabs-inner {
   display: flex;
-  justify-content: center;
   gap: 0.25rem;
   max-width: var(--content-width);
   margin: 0 auto;
   padding: 0 var(--gutter);
-  border-bottom: 1px solid var(--line-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs-inner::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
   display: inline-flex;
+  flex: none;
   align-items: center;
+  gap: 0.35rem;
   min-height: 48px;
-  padding: 0 1rem;
+  padding: 0 0.9rem;
   border-bottom: 2px solid transparent;
   color: var(--ink-muted);
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.tab .icon svg {
+  width: 0.9em;
+  height: 0.9em;
 }
 
 .tab[aria-current="page"] {
@@ -369,8 +390,8 @@
   color: var(--color-c);
 }
 
-@media (min-width: 900px) {
-  .tabs {
-    justify-content: flex-start;
+@media (hover: hover) {
+  .tab:hover {
+    color: var(--color-v);
   }
 }

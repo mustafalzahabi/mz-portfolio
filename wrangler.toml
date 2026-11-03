@@ -1,0 +1,7 @@
+# Cloudflare Pages project settings (source of truth for the Git-connected build).
+# The site is the static public origin in ./public (TwOP directory standard).
+# Downloaded from the dashboard with `wrangler pages download config`, then the
+# output directory was changed from the repo root to ./public.
+name = "mz-portfolio"
+pages_build_output_dir = "./public"
+compatibility_date = "2026-07-06"

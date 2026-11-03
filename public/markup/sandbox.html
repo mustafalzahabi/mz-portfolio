@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Runs a portfolio owner's HTML demo. The parent page loads this file in an
+       iframe sandboxed WITHOUT allow-same-origin, so it gets an opaque origin:
+       it cannot read the portfolio's DOM, storage or cookies, cannot navigate
+       the top page, and only receives the demo through postMessage. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src https: data: blob: 'unsafe-inline' 'unsafe-eval'; base-uri 'none'; form-action 'none'">
+  <meta name="robots" content="noindex">
+  <title>Demo</title>
+  <style>html,body{margin:0;min-height:100%;font-family:system-ui,sans-serif}</style>
+</head>
+<body>
+  <script>
+    (function () {
+      var done = false;
+      window.addEventListener("message", function (event) {
+        if (done || event.source !== window.parent) return;
+        var data = event.data;
+        if (!data || data.type !== "mz-render" || typeof data.html !== "string") return;
+        done = true;
+        document.open();
+        document.write(data.html);
+        document.close();
+      });
+      window.parent.postMessage({ type: "mz-sandbox-ready" }, "*");
+    })();
+  </script>
+</body>
+</html>

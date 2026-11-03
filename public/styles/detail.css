@@ -213,3 +213,10 @@
     padding-top: 2rem;
   }
 }
+
+.post-detail > .back-link {
+  justify-self: stretch;
+  width: 100%;
+  max-width: var(--reading-width);
+  margin-inline: auto;
+}

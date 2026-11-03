@@ -1,5 +1,24 @@
+/*
+ * TwOP Architecture Color Scheme
+ * The only stylesheet the page links. Component styles are imported parts
+ * (they must come first: @import is only valid at the top of a file).
+ */
+
+@import url("global.css?v=4");
+@import url("header.css?v=4");
+@import url("navbar.css?v=4");
+@import url("sections.css?v=4");
+@import url("projects.css?v=4");
+@import url("detail.css?v=4");
+@import url("project-page.css?v=4");
+@import url("blog.css?v=4");
+@import url("home.css?v=4");
+@import url("status.css?v=4");
+@import url("animations.css?v=4");
+@import url("resume-overlay.css?v=4");
+
 /* ============================================================================
-   DESIGN TOKENS — TwOP-Architecture color system
+   DESIGN TOKENS
    Ten input tokens (light mode). Dark mode is generated automatically with the
    TwOP "Functional Engine" formulas (oklch lightness inversion + chroma
    scaling), inlined as relative colors so every current browser supports it.
@@ -15,9 +34,9 @@
 
   /* Palette Helm (Variable) */
   --accent: #2f5d62;  /* primary buttons, active links, selection */
-  --variant: #7a6a9b; /* hover, focused inputs, pressed states */
-  --surface: #ebe6df; /* cards, banners, sidebars, nav headers */
-  --depth: #b3aa9e;   /* borders, dividers, recessed wells/inputs */
+  --variant: #6c5c91; /* hover, focused inputs, pressed states */
+  --surface: #c6dfd7; /* cards, banners, sidebars, nav headers */
+  --depth: #6f9e96;   /* borders, dividers, recessed wells/inputs */
 
   /* Signal Flags (Additional) */
   --optimal: #3f8f5f; /* success */
@@ -92,7 +111,8 @@
   --ink-soft: color-mix(in oklab, var(--color-c) 55%, var(--color-b));
   --line: var(--color-d);
   --line-soft: color-mix(in oklab, var(--color-d) 45%, var(--color-b));
-  --card: color-mix(in oklab, var(--color-s) 55%, var(--color-b));
+  --line-strong: color-mix(in oklab, var(--color-d) 72%, var(--color-c)); /* form fields: ≥3:1 in both modes */
+  --card: light-dark(color-mix(in oklab, var(--color-s) 55%, var(--color-b)), var(--color-s));
   --well: color-mix(in oklab, var(--color-s) 70%, var(--color-d));
   --tint-a: color-mix(in oklab, var(--color-a) 12%, var(--color-b));
   --tint-v: color-mix(in oklab, var(--color-v) 14%, var(--color-b));

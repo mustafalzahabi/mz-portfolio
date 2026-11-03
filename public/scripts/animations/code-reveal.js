@@ -151,6 +151,7 @@ export function revealWithCode(target, { source, lang = "js", title = "", speed 
       if (done) return;
       done = true;
       cancelAnimationFrame(raf);
+      clearTimeout(watchdog);
       active.delete(reveal);
       target.classList.remove("is-typing");
       panel.classList.add("is-leaving");
@@ -166,5 +167,8 @@ export function revealWithCode(target, { source, lang = "js", title = "", speed 
     active.add(reveal);
     panel.addEventListener("click", finishAllReveals);
     raf = requestAnimationFrame(step);
+    // Safety net: if animation frames stall (throttled tab, embedded view),
+    // never leave the section hidden.
+    const watchdog = setTimeout(finish, (maxSeconds / speed) * 1000 * 2 + 1500);
   });
 }

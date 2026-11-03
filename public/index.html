@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org; frame-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>mz-portfolio</title>
   <meta name="description" content="Turn a JSON Resume (resume.json) in a GitHub gist or Google Drive into a responsive portfolio.">
@@ -13,22 +13,10 @@
   <!-- Google Drive portfolios: a browser API key restricted to this site's
        domain (HTTP referrer) with only the Drive API enabled. See README. -->
   <meta name="mz-google-api-key" content="">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/images/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://api.github.com" crossorigin>
-  <link rel="stylesheet" href="css/tokens.css?v=3">
-  <link rel="stylesheet" href="css/global.css?v=3">
-  <link rel="stylesheet" href="css/header.css?v=3">
-  <link rel="stylesheet" href="css/navbar.css?v=3">
-  <link rel="stylesheet" href="css/sections.css?v=3">
-  <link rel="stylesheet" href="css/projects.css?v=3">
-  <link rel="stylesheet" href="css/detail.css?v=3">
-  <link rel="stylesheet" href="css/blog.css?v=3">
-  <link rel="stylesheet" href="css/home.css?v=3">
-  <link rel="stylesheet" href="css/status.css?v=3">
-  <link rel="stylesheet" href="css/animations.css?v=3">
-  <link rel="stylesheet" href="css/resume-overlay.css?v=3">
-  <script type="module" src="js/main.js?v=3"></script>
+  <link rel="stylesheet" href="/styles/style.css?v=4">
 </head>
 <body>
   <div id="app" aria-live="polite" aria-busy="true">
@@ -41,5 +29,7 @@
       </main>
     </noscript>
   </div>
+
+  <script type="module" src="/scripts/index.js?v=4"></script>
 </body>
 </html>

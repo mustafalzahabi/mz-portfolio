@@ -16,6 +16,7 @@ function typeLabel(node) {
   if (node.type === "array") return node.values ? `list of ${node.values.join(", ")}` : "list of text";
   if (node.type === "map") return `object (${node.keys.join(", ")})`;
   if (node.type === "color") return "color (#hex)";
+  if (node.type === "tabs") return "list of tab objects";
   if (node.type === "number") return `number ${node.min}–${node.max}`;
   return node.type === "string" ? "text" : node.type;
 }
@@ -70,11 +71,11 @@ export function renderDocs() {
   const groups = Object.entries(CONFIG_SCHEMA).map(([key, node]) =>
     h("section.docs-group", { id: `cfg-${key}`, "aria-labelledby": `cfg-${key}-title` },
       h("h2.docs-h2", { id: `cfg-${key}-title` }, h("code", key)),
-      node._desc ? h("p", node._desc) : null,
+      node._desc && !isLeaf(node) ? h("p", node._desc) : null,
       h("div.table-wrap",
         h("table.docs-table",
           h("thead", h("tr", h("th", { scope: "col" }, "Option"), h("th", { scope: "col" }, "Type"), h("th", { scope: "col" }, "Default"), h("th", { scope: "col" }, "What it does"))),
-          h("tbody", rows(node, [key])),
+          h("tbody", isLeaf(node) ? rows({ [key]: node }) : rows(node, [key])),
         ),
       ),
     ),

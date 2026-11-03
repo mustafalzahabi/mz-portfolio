@@ -4,6 +4,8 @@
 // Users never edit a separate file: everything lives in their resume.json.
 // ============================================================================
 
+import { slugify } from "./utils.js";
+
 export const SECTION_KEYS = [
   "about",
   "work",
@@ -142,6 +144,20 @@ export const CONFIG_SCHEMA = {
       speed: num("Typing speed multiplier.", 1, 0.25, 5),
       maxPerSection: num("Longest time per section, in seconds.", 1.6, 0.3, 6),
     },
+  },
+  tags: {
+    _desc: "Tags on projects and skills.",
+    languageColors: bool("Color tags that name a programming language with GitHub's language color.", true),
+  },
+  tabs: {
+    type: "tabs",
+    default: [],
+    desc:
+      "Extra tabs next to Profile and Blog. Each item: { \"label\", \"type\", \"url\" or \"content\" }. " +
+      "Types: \"link\" (opens a URL in a new tab), \"embed\" (shows an https page in a sandboxed frame), " +
+      "\"markdown\" (renders Markdown), \"code\" (shows a code file, highlighted, never run; optional \"language\"), " +
+      "\"html\" (runs a small HTML/CSS/JS demo in an isolated sandbox; optional \"height\" in px). " +
+      "File URLs must be raw GitHub or gist links (raw.githubusercontent.com, gist.githubusercontent.com).",
   },
   blog: {
     _desc: "Blog tab (public gists with a .md file, or .md files in your Drive folder).",
@@ -291,6 +307,9 @@ function coerceLeaf(node, value, path, warnings) {
       }
       if (typeof value === "string") return [value];
       break;
+    case "tabs":
+      if (Array.isArray(value)) return normalizeTabs(value, path, warnings);
+      break;
     case "map":
       if (value && typeof value === "object" && !Array.isArray(value)) {
         const out = {};
@@ -304,6 +323,69 @@ function coerceLeaf(node, value, path, warnings) {
   }
   warnings.push(`${path}: expected ${node.type === "enum" ? "one of " + node.values.join(", ") : node.type}.`);
   return clone(node.default);
+}
+
+// ============================================================================
+// CUSTOM TABS
+// ============================================================================
+
+export const TAB_TYPES = ["link", "embed", "markdown", "code", "html"];
+export const TAB_FILE_HOSTS = ["raw.githubusercontent.com", "gist.githubusercontent.com"];
+const RESERVED_TAB_SLUGS = new Set(["profile", "blog"]);
+const MAX_TAB_CONTENT = 200_000;
+
+function httpsUrl(value) {
+  try {
+    const u = new URL(String(value || "").trim());
+    return u.protocol === "https:" ? u : null;
+  } catch {
+    return null;
+  }
+}
+
+function tabSlug(label) {
+  return slugify(label) || "tab";
+}
+
+function normalizeTabs(items, path, warnings) {
+  const out = [];
+  const used = new Set(RESERVED_TAB_SLUGS);
+  items.slice(0, 8).forEach((item, i) => {
+    const p = `${path}[${i}]`;
+    if (!item || typeof item !== "object") return warnings.push(`${p}: should be an object.`);
+    const label = typeof item.label === "string" ? item.label.trim().slice(0, 24) : "";
+    if (!label) return warnings.push(`${p}.label: missing.`);
+    const type = TAB_TYPES.includes(item.type) ? item.type : null;
+    if (!type) return warnings.push(`${p}.type: use one of ${TAB_TYPES.join(", ")}.`);
+
+    const tab = { label, type };
+    if (type === "link" || type === "embed") {
+      const u = httpsUrl(item.url);
+      if (!u) return warnings.push(`${p}.url: needs an https:// address.`);
+      tab.url = u.href;
+    } else if (typeof item.content === "string" && item.content.trim()) {
+      tab.content = item.content.slice(0, MAX_TAB_CONTENT);
+    } else {
+      const u = httpsUrl(item.url);
+      if (!u || !TAB_FILE_HOSTS.includes(u.hostname)) {
+        return warnings.push(`${p}: give "content", or a "url" on ${TAB_FILE_HOSTS.join(" or ")}.`);
+      }
+      tab.url = u.href;
+    }
+    if (type === "code" && typeof item.language === "string") tab.language = item.language.slice(0, 30);
+    if (type === "embed" || type === "html") {
+      const height = Number(item.height);
+      tab.height = Number.isFinite(height) ? Math.min(2000, Math.max(200, height)) : 640;
+    }
+
+    let slug = tabSlug(label);
+    for (let n = 2; used.has(slug); n++) slug = `${tabSlug(label)}-${n}`;
+    used.add(slug);
+    tab.slug = slug;
+    out.push(tab);
+  });
+  if (items.length > 8) warnings.push(`${path}: only the first 8 tabs are used.`);
+  return out;
 }
 
 function normalizeNode(schema, raw, path, warnings) {

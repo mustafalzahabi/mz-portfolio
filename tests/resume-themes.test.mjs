@@ -11,15 +11,15 @@ import { dirname, join } from "node:path";
 
 import {
   escapeHtml, safeUrl, normalizeThemeName, formatDate, markdownLite,
-} from "../js/resume/helpers.js";
+} from "../public/scripts/resume/helpers.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const resume = JSON.parse(readFileSync(join(root, "examples", "resume.json"), "utf8"));
+const resume = JSON.parse(readFileSync(join(root, "public", "assets", "examples", "resume.json"), "utf8"));
 
 // Index.js is a browser module; keep the curated list in sync with it here.
 const THEMES = ["even", "elegant", "flat", "kendall", "stackoverflow", "macchiato", "onepage", "professional"];
 
-// Section headings each theme renders for the sections present in examples/resume.json.
+// Section headings each theme renders for the sections present in the example resume.
 const HEADINGS = {
   even: ["Work", "Volunteer", "Education", "Projects", "Awards", "Certificates", "Publications", "Skills", "Languages", "Interests", "References"],
   elegant: ["About", "Work Experience", "Projects Experience", "Skills", "Education", "Certificates", "Awards", "Volunteer Work", "Publications", "Interests", "References"],
@@ -46,7 +46,7 @@ function xssResume() {
   return copy;
 }
 
-const loadTheme = async (name) => (await import(`../js/resume/themes/${name}.js`)).default;
+const loadTheme = async (name) => (await import(`../public/scripts/resume/themes/${name}.js`)).default;
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const textOnly = (html) => html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ");
 

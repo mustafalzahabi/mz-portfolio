@@ -3,13 +3,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { escapeHtml, safeUrl, formatDate, formatDateRange, slugify, parseFrontmatter, readingTime } from "../js/utils.js";
-import { markdownToHtml } from "../js/markdown.js";
-import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../js/config.js";
-import { detectSource, parsePath, parseHash, isGithubUsername, looksLikeDriveId } from "../js/router.js";
-import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../js/merge.js";
+import { escapeHtml, safeUrl, formatDate, formatDateRange, slugify, parseFrontmatter, readingTime } from "../public/scripts/utils.js";
+import { markdownToHtml } from "../public/scripts/markdown.js";
+import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../public/scripts/config.js";
+import { detectSource, parsePath, isGithubUsername, looksLikeDriveId } from "../public/scripts/router.js";
+import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../public/scripts/merge.js";
 
-const example = JSON.parse(readFileSync(new URL("../examples/resume.json", import.meta.url), "utf8"));
+const example = JSON.parse(readFileSync(new URL("../public/assets/examples/resume.json", import.meta.url), "utf8"));
 
 // ---------------------------------------------------------------------------
 test("escapeHtml escapes all specials", () => {
@@ -137,19 +137,46 @@ test("router: source detection", () => {
   assert.ok(looksLikeDriveId("1a_b2C3d4E5f6G7h8I9j0KlMnOpQ"));
 });
 
-test("router: path and hash parsing", () => {
+test("router: path parsing", () => {
+  const sub = (path, base = "/") => parsePath(path, base).sub;
   assert.deepEqual(parsePath("/", "/"), { view: "landing" });
   assert.deepEqual(parsePath("/preview", "/"), { view: "preview" });
   assert.deepEqual(parsePath("/repo/docs", "/repo/"), { view: "docs" });
-  assert.deepEqual(parsePath("/gh/octocat", "/"), { view: "landing" });
-  assert.deepEqual(parsePath("/octocat", "/"), { view: "portfolio", source: "auto", id: "octocat" });
-  assert.deepEqual(parsePath("/1AbC_dEf-123456789012345678", "/"), { view: "portfolio", source: "gd", id: "1AbC_dEf-123456789012345678" });
-  assert.deepEqual(parseHash("#/project/my%20app"), { name: "project", param: "my app" });
-  assert.deepEqual(parseHash("#/blog"), { name: "blog" });
-  assert.deepEqual(parseHash("#blog"), { name: "blog" });
-  assert.deepEqual(parseHash("#/resume"), { name: "resume" });
-  assert.deepEqual(parseHash("#about"), { name: "section", param: "about" });
-  assert.deepEqual(parseHash(""), { name: "profile" });
+  assert.deepEqual(parsePath("/octocat", "/"), { view: "portfolio", source: "auto", id: "octocat", base: "/octocat", sub: { name: "profile" } });
+  assert.deepEqual(parsePath("/1AbC_dEf-123456789012345678", "/"), {
+    view: "portfolio", source: "gd", id: "1AbC_dEf-123456789012345678", base: "/1AbC_dEf-123456789012345678", sub: { name: "profile" },
+  });
+  assert.equal(parsePath("/repo/octocat/blog", "/repo/").base, "/repo/octocat");
+  assert.deepEqual(sub("/octocat/project/my%20app"), { name: "project", param: "my app" });
+  assert.deepEqual(sub("/octocat/blog"), { name: "blog" });
+  assert.deepEqual(sub("/octocat/blog/hello-world"), { name: "post", param: "hello-world" });
+  assert.deepEqual(sub("/octocat/tab/talks"), { name: "tab", param: "talks" });
+  assert.deepEqual(sub("/octocat/resume"), { name: "resume" });
+  assert.deepEqual(sub("/octocat/nope"), { name: "missing" });
+  assert.deepEqual(sub("/octocat/project/a/b"), { name: "missing" });
+  const preview = parsePath("/preview/view/project/x", "/");
+  assert.equal(preview.preview, true);
+  assert.equal(preview.base, "/preview/view");
+  assert.deepEqual(preview.sub, { name: "project", param: "x" });
+});
+
+test("config: custom tabs are validated", () => {
+  const { config, warnings } = normalizeConfig({
+    "mz-portfolio-config": {
+      tabs: [
+        { label: "Talk", type: "embed", url: "https://www.youtube.com/embed/x" },
+        { label: "Notes", type: "markdown", content: "# hi" },
+        { label: "Demo", type: "html", url: "https://raw.githubusercontent.com/u/r/main/demo.html", height: 50 },
+        { label: "Bad host", type: "code", url: "https://evil.example/x.js" },
+        { label: "Bad link", type: "link", url: "javascript:alert(1)" },
+        { label: "Blog", type: "link", url: "https://example.com" },
+        { label: "No type" },
+      ],
+    },
+  });
+  assert.deepEqual(config.tabs.map((t) => t.slug), ["talk", "notes", "demo", "blog-2"]);
+  assert.equal(config.tabs[2].height, 200);
+  assert.equal(warnings.length, 3, warnings.join("\n"));
 });
 
 // ---------------------------------------------------------------------------

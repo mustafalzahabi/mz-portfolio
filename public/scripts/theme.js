@@ -1,6 +1,6 @@
 // ============================================================================
 // THEME MANAGEMENT — auto / light / dark
-// Colors come from css/tokens.css (TwOP light-dark() outputs); this module only
+// Colors come from styles/style.css (TwOP light-dark() outputs); this module only
 // sets data-theme + color-scheme on <html>. A visitor's explicit choice is
 // remembered; otherwise the portfolio owner's theme.mode default applies.
 // ============================================================================
