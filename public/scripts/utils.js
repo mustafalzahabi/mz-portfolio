@@ -193,17 +193,18 @@ function parseYamlValue(value) {
   if (value === "null" || value === "~") return null;
   if (/^-?\d+$/.test(value)) return parseInt(value, 10);
   if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
+  if (value.length > 1 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\(["\\])/g, "$1"); // YAML double-quoted escapes
+  }
+  if (value.length > 1 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'"); // YAML single-quoted escape
   }
   if (value.startsWith("[") && value.endsWith("]")) {
     return value
       .slice(1, -1)
       .split(",")
-      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .map((s) => parseYamlValue(s.trim()))
+      .map(String)
       .filter(Boolean);
   }
   return value;

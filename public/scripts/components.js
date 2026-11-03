@@ -748,7 +748,8 @@ export function buildFooter(vm, cfg, ctx) {
     footer.appendChild(
       h("p.muted.footer-credit",
         h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
-        h("span", " — make yours from a resume.json.")),
+        h("span", " — make yours from a resume.json. "),
+        h("a", { href: `${ctx.homeHref}edit` }, "Edit")),
     );
   }
   return footer;

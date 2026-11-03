@@ -43,6 +43,26 @@ So the id alone tells the sources apart, and you can also paste a full `drive.go
 
 `?gistname=cv` loads `cv.json` instead of `resume.json`.
 
+## Editor (`/edit`)
+
+Edit a resume with forms instead of raw JSON, with a live preview beside it (Edit / Preview toggle on phones).
+
+- **Resume:** every JSON Resume section, with add, reorder and remove, plus friendly warnings for things like badly formatted dates.
+- **Portfolio settings:** generated from the same schema as `/docs`.
+  - **Colors:** pickers show each token's generated dark-mode color. A live report checks 11 contrast pairs in light and dark mode.
+  - **Section order:** drag-free up/down controls and show/hide toggles.
+  - **Also editable:** custom tabs, animations, and the resume theme.
+- **Blog:** create, edit and delete posts (Markdown with live preview, title, date, tags, description, cover, draft).
+- **JSON:** the raw file, editable both ways.
+
+**Saving to GitHub.** Click *Sign in to save* and paste a personal access token with only the **gist** scope (the dialog links to GitHub with that scope pre-selected).
+- The token is kept in `sessionStorage`, so only that browser tab has it and closing the tab forgets it.
+- It is sent only to `api.github.com`, and never logged or written anywhere else.
+- Saving updates your `resume.json` gist, or creates one if you don't have it yet. If the gist changed on GitHub since you opened it, you're asked before it's overwritten.
+- After a save, the cached copy is cleared, so your portfolio shows the change right away.
+
+Without signing in, the editor still works: start from your public portfolio, the example or a blank resume, then copy or download the JSON. Unsaved work is kept as a draft for the tab.
+
 ## Tabs
 
 Profile is always the first tab. Blog appears when you have posts. You can add up to 8 tabs of your own in `meta["mz-portfolio-config"].tabs`:
