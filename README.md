@@ -26,16 +26,15 @@ Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive 
 | `/` | Landing page |
 | `/username` | GitHub user's portfolio (gist `resume.json` + repos) |
 | `/<drive-file-or-folder-id>` | Google Drive portfolio |
-| `/gh/username`, `/gd/<id>` | Explicit source (optional, for older links) |
 | `/preview` | Check a resume.json locally |
 | `/docs` | Every configuration option |
 | `#/project/<slug>`, `#/blog`, `#/blog/<slug>`, `#/resume` | Sub-pages, all shareable |
 
-**Do you need `/gh` or `/gd`?** No.
+**How the source is detected:**
 - GitHub usernames are at most 39 characters of letters, digits and single hyphens.
 - Drive IDs are usually 25–44 characters and often contain `_`.
 
-So the source is detected automatically, and you can paste a full `drive.google.com/...` link. In the rare case an ID could be either, GitHub is tried first, then Drive. The prefixes still work if you want to force one source.
+So the id alone tells the sources apart, and you can also paste a full `drive.google.com/...` link. In the rare case an id could be either, GitHub is tried first, then Drive. `preview` and `docs` are reserved paths.
 
 `?gistname=cv` loads `cv.json` instead of `resume.json`.
 

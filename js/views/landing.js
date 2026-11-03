@@ -55,7 +55,7 @@ export function renderLanding() {
         input.focus();
         return;
       }
-      navigate(portfolioPath(source === "auto" ? "gh" : source, id));
+      navigate(portfolioPath(id));
     },
   },
     h("label.visually-hidden", { for: "portfolio-id" }, "GitHub username or Google Drive link"),
@@ -70,7 +70,7 @@ export function renderLanding() {
           h("h2.landing-h3", { id: "recent-title" }, "Recently viewed"),
           h("button.link-btn", { type: "button", onclick: (e) => { clearRecent(); e.target.closest("section").remove(); } }, "Clear"),
         ),
-        h("ul.chip-list", { role: "list" }, recent.map((r) => h("li", h("a.chip", { href: portfolioPath(r.type, r.id) }, r.name)))),
+        h("ul.chip-list", { role: "list" }, recent.map((r) => h("li", h("a.chip", { href: portfolioPath(r.id) }, r.name)))),
       )
     : null;
 

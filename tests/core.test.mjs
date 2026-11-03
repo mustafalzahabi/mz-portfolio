@@ -141,9 +141,9 @@ test("router: path and hash parsing", () => {
   assert.deepEqual(parsePath("/", "/"), { view: "landing" });
   assert.deepEqual(parsePath("/preview", "/"), { view: "preview" });
   assert.deepEqual(parsePath("/repo/docs", "/repo/"), { view: "docs" });
-  assert.deepEqual(parsePath("/gh/preview", "/"), { view: "portfolio", source: "gh", id: "preview" });
+  assert.deepEqual(parsePath("/gh/octocat", "/"), { view: "landing" });
   assert.deepEqual(parsePath("/octocat", "/"), { view: "portfolio", source: "auto", id: "octocat" });
-  assert.deepEqual(parsePath("/gd/abc", "/"), { view: "portfolio", source: "gd", id: "abc" });
+  assert.deepEqual(parsePath("/1AbC_dEf-123456789012345678", "/"), { view: "portfolio", source: "gd", id: "1AbC_dEf-123456789012345678" });
   assert.deepEqual(parseHash("#/project/my%20app"), { name: "project", param: "my app" });
   assert.deepEqual(parseHash("#/blog"), { name: "blog" });
   assert.deepEqual(parseHash("#blog"), { name: "blog" });

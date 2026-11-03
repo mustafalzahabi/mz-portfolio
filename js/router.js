@@ -4,7 +4,6 @@
 //        /preview              local preview (drop / paste a resume.json)
 //        /docs                 configuration reference
 //        /:id                  portfolio, source auto-detected (GitHub or Drive)
-//        /gh/:user, /gd/:id    explicit source (kept for older links)
 // Hash:  #/project/:name  #/blog  #/blog/:slug  #/resume  #section-id
 // The app may live in a sub-folder (e.g. GitHub Pages project site): the base
 // path is derived from this module's own URL.
@@ -66,10 +65,7 @@ export function parsePath(pathname = location.pathname, base = BASE_PATH) {
   if (!parts.length) return { view: "landing" };
   if (parts.length === 1 && RESERVED.has(parts[0].toLowerCase())) return { view: parts[0].toLowerCase() };
 
-  const prefix = parts[0].toLowerCase();
-  if ((prefix === "gh" || prefix === "gd") && parts[1]) {
-    return { view: "portfolio", source: prefix, id: parts[1] };
-  }
+  if (parts.length > 1) return { view: "landing" };
   const detected = detectSource(parts[0]);
   if (!detected.id) return { view: "landing" };
   return { view: "portfolio", source: detected.source || "auto", id: detected.id };
@@ -94,38 +90,19 @@ function safeDecode(s) {
   }
 }
 
-/** Canonical URL for a portfolio (clean /:id unless the id is ambiguous). */
-export function portfolioPath(source, id) {
-  const enc = encodeURIComponent(id);
-  if (source === "gd" && !looksLikeDriveId(id)) return `${BASE_PATH}gd/${enc}`;
-  return `${BASE_PATH}${enc}`;
+/** URL for a portfolio: always /:id, the source is detected from the id. */
+export function portfolioPath(id) {
+  return `${BASE_PATH}${encodeURIComponent(id)}`;
 }
 
-/**
- * Restores a path handed over by 404.html (?p=/some/path) or legacy
- * ?user=…&source=… links, rewriting the URL without reloading.
- */
+/** Restores a path handed over by 404.html (?p=/some/path) without reloading. */
 export function rescueRedirect() {
   const params = new URLSearchParams(location.search);
-  let target = null;
-
-  if (params.has("p")) {
-    target = BASE_PATH + params.get("p").replace(/^\/+/, "");
-    params.delete("p");
-  } else if (params.has("user")) {
-    target = portfolioPath(params.get("source") === "gd" ? "gd" : "gh", params.get("user"));
-    if (params.get("source") === "gh" && looksLikeDriveId(params.get("user"))) {
-      target = `${BASE_PATH}gh/${encodeURIComponent(params.get("user"))}`;
-    }
-    params.delete("user");
-    params.delete("source");
-  }
-  params.delete("_ts");
-
-  if (target !== null) {
-    const qs = params.toString();
-    history.replaceState(null, "", target + (qs ? `?${qs}` : "") + location.hash);
-  }
+  if (!params.has("p")) return;
+  const target = BASE_PATH + params.get("p").replace(/^\/+/, "");
+  params.delete("p");
+  const qs = params.toString();
+  history.replaceState(null, "", target + (qs ? `?${qs}` : "") + location.hash);
 }
 
 export function navigate(path, { replace = false } = {}) {
