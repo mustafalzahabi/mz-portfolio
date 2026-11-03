@@ -39,6 +39,25 @@ export function safeUrl(url, { allowDataImage = false } = {}) {
   }
 }
 
+/**
+ * True when two URLs point to the same page, ignoring protocol (http/https),
+ * "www.", letter case, a trailing slash, query and #hash.
+ */
+export function isSamePage(a, b) {
+  const key = (u) => {
+    try {
+      const url = new URL(u);
+      if (!/^https?:$/.test(url.protocol)) return null;
+      const path = decodeURIComponent(url.pathname).replace(/\/+$/, "");
+      return `${url.host.replace(/^www\./, "")}${path}`.toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const [x, y] = [key(a), key(b)];
+  return x !== null && x === y;
+}
+
 export function isExternalUrl(url) {
   return /^https?:\/\//i.test(url || "");
 }
