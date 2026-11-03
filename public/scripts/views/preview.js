@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { h, svgIcon } from "../utils.js";
-import { ICONS } from "../icons.js";
+import { ICONS, logoImg } from "../icons.js";
 import { BASE_PATH } from "../router.js";
 import { parseResumeJson } from "../data.js";
 import { normalizeConfig } from "../config.js";
@@ -130,7 +130,7 @@ export function renderPreviewEditor(onShow) {
   document.getElementById("app").replaceChildren(
     h("div.docs",
       h("header.landing-top",
-        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, h("span.brand-mark", "mz"), h("span", "portfolio")),
+        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
         h("nav.landing-links", { "aria-label": "Site" }, h("a", { href: `${BASE_PATH}preview`, "aria-current": "page" }, "Preview"), h("a", { href: `${BASE_PATH}docs` }, "Docs")),
       ),
       h("main.docs-main", { id: "main", tabindex: "-1" },

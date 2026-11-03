@@ -178,7 +178,7 @@ public/                       Static public origin (Cloudflare Pages output)
 │   └── global · header · navbar · sections · projects · detail · project-page
 │       blog · home · status · animations · resume-overlay (.css)
 └── assets/
-    ├── images/               favicon.svg …
+    ├── images/               logo.svg (logo + favicon) …
     ├── examples/resume.json  Example used by Preview and the tests
     └── prompt.md             AI assistant prompt (not loaded yet)
 tests/                        node --test

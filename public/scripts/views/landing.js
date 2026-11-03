@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { h, svgIcon } from "../utils.js";
-import { ICONS } from "../icons.js";
+import { ICONS, logoImg } from "../icons.js";
 import { BASE_PATH, detectSource, portfolioPath, navigate } from "../router.js";
 import { getRecent, clearRecent } from "../data.js";
 import { buildThemeToggle } from "../theme.js";
@@ -79,7 +79,7 @@ export function renderLanding() {
   app.replaceChildren(
     h("div.landing",
       h("header.landing-top",
-        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, h("span.brand-mark", "mz"), h("span", "portfolio")),
+        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
         h("nav.landing-links", { "aria-label": "Site" },
           h("a", { href: `${BASE_PATH}preview` }, "Preview"),
           h("a", { href: `${BASE_PATH}docs` }, "Docs"),
@@ -120,7 +120,7 @@ export function renderLanding() {
         ),
       ),
       h("footer.site-footer",
-        h("p", "mz-portfolio · open source · ", h("a", { href: "https://github.com/mustafalzahabi/mz-portfolio" }, "Source"), " · ", h("a", { href: "https://jsonresume.org" }, "JSON Resume")),
+        h("p.footer-credit", h("span.footer-brand", logoImg(20), "mz-portfolio"), " · open source · ", h("a", { href: "https://github.com/mustafalzahabi/mz-portfolio" }, "Source"), " · ", h("a", { href: "https://jsonresume.org" }, "JSON Resume")),
       ),
     ),
   );
