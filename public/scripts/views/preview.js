@@ -11,7 +11,7 @@ import { normalizeConfig } from "../config.js";
 import { validateResume } from "../merge.js";
 
 const STORAGE_KEY = "mz-preview-json";
-const EXAMPLE_URL = new URL("../../examples/resume.json", import.meta.url).href;
+const EXAMPLE_URL = new URL("../../assets/examples/resume.json", import.meta.url).href;
 
 export function getPreviewJson() {
   try {

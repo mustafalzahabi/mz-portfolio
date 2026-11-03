@@ -1,6 +1,6 @@
 // ============================================================================
 // STATUS PAGES — loading, not found, rate limited, error, invalid JSON, empty,
-// plus the offline banner. One layout, palette-only styling (css/status.css).
+// plus the offline banner. One layout, palette-only styling (styles/status.css).
 // ============================================================================
 
 import { h, svgIcon } from "../utils.js";

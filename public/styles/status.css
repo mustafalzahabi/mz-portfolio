@@ -101,8 +101,8 @@
 }
 
 .skeleton-banner {
-  aspect-ratio: 2.4 / 1;
-  max-height: 18rem;
+  width: 100%;
+  height: clamp(9rem, 40vw, 18rem);
 }
 
 .skeleton-row {

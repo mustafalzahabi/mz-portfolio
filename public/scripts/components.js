@@ -880,7 +880,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
 // https sites, code is only displayed, HTML runs in an opaque-origin sandbox.
 // ============================================================================
 
-const SANDBOX_URL = new URL("../sandbox.html", import.meta.url).href;
+const SANDBOX_URL = new URL("../markup/sandbox.html", import.meta.url).href;
 
 async function loadTabText(tab) {
   if (tab.content) return tab.content;

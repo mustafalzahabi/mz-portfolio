@@ -3,13 +3,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { escapeHtml, safeUrl, formatDate, formatDateRange, slugify, parseFrontmatter, readingTime } from "../js/utils.js";
-import { markdownToHtml } from "../js/markdown.js";
-import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../js/config.js";
-import { detectSource, parsePath, isGithubUsername, looksLikeDriveId } from "../js/router.js";
-import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../js/merge.js";
+import { escapeHtml, safeUrl, formatDate, formatDateRange, slugify, parseFrontmatter, readingTime } from "../public/scripts/utils.js";
+import { markdownToHtml } from "../public/scripts/markdown.js";
+import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../public/scripts/config.js";
+import { detectSource, parsePath, isGithubUsername, looksLikeDriveId } from "../public/scripts/router.js";
+import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../public/scripts/merge.js";
 
-const example = JSON.parse(readFileSync(new URL("../examples/resume.json", import.meta.url), "utf8"));
+const example = JSON.parse(readFileSync(new URL("../public/assets/examples/resume.json", import.meta.url), "utf8"));
 
 // ---------------------------------------------------------------------------
 test("escapeHtml escapes all specials", () => {

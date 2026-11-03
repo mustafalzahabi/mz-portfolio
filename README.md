@@ -63,7 +63,7 @@ Profile is always the first tab. Blog appears when you have posts. You can add u
 | `embed` | Shows another site in a frame | https only, never this site's own pages; the frame can't navigate the portfolio |
 | `markdown` | Renders Markdown | The safe built-in renderer; no raw scripts or unsafe links |
 | `code` | Shows a code file with highlighting | Displayed as text, never run |
-| `html` | Runs a small HTML/CSS/JS demo | Runs in `sandbox.html` inside a sandboxed frame with an opaque origin, so it can't read the portfolio's page, storage or cookies |
+| `html` | Runs a small HTML/CSS/JS demo | Runs in `markup/sandbox.html` inside a sandboxed frame with an opaque origin, so it can't read the portfolio's page, storage or cookies |
 
 Files can come from `content` (inline text) or a `url` on `raw.githubusercontent.com` or `gist.githubusercontent.com`.
 
@@ -87,7 +87,7 @@ Everything is configured inside your own `resume.json`. There is no separate con
 }
 ```
 
-`/docs` lists every option, its type, its default and what it does. That page is generated from the schema in `js/config.js`. Older config shapes still work: top-level `accent`, `theme.accent`, `themeToggle.style`, `blog: false` and `animation.type`.
+`/docs` lists every option, its type, its default and what it does. That page is generated from the schema in `public/scripts/config.js`. Older config shapes still work: top-level `accent`, `theme.accent`, `themeToggle.style`, `blog: false` and `animation.type`.
 
 Animation intros:
 - `none`
@@ -106,7 +106,7 @@ For any other theme name, the viewer asks the JSON Resume registry. If that fail
 
 ## Colors
 
-`css/tokens.css` follows TwOP-Architecture (`public/vanilla/styles/style.css`). There are ten light-mode inputs:
+`public/styles/style.css` follows TwOP-Architecture (`public/vanilla/styles/style.css`). There are ten light-mode inputs:
 
 | Token | Role |
 |---|---|
@@ -134,7 +134,7 @@ Browsers can't download Drive files directly, so Drive portfolios use the Drive 
 2. Restrict the key:
    - **HTTP referrers:** your domain only.
    - **API restrictions:** Drive API only.
-3. Put the key in `index.html`: `<meta name="mz-google-api-key" content="YOUR_KEY">`.
+3. Put the key in `public/index.html`: `<meta name="mz-google-api-key" content="YOUR_KEY">`.
 
 Users then share their `resume.json` file, or a folder containing it, as **Anyone with the link** and open `/<file-or-folder-id>`.
 
@@ -150,23 +150,45 @@ Unauthenticated visitors get 60 GitHub API calls per hour.
 ## Development
 
 ```bash
-python -m http.server 8000     # then open http://localhost:8000/?p=username
-node --test                    # unit tests (Node 18+, no dependencies)
+node tools/dev-server.mjs        # http://localhost:8000 — serves public/ like Cloudflare Pages
+node --test                      # unit tests (Node 20.11+, no dependencies)
 ```
 
-Path URLs like `/username` need the server to fall back to `404.html`, as GitHub Pages does. Locally, use `?p=username`, `?p=preview` or `?p=docs`. If the site is served from a sub-folder, set `BASE` in `404.html`.
+Cloudflare Pages serves `public/index.html` for every route that isn't a file (SPA fallback), so path URLs like `/username/project/x` just work. `wrangler.toml` sets the Pages output directory to `./public`. The dev server does the same locally. Other static servers have no fallback; use `?p=username` there. Assets are linked with absolute paths (`/styles/…`), so the site must be served from the domain root.
+
+## Project structure
+
+The layout follows the [TwOP Architecture](https://github.com/hamuda8/TwOP-Architecture) vanilla template. There is no private origin (backend): everything is the static public origin.
 
 ```
-index.html  404.html  error.html  sw.js  manifest.webmanifest  favicon.svg
-css/   tokens · global · header · navbar · sections · projects · detail · blog · home · status · animations · resume-overlay
-js/    main · app · router · config · data · api · merge · components · theme · icons · markdown · utils · log
-js/views/       landing · docs · preview · status
-js/animations/  index · code-reveal
-js/resume/      index · helpers · themes/*.js
-examples/resume.json   tests/*.test.mjs
+public/                       Static public origin (Cloudflare Pages output)
+├── index.html                Entry page (served for every route)
+├── manifest.json
+├── sw.js                     Service worker
+├── markup/                   Other HTML: error.html, sandbox.html (isolated demo runner)
+├── scripts/
+│   ├── index.js              Entry: PortfolioCore class → window.App
+│   ├── app.js  router.js  config.js  data.js  api.js  merge.js
+│   ├── components.js  theme.js  icons.js  languages.js  markdown.js  utils.js  log.js
+│   ├── views/                landing · docs · preview · status
+│   ├── animations/           index · code-reveal
+│   └── resume/               index · helpers · themes/*.js
+├── styles/
+│   ├── style.css             TwOP color scheme; imports the parts below
+│   └── global · header · navbar · sections · projects · detail · project-page
+│       blog · home · status · animations · resume-overlay (.css)
+└── assets/
+    ├── images/               favicon.svg …
+    ├── examples/resume.json  Example used by Preview and the tests
+    └── prompt.md             AI assistant prompt (not loaded yet)
+tests/                        node --test
+tools/dev-server.mjs          Local server with the same SPA fallback as Cloudflare
+wrangler.toml                 Pages settings (output dir: ./public)
 ```
 
-`js/chat.js`, `js/model.js`, `css/chat.css` and `prompt.md` hold the AI assistant. It isn't loaded yet.
+`scripts/chat.js`, `scripts/model.js`, `styles/chat.css` and `assets/prompt.md` hold the AI assistant. It isn't loaded yet.
+
+**TwOP's "no logic bleed" rule:** TwOP says secrets never go in `public/`. The only key here is the optional Google Drive browser key, which is public by design and must be locked to your domain (see above). Anything truly secret would need a private origin.
 
 ## License
 

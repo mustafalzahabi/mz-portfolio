@@ -1,5 +1,24 @@
+/*
+ * TwOP Architecture Color Scheme
+ * The only stylesheet the page links. Component styles are imported parts
+ * (they must come first: @import is only valid at the top of a file).
+ */
+
+@import url("global.css?v=4");
+@import url("header.css?v=4");
+@import url("navbar.css?v=4");
+@import url("sections.css?v=4");
+@import url("projects.css?v=4");
+@import url("detail.css?v=4");
+@import url("project-page.css?v=4");
+@import url("blog.css?v=4");
+@import url("home.css?v=4");
+@import url("status.css?v=4");
+@import url("animations.css?v=4");
+@import url("resume-overlay.css?v=4");
+
 /* ============================================================================
-   DESIGN TOKENS — TwOP-Architecture color system
+   DESIGN TOKENS
    Ten input tokens (light mode). Dark mode is generated automatically with the
    TwOP "Functional Engine" formulas (oklch lightness inversion + chroma
    scaling), inlined as relative colors so every current browser supports it.

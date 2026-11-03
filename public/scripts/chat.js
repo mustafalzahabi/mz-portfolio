@@ -19,7 +19,7 @@ let promptTemplate = null;
 async function loadPromptTemplate() {
   if (promptTemplate) return promptTemplate;
   try {
-    const res = await fetch(new URL("../prompt.md", import.meta.url));
+    const res = await fetch(new URL("../assets/prompt.md", import.meta.url));
     promptTemplate = await res.text();
   } catch {
     promptTemplate =

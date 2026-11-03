@@ -1,6 +1,6 @@
 /* ============================================================================
    GLOBAL — reset, base typography, shared primitives (mobile first)
-   Colors: only --color-* outputs and derived mixes from tokens.css.
+   Colors: only --color-* outputs and derived mixes from style.css.
    ============================================================================ */
 
 *,

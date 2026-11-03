@@ -116,7 +116,7 @@ export function portfolioPath(id) {
   return `${BASE_PATH}${encodeURIComponent(id)}`;
 }
 
-/** Restores a path handed over by 404.html (?p=/some/path) without reloading. */
+/** Restores a path passed as ?p=/some/path (useful on static servers without an SPA fallback) without reloading. */
 export function rescueRedirect() {
   const params = new URLSearchParams(location.search);
   if (!params.has("p")) return;
