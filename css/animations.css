@@ -1,0 +1,262 @@
+/* ============================================================================
+   INTRO ANIMATIONS — fade | slide | stagger | typewriter | blueprint | code
+   Elements get .anim .anim-<intro>; .is-in (or .is-revealed for code) plays it.
+   ============================================================================ */
+
+.anim {
+  transition:
+    opacity var(--anim-duration) var(--anim-ease),
+    transform var(--anim-duration) var(--anim-ease);
+}
+
+/* fade */
+.anim-fade:not(.is-in) {
+  opacity: 0;
+}
+
+/* slide */
+.anim-slide:not(.is-in) {
+  opacity: 0;
+  transform: translateY(1.75rem);
+}
+
+/* stagger: children cascade */
+.anim-stagger .anim-child {
+  transition:
+    opacity var(--anim-duration) var(--anim-ease) calc(var(--child-index, 0) * 70ms),
+    transform var(--anim-duration) var(--anim-ease) calc(var(--child-index, 0) * 70ms);
+}
+
+.anim-stagger:not(.is-in) .anim-child {
+  opacity: 0;
+  transform: translateY(1rem) scale(0.98);
+}
+
+/* typewriter: heading types (JS), body fades in after */
+.anim-typewriter:not(.is-in) > :not(h1, h2) {
+  opacity: 0;
+}
+
+.anim-typewriter > :not(h1, h2) {
+  transition: opacity var(--anim-duration) var(--anim-ease) 0.35s;
+}
+
+.is-typing-heading::after {
+  content: "";
+  display: inline-block;
+  width: 0.08em;
+  height: 1em;
+  margin-left: 0.05em;
+  vertical-align: -0.1em;
+  background: var(--color-v);
+  animation: caret 0.8s steps(1) infinite;
+}
+
+/* blueprint: dashed outline draws in, then content fills */
+.anim-blueprint {
+  position: relative;
+}
+
+.anim-blueprint::before {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+  border: 1.5px dashed var(--color-d);
+  border-radius: var(--radius);
+  pointer-events: none;
+  clip-path: inset(0 100% 100% 0);
+  opacity: 0;
+}
+
+.anim-blueprint.is-in::before {
+  animation: blueprint-draw calc(var(--anim-duration) * 1.6) var(--anim-ease) forwards;
+}
+
+.anim-blueprint > * {
+  transition: opacity var(--anim-duration) var(--anim-ease) calc(var(--anim-duration) * 0.9),
+    filter var(--anim-duration) var(--anim-ease) calc(var(--anim-duration) * 0.9);
+}
+
+.anim-blueprint:not(.is-in) > * {
+  opacity: 0;
+  filter: blur(4px);
+}
+
+@keyframes blueprint-draw {
+  0% {
+    opacity: 1;
+    clip-path: inset(0 100% 100% 0);
+  }
+  50% {
+    opacity: 1;
+    clip-path: inset(0 0 100% 0);
+  }
+  80% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    opacity: 0;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ============================================================================
+   CODE REVEAL
+   ============================================================================ */
+
+.anim-code {
+  position: relative;
+}
+
+.anim-code:not(.is-revealed) > :not(.code-reveal) {
+  opacity: 0;
+}
+
+.anim-code > :not(.code-reveal) {
+  transition: opacity 0.45s var(--anim-ease);
+}
+
+.code-reveal-host {
+  min-height: 12rem;
+}
+
+.code-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-height: 12rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--color-p) 60%, var(--color-d));
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--color-c) 92%, var(--color-p));
+  color: color-mix(in oklab, var(--color-b) 92%, var(--color-d));
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  transition: opacity 0.45s var(--anim-ease), transform 0.45s var(--anim-ease), filter 0.45s;
+}
+
+:root[data-scheme="dark"] .code-reveal {
+  background: color-mix(in oklab, var(--color-b) 70%, var(--color-p));
+  color: var(--color-c);
+}
+
+.code-reveal.is-leaving {
+  opacity: 0;
+  transform: scale(0.985);
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+.code-reveal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-d) 35%, transparent);
+  font-size: 0.78rem;
+}
+
+.code-reveal-bar span {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--color-f);
+}
+
+.code-reveal-bar span:nth-child(2) {
+  background: var(--color-r);
+}
+
+.code-reveal-bar span:nth-child(3) {
+  background: var(--color-o);
+}
+
+.code-reveal-bar em {
+  margin-left: 0.5rem;
+  overflow: hidden;
+  font-family: var(--font-family-mono);
+  font-style: normal;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-reveal-pre {
+  flex: 1;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  overflow: hidden;
+  font-size: clamp(0.62rem, 2.4vw, 0.8rem);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-reveal-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+  background: var(--color-v);
+  animation: caret 0.8s steps(1) infinite;
+}
+
+/* syntax colors — palette only */
+.tk-k {
+  color: color-mix(in oklab, var(--color-v) 60%, var(--color-b));
+  font-weight: 600;
+}
+
+.tk-f {
+  color: color-mix(in oklab, var(--color-a) 45%, var(--color-b));
+}
+
+.tk-s {
+  color: color-mix(in oklab, var(--color-o) 60%, var(--color-b));
+}
+
+.tk-n {
+  color: color-mix(in oklab, var(--color-r) 70%, var(--color-b));
+}
+
+.tk-c {
+  color: color-mix(in oklab, var(--color-d) 80%, var(--color-c));
+  font-style: italic;
+}
+
+.tk-p {
+  color: color-mix(in oklab, var(--color-d) 60%, var(--color-b));
+}
+
+:root[data-scheme="dark"] .tk-k { color: var(--color-v); }
+:root[data-scheme="dark"] .tk-f { color: var(--color-a); }
+:root[data-scheme="dark"] .tk-s { color: var(--color-o); }
+:root[data-scheme="dark"] .tk-n { color: var(--color-r); }
+:root[data-scheme="dark"] .tk-p { color: var(--color-d); }
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The header is short; give its code panel a bit more room */
+.profile-header.code-reveal-host {
+  min-height: 16rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim,
+  .anim * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .code-reveal {
+    display: none;
+  }
+}

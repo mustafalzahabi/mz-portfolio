@@ -1,89 +1,157 @@
 /* ============================================================================
-   PROJECTS SECTION
+   PROJECTS — grid | list | horizontal, image position (mobile first)
    ============================================================================ */
 
-.projects-grid {
+.projects {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
 }
 
 .project-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  transition: box-shadow 0.2s;
-}
-
-.project-card:hover {
-  box-shadow: light-dark(0 0.125rem 0.75rem rgba(0,0,0,0.08), 0 0.125rem 0.75rem rgba(0,0,0,0.3));
-}
-
-.project-image {
-  inline-size: 100%;
-  block-size: 200px;
-  background: var(--surface-light);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
   overflow: hidden;
 }
 
-.project-image img {
-  inline-size: 100%;
-  block-size: 100%;
+.project-media {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--well);
+}
+
+.project-media img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.5s var(--anim-ease);
 }
 
-.project-content {
-  padding: 1.5rem;
+@media (hover: hover) {
+  .project-card:hover .project-media img {
+    transform: scale(1.04);
+  }
 }
 
-.project-content h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-block-end: 0.5rem;
-}
-
-.project-content p {
-  color: var(--secondary);
-  margin-block-end: 1rem;
-  font-size: 0.8125rem;
-}
-
-.project-tech {
+.project-body {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-block-end: 1rem;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem 1.1rem;
 }
 
-.tech-tag {
-  background: var(--code);
-  color: var(--surface);
-  padding: 0.25rem 0.75rem;
-  border-radius: 1.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.project-detail-tech .tech-tag {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.25rem;
-  font-weight: 500;
-}
-
-.project-links {
+.project-title {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 0.75rem;
+  font-size: 1.08rem;
 }
 
-.project-links a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  transition: color 0.2s;
+.project-stars {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-r);
+  font-size: 0.85rem;
 }
 
-.project-links a:hover {
-  color: var(--hover);
+.project-meta {
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.project-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in oklab, var(--color-c) 85%, var(--color-b));
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+
+.project-body .tags {
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.projects[data-image="bottom"] .project-media {
+  order: 2;
+}
+
+/* ---------- list ---------- */
+
+.projects[data-layout="list"] .project-card {
+  flex-direction: row;
+}
+
+.projects[data-layout="list"] .project-media {
+  flex: none;
+  width: 6.5rem;
+  aspect-ratio: 1;
+}
+
+.projects[data-layout="list"][data-image="right"] .project-media {
+  order: 2;
+}
+
+/* ---------- horizontal (swipe rail on phones) ---------- */
+
+.projects[data-layout="horizontal"] {
+  display: flex;
+  margin-inline: calc(var(--gutter) * -1);
+  padding: 0.25rem var(--gutter) 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+}
+
+.projects[data-layout="horizontal"] .project-card {
+  flex: 0 0 min(82vw, 21rem);
+  scroll-snap-align: start;
+}
+
+@media (min-width: 600px) {
+  .projects[data-layout="grid"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .projects[data-layout="list"] .project-media {
+    width: 11rem;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (min-width: 900px) {
+  .projects[data-layout="grid"] {
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .projects[data-layout="horizontal"] {
+    display: grid;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .projects[data-layout="horizontal"] .project-card {
+    flex-direction: row;
+  }
+
+  .projects[data-layout="horizontal"][data-image="right"] .project-media {
+    order: 2;
+  }
+
+  .projects[data-layout="horizontal"] .project-media {
+    flex: none;
+    width: 40%;
+    aspect-ratio: auto;
+    min-height: 12rem;
+  }
+
+  .projects[data-layout="list"] .project-media {
+    width: 14rem;
+  }
 }

@@ -2,47 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/global.css">
-  <link rel="stylesheet" href="css/navbar.css">
-  <link rel="stylesheet" href="css/header.css">
-  <link rel="stylesheet" href="css/tabs.css">
-  <link rel="stylesheet" href="css/about.css">
-  <link rel="stylesheet" href="css/education.css">
-  <link rel="stylesheet" href="css/projects.css">
-  <link rel="stylesheet" href="css/skills.css">
-  <link rel="stylesheet" href="css/contact.css">
-  <link rel="stylesheet" href="css/certificates.css">
-  <link rel="stylesheet" href="css/work.css">
-  <link rel="stylesheet" href="css/languages.css">
-  <link rel="stylesheet" href="css/awards.css">
-  <link rel="stylesheet" href="css/volunteer.css">
-  <link rel="stylesheet" href="css/publications.css">
-  <link rel="stylesheet" href="css/home.css">
-  <link rel="stylesheet" href="css/footer.css">
-  <link rel="stylesheet" href="css/loading.css">
-  <link rel="stylesheet" href="css/project-detail.css">
-  <link rel="stylesheet" href="css/slideshow.css">
-  <link rel="stylesheet" href="css/chat.css">
-  <link rel="stylesheet" href="css/resume-overlay.css">
-  <link rel="stylesheet" href="css/blog.css">
-  <link rel="stylesheet" href="css/responsive.css">
-  <script src="https://js.puter.com/v2/" defer></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>mz-portfolio</title>
+  <meta name="description" content="Turn a JSON Resume (resume.json) in a GitHub gist or Google Drive into a responsive portfolio.">
+  <meta property="og:site_name" content="mz-portfolio">
+  <meta name="theme-color" content="#f7f5f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1917" media="(prefers-color-scheme: dark)">
+  <!-- Google Drive portfolios: a browser API key restricted to this site's
+       domain (HTTP referrer) with only the Drive API enabled. See README. -->
+  <meta name="mz-google-api-key" content="">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://api.github.com" crossorigin>
+  <link rel="stylesheet" href="css/tokens.css?v=3">
+  <link rel="stylesheet" href="css/global.css?v=3">
+  <link rel="stylesheet" href="css/header.css?v=3">
+  <link rel="stylesheet" href="css/navbar.css?v=3">
+  <link rel="stylesheet" href="css/sections.css?v=3">
+  <link rel="stylesheet" href="css/projects.css?v=3">
+  <link rel="stylesheet" href="css/detail.css?v=3">
+  <link rel="stylesheet" href="css/blog.css?v=3">
+  <link rel="stylesheet" href="css/home.css?v=3">
+  <link rel="stylesheet" href="css/status.css?v=3">
+  <link rel="stylesheet" href="css/animations.css?v=3">
+  <link rel="stylesheet" href="css/resume-overlay.css?v=3">
+  <script type="module" src="js/main.js?v=3"></script>
 </head>
 <body>
-  <div id="app">
+  <div id="app" aria-live="polite" aria-busy="true">
     <noscript>
-      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;text-align:center;padding:24px;">
-        <div style="font-size:48px;margin-bottom:16px;">&#9888;</div>
-        <h1 style="font-size:24px;margin-bottom:8px;">JavaScript is Required</h1>
-        <p style="color:#666;margin-bottom:16px;">Please enable JavaScript to view this portfolio.</p>
-      </div>
+      <main class="status-page">
+        <div class="status-card">
+          <h1 class="status-title">JavaScript is required</h1>
+          <p class="status-text">This portfolio is built in your browser. Please enable JavaScript and reload.</p>
+        </div>
+      </main>
     </noscript>
   </div>
-  <script type="module" src="js/main.js"></script>
 </body>
 </html>

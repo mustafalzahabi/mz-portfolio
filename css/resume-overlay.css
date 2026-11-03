@@ -1,5 +1,133 @@
 /* ============================================================================
-   RESUME OVERLAY & MODAL CONTAINER
+   RESUME OVERLAY & PREVIEW CARD
+   Mobile-first. Colours come only from the --color-* palette tokens.
+   ============================================================================ */
+
+/* ============================================================================
+   UTILITIES
+   ============================================================================ */
+
+.resume-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   PREVIEW CARD
+   ============================================================================ */
+
+.resume-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--color-s);
+  color: var(--color-c);
+  border: 1px solid var(--color-d);
+  border-radius: var(--radius, 0.75rem);
+  font-family: var(--font-family);
+}
+
+.resume-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-inline-size: 0;
+}
+
+.resume-preview-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: calc(var(--radius, 0.75rem) * 0.75);
+  background: color-mix(in oklab, var(--color-a) 14%, var(--color-s));
+  color: var(--color-a);
+}
+
+.resume-preview-icon svg {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.resume-preview-title-group {
+  min-inline-size: 0;
+}
+
+.resume-preview-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-c);
+}
+
+.resume-preview-subtitle {
+  margin: 0.125rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: color-mix(in oklab, var(--color-c) 70%, var(--color-s));
+  overflow-wrap: anywhere;
+}
+
+.resume-preview-stats {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: color-mix(in oklab, var(--color-c) 65%, var(--color-s));
+}
+
+.resume-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-block-size: 44px;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--color-a);
+  border-radius: calc(var(--radius, 0.75rem) * 0.75);
+  background: var(--color-a);
+  color: var(--color-b);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.resume-preview-btn:active {
+  background: var(--color-v);
+  border-color: var(--color-v);
+  transform: translateY(1px);
+}
+
+.resume-preview-btn:focus-visible {
+  outline: 3px solid var(--color-v);
+  outline-offset: 2px;
+}
+
+@media (min-width: 600px) {
+  .resume-preview-btn {
+    align-self: flex-start;
+  }
+}
+
+@media (hover: hover) {
+  .resume-preview-btn:hover {
+    background: var(--color-v);
+    border-color: var(--color-v);
+  }
+}
+
+/* ============================================================================
+   OVERLAY SHELL (phone: full screen)
    ============================================================================ */
 
 .resume-overlay {
@@ -7,140 +135,372 @@
   inset: 0;
   z-index: 200;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.25s;
+  transition: opacity 0.2s ease;
+  font-family: var(--font-family);
 }
 
-.resume-overlay.open {
+.resume-overlay.is-open {
   opacity: 1;
 }
 
-.resume-overlay.closing {
+.resume-overlay.is-closing {
   opacity: 0;
+  pointer-events: none;
 }
 
 .resume-overlay-backdrop {
   position: absolute;
   inset: 0;
-  background: light-dark(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7));
+  background: color-mix(in oklab, var(--color-c) 55%, transparent);
 }
 
-.resume-overlay-container {
+.resume-overlay-dialog {
   position: relative;
   z-index: 1;
-  inline-size: min(55rem, calc(100vw - 2rem));
-  block-size: min(85vh, calc(100vh - 4rem));
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
-  box-shadow: 0 16px 48px light-dark(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.5));
+  inline-size: 100%;
+  block-size: 100%;
+  block-size: 100dvh;
+  background: var(--color-s);
+  color: var(--color-c);
   overflow: hidden;
-  transform: translateY(1rem) scale(0.97);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateY(0.75rem);
+  transition: transform 0.2s ease;
 }
 
-.resume-overlay.open .resume-overlay-container {
-  transform: translateY(0) scale(1);
+.resume-overlay.is-open .resume-overlay-dialog {
+  transform: none;
 }
 
-.resume-overlay.closing .resume-overlay-container {
-  transform: translateY(1rem) scale(0.97);
+.resume-overlay-dialog:focus {
+  outline: none;
 }
 
-/* Toolbar */
+/* ============================================================================
+   TOOLBAR (phone: icon buttons)
+   ============================================================================ */
+
 .resume-overlay-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  background: var(--accent);
-  color: light-dark(#fff, #1a1a1a);
-  flex-shrink: 0;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  padding-block-start: max(0.5rem, env(safe-area-inset-top));
+  background: var(--color-s);
+  border-block-end: 1px solid var(--color-d);
+  flex: none;
 }
 
-.resume-overlay-toolbar-title {
-  font-weight: 700;
+.resume-overlay-title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
   font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-c);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.resume-overlay-toolbar-actions {
+.resume-overlay-actions {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+
+.resume-overlay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-}
-
-/* Status Bar */
-.resume-overlay-status {
-  padding: 0.5rem 1.25rem;
-  font-size: 0.8125rem;
-  color: var(--secondary);
-  background: var(--background-color);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  text-align: center;
-}
-
-.resume-overlay-status.error {
-  color: #c0392b;
-}
-
-/* Buttons */
-.resume-overlay-print {
-  padding: 0.375rem 0.875rem;
-  background: light-dark(rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.2));
-  color: inherit;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.8125rem;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding: 0 0.625rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius, 0.75rem) * 0.66);
+  background: transparent;
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.resume-overlay-print:hover {
-  background: light-dark(rgba(255, 255, 255, 0.3), rgba(0, 0, 0, 0.3));
+.resume-overlay-btn-icon {
+  display: inline-flex;
+}
+
+.resume-overlay-btn-icon svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+.resume-overlay-btn-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.resume-overlay-btn:active {
+  background: color-mix(in oklab, var(--color-v) 22%, var(--color-s));
+  color: var(--color-v);
+}
+
+.resume-overlay-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.resume-overlay-btn:focus-visible,
+.resume-overlay-select-input:focus-visible {
+  outline: 3px solid var(--color-v);
+  outline-offset: 2px;
 }
 
 .resume-overlay-close {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  display: flex;
+  color: var(--color-c);
+}
+
+/* Theme select */
+.resume-overlay-select {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
 }
 
-.resume-overlay-close:hover {
-  background: light-dark(rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.2));
+.resume-overlay-select-icon {
+  position: absolute;
+  inset-inline-start: 0.625rem;
+  display: inline-flex;
+  color: var(--color-a);
+  pointer-events: none;
 }
 
-.resume-overlay-close svg {
+.resume-overlay-select-icon svg {
   inline-size: 1.125rem;
   block-size: 1.125rem;
 }
 
-/* Document Frame */
-.resume-document-frame {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #ffffff;
+.resume-overlay-select-input {
+  min-block-size: 44px;
+  inline-size: 44px;
+  padding: 0 0 0 44px;
+  border: 1px solid var(--color-d);
+  border-radius: calc(var(--radius, 0.75rem) * 0.66);
+  background: var(--color-b);
+  color: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  appearance: none;
 }
 
-/* Mobile Responsive */
-@media (max-width: 640px) {
-  .resume-overlay-container {
-    inline-size: 100%;
-    block-size: 100%;
-    border-radius: 0;
+.resume-overlay-select-input option {
+  color: var(--color-c);
+  background: var(--color-b);
+}
+
+/* ============================================================================
+   STATUS & DOCUMENT FRAME
+   ============================================================================ */
+
+.resume-overlay-status {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--color-c);
+  background: color-mix(in oklab, var(--color-p) 10%, var(--color-s));
+  border-block-end: 1px solid var(--color-d);
+  flex: none;
+}
+
+.resume-overlay-status[hidden] {
+  display: none;
+}
+
+.resume-overlay-status.is-loading {
+  color: color-mix(in oklab, var(--color-c) 75%, var(--color-s));
+}
+
+.resume-overlay-status.is-loading::before {
+  content: "";
+  display: inline-block;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  margin-inline-end: 0.5rem;
+  vertical-align: -0.1em;
+  border: 2px solid color-mix(in oklab, var(--color-a) 30%, transparent);
+  border-block-start-color: var(--color-a);
+  border-radius: 50%;
+  animation: resume-spin 0.8s linear infinite;
+}
+
+.resume-overlay-status.is-warning {
+  background: color-mix(in oklab, var(--color-r) 16%, var(--color-s));
+  color: var(--color-c);
+}
+
+.resume-overlay-status.is-error {
+  background: color-mix(in oklab, var(--color-f) 14%, var(--color-s));
+  color: var(--color-f);
+}
+
+.resume-overlay-status.is-success {
+  background: color-mix(in oklab, var(--color-o) 14%, var(--color-s));
+}
+
+.resume-overlay-frame-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  background: var(--color-b);
+  padding-block-end: env(safe-area-inset-bottom);
+}
+
+.resume-overlay-frame {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  background: var(--color-b);
+}
+
+@keyframes resume-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================================
+   TABLET (>= 600px): labelled buttons
+   ============================================================================ */
+
+@media (min-width: 600px) {
+  .resume-overlay-toolbar {
+    padding: 0.625rem 0.75rem 0.625rem 1.25rem;
+    gap: 0.75rem;
+  }
+
+  .resume-overlay-actions {
+    gap: 0.5rem;
+  }
+
+  .resume-overlay-btn {
+    padding: 0 0.875rem;
+    border-color: var(--color-d);
+    background: var(--color-b);
+  }
+
+  .resume-overlay-btn-label {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+  }
+
+  .resume-overlay-close {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .resume-overlay-close .resume-overlay-btn-label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .resume-overlay-select-input {
+    inline-size: auto;
+    padding: 0 2rem 0 2.25rem;
+    color: var(--color-c);
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 1rem) 50%, calc(100% - 0.7rem) 50%;
+    background-size: 0.3rem 0.3rem;
+    background-repeat: no-repeat;
+  }
+}
+
+/* ============================================================================
+   DESKTOP (>= 900px): centered large dialog
+   ============================================================================ */
+
+@media (min-width: 900px) {
+  .resume-overlay {
+    align-items: center;
+    padding: 2rem;
+  }
+
+  .resume-overlay-dialog {
+    inline-size: min(64rem, 100%);
+    block-size: min(92vh, 72rem);
+    border: 1px solid var(--color-d);
+    border-radius: var(--radius, 0.75rem);
+    box-shadow: 0 1.5rem 4rem color-mix(in oklab, var(--color-c) 30%, transparent);
+    transform: translateY(1rem) scale(0.98);
+  }
+
+  .resume-overlay-toolbar {
+    padding-block-start: 0.625rem;
+  }
+
+  .resume-overlay-title {
+    font-size: 1.0625rem;
+  }
+}
+
+/* ============================================================================
+   HOVER (pointer devices only)
+   ============================================================================ */
+
+@media (hover: hover) {
+  .resume-overlay-btn:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-v) 14%, var(--color-s));
+    border-color: var(--color-v);
+    color: var(--color-v);
+  }
+
+  .resume-overlay-select-input:hover {
+    border-color: var(--color-v);
+  }
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .resume-overlay,
+  .resume-overlay-dialog,
+  .resume-preview-btn,
+  .resume-overlay-btn {
+    transition: none;
+  }
+
+  .resume-overlay-dialog,
+  .resume-overlay.is-open .resume-overlay-dialog {
+    transform: none;
+  }
+
+  .resume-overlay-status.is-loading::before {
+    animation: none;
   }
 }

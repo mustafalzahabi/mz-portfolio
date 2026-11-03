@@ -1,39 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Redirecting...</title>
-    <style>body{margin:0;background:light-dark(#fff,#0d0d0d);}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting…</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <style>body{margin:0;min-height:100vh;background:var(--color-b);color:var(--color-c);font-family:var(--font-family)}</style>
+  <script>
+    // GitHub Pages serves this file for unknown paths (e.g. /username).
+    // Hand the path to the app via ?p=, which restores it without a reload.
+    // If the site lives in a sub-folder (project site), set BASE to "/repo-name/".
+    (function () {
+      var BASE = "/";
+      var path = location.pathname;
+      if (path.indexOf(BASE) === 0) path = path.slice(BASE.length);
+      var query = location.search ? "&" + location.search.slice(1) : "";
+      location.replace(BASE + "?p=" + encodeURIComponent(path) + query + location.hash);
+    })();
+  </script>
 </head>
-<body>
-    <script>
-        (function() {
-            var pathParts = window.location.pathname.split('/').filter(Boolean);
-
-            console.log('[404] pathname:', window.location.pathname, 'pathParts:', pathParts);
-
-            var user = null;
-            var prefix = 'gh';
-
-            if (pathParts.length >= 2) {
-                prefix = pathParts[0].toLowerCase();
-                if (prefix === 'gh' || prefix === 'gd') {
-                    user = pathParts.slice(1).join('/');
-                }
-            } else if (pathParts.length === 1) {
-                user = pathParts[0];
-            }
-
-            if (user) {
-                console.log('[404] redirecting with user:', user, 'source:', prefix);
-                var redirectUrl = '/?user=' + encodeURIComponent(user) + '&source=' + prefix + '&_ts=' + Date.now();
-                window.location.replace(redirectUrl);
-            } else {
-                document.title = 'Not Found';
-                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:light-dark(#1a1a1a,#e0e0e0)"><div style="text-align:center"><h1 style="font-size:1.5rem;margin-bottom:.5rem">Page Not Found</h1><p style="color:light-dark(#666,#aaa);margin-bottom:1.5rem">The page you\'re looking for doesn\'t exist.</p><a href="/" style="display:inline-block;background:light-dark(#0066cc,#4a9eff);color:light-dark(#fff,#000);padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">Go Home</a></div></div>';
-            }
-        })();
-    </script>
-</body>
+<body></body>
 </html>

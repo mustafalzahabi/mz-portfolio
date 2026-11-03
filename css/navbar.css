@@ -1,87 +1,137 @@
 /* ============================================================================
-   NAVBAR
+   SECTION NAVIGATION
+   Phones/tablets: sticky, horizontally scrollable bottom bar.
+   Desktop (≥900px): fixed dots on the right, labels on hover (or always).
    ============================================================================ */
 
-.navbar {
-  position: sticky;
-  inset-inline-start: 0;
-  inset-block-start: 20vh;
-  block-size: 60vh;
-  margin-block: 20vh;
+.section-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom));
+  overflow-x: auto;
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  backdrop-filter: blur(12px);
+  scrollbar-width: none;
+}
+
+.section-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.section-nav-list {
   display: flex;
-  flex-direction: column;
+  gap: 0.25rem;
+  width: max-content;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.section-nav-link {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  justify-self: start;
-  padding-inline: 1.5rem;
-  z-index: 9;
-  background: transparent;
-  gap: 2.5rem;
-}
-
-.navbar::before {
-  content: '';
-  position: absolute;
-  inset-block-start: 0;
-  inset-block-end: 0;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
-  inline-size: .5ch;
-  background: var(--border);
-  z-index: 0;
-}
-
-.nav-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  z-index: 1;
-}
-
-.nav-item a {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
-
-.nav-dot {
-  inline-size: 0.75rem;
-  block-size: 0.75rem;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 2px solid var(--accent);
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.nav-item:hover .nav-dot {
-  inline-size: 1rem;
-  block-size: 1rem;
-  background: var(--accent);
-  box-shadow: 0 0 0.5rem var(--accent);
-}
-
-.nav-item.active .nav-dot {
-  inline-size: 1rem;
-  block-size: 1rem;
-  background: var(--accent);
-  box-shadow: 0 0 0.75rem var(--accent);
-}
-
-.nav-label {
-  position: absolute;
-  inset-inline-start: 2rem;
-  white-space: nowrap;
-  color: var(--primary);
+  min-height: 40px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
   font-weight: 600;
-  font-size: 0.9375rem;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.nav-item:hover .nav-label {
-  opacity: 1;
+.section-nav-dot {
+  display: none;
+}
+
+.section-nav-link.active {
+  background: var(--tint-a);
+  color: var(--color-a);
+}
+
+@media (min-width: 900px) {
+  .section-nav {
+    left: auto;
+    right: 1.25rem;
+    bottom: auto;
+    top: 50%;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: none;
+    backdrop-filter: none;
+    transform: translateY(-50%);
+  }
+
+  .section-nav-list {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    width: auto;
+  }
+
+  .section-nav-link {
+    flex-direction: row-reverse;
+    gap: 0.6rem;
+    min-height: 32px;
+    padding: 0 0.25rem;
+    border-radius: 0;
+    background: none !important;
+  }
+
+  .section-nav-dot {
+    display: block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--color-d);
+    transition: transform var(--transition), background-color var(--transition);
+  }
+
+  .section-nav-label {
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateX(0.4rem);
+    transition: opacity var(--transition), transform var(--transition);
+    pointer-events: none;
+  }
+
+  [data-nav-labels="always"] .section-nav-label,
+  .section-nav-link:focus-visible .section-nav-label {
+    opacity: 1;
+    transform: none;
+  }
+
+  .section-nav-link.active .section-nav-dot {
+    background: var(--color-a);
+    transform: scale(1.5);
+  }
+
+  .section-nav-link.active .section-nav-label {
+    color: var(--color-a);
+  }
+}
+
+@media (min-width: 900px) and (hover: hover) {
+  .section-nav-link:hover .section-nav-label {
+    opacity: 1;
+    transform: none;
+  }
+
+  .section-nav-link:hover .section-nav-dot {
+    background: var(--color-v);
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1279px) {
+  [data-nav-labels="always"] .section-nav-label {
+    opacity: 0;
+  }
 }

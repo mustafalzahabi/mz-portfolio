@@ -1,277 +1,144 @@
-# Portfolio (JSON Resume, Pure HTML/CSS/JS)
+# mz-portfolio
 
-<img width="960" height="438" alt="image" src="https://github.com/user-attachments/assets/edc1f6ba-4d5a-49e6-a894-6de04ad1e440" />
-
-
-A modern, fully responsive portfolio site built with pure HTML, CSS, and JavaScript. All content is loaded dynamically from a public [JSON Resume](https://jsonresume.org/) (`resume.json`) GitHub gist for any user.
+Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive portfolio, rendered entirely in the browser. Pure HTML, CSS and JavaScript: no framework, no build step, no runtime dependencies.
 
 ## Features
 
-- ✅ **Dynamic Resume Loading** – Loads any user's resume from their public `resume.json` gist (JSON Resume format)
-- ✅ **Gist-Powered Blog** – Any public gist with a `.md` file becomes a blog post (YAML frontmatter supported)
-- ✅ **User-Driven** – The GitHub username is taken from the URL path or `?user=` query parameter
-- ✅ **Dark/Light Mode** – Modern CSS theme toggle, persists preference
-- ✅ **Modern CSS** – Responsive, semantic, accessible
-- ✅ **Error Handling** – Clear messages for missing users, gists, or schema errors
-- ✅ **No Dependencies** – Pure vanilla HTML, CSS, JS (no frameworks)
-- ✅ **LocalStorage** – Persists theme preference
+- **Live from your resume.** The resume loads from a public GitHub gist or Google Drive. Edit it and the site updates.
+- **Projects, merged.** Resume projects are matched with your GitHub repos, adding stars, READMEs and cover images.
+- **Built-in resume viewer.** Native ports of 8 JSON Resume themes, with print/PDF and download.
+- **Blog.** Public gists with a `.md` file, or `.md` files in your Drive folder, become posts. Includes search, tags and pagination.
+- **Colors.** The TwOP-Architecture color system: 10 tokens, with dark mode generated automatically.
+- **Mobile first.** A bottom section bar on phones, side dots on desktop, and a 44px minimum touch target.
+- **Configurable from your resume.** Colors, layout, sections, texts and animations, including a "code" intro that types out the code that builds each section.
+- **Preview mode.** Paste or drop a `resume.json` to check it before publishing. Nothing is uploaded.
+- **Production basics:**
+  - Strict CSP and URL sanitising
+  - A safe in-house Markdown renderer
+  - Offline support (service worker plus saved snapshots)
+  - Open Graph and JSON-LD metadata
+  - Accessible landmarks and focus handling, with reduced motion respected
 
-## How It Works
+## URLs
 
-1. **User visits** `yourdomain.com/github_username` **or** `yourdomain.com/?user=github_username`
-2. **App fetches** the public gists for `github_username` via the GitHub API
-3. **Looks for** a gist file named `resume.json` (must be public, must use [JSON Resume schema](https://jsonresume.org/schema/))
-4. **Loads and renders** the resume dynamically
-5. **Scans gists for blog posts** – any public gist containing a `.md` file is treated as a blog post (YAML frontmatter parsed for metadata)
-6. **Handles errors** for missing users, missing gists, or invalid schema
+| URL | Shows |
+|---|---|
+| `/` | Landing page |
+| `/username` | GitHub user's portfolio (gist `resume.json` + repos) |
+| `/<drive-file-or-folder-id>` | Google Drive portfolio |
+| `/preview` | Check a resume.json locally |
+| `/docs` | Every configuration option |
+| `#/project/<slug>`, `#/blog`, `#/blog/<slug>`, `#/resume` | Sub-pages, all shareable |
 
-## Usage
+**How the source is detected:**
+- GitHub usernames are at most 39 characters of letters, digits and single hyphens.
+- Drive IDs are usually 25–44 characters and often contain `_`.
 
-### For End Users
+So the id alone tells the sources apart, and you can also paste a full `drive.google.com/...` link. In the rare case an id could be either, GitHub is tried first, then Drive. `preview` and `docs` are reserved paths.
 
-1. **Create a public gist** named `resume.json` in your GitHub account, using the [JSON Resume schema](https://jsonresume.org/schema/)
-2. **Share the site URL** as:
-   - `yourdomain.com/your_github_username` (path-based – works on GitHub Pages thanks to the built-in SPA redirect)
-   - `yourdomain.com/?user=your_github_username` (query-parameter – always works, recommended for local dev)
-3. **Your resume** will be loaded and displayed automatically
+`?gistname=cv` loads `cv.json` instead of `resume.json`.
 
-### For Developers
+## Configuration
 
-#### Running Locally
-
-```bash
-python -m http.server 8000
-# or
-python3 -m http.server 8000
-```
-
-> **Tip:** Path-based routing (e.g. `/github_username`) requires a server that redirects unknown paths to `index.html`. The included `404.html` handles this automatically on GitHub Pages. For local development, use the `?user=` query parameter instead.
-
-#### File Structure
-
-```
-.
-├── index.html              # Entry point (minimal, with JS fallback)
-├── 404.html                # SPA redirect – sends unknown paths back to index.html
-├── error.html              # Fallback error page (if JS fails)
-├── README.md               # This file
-├── prompt.md               # AI chat system prompt template
-├── css/
-│   ├── tokens.css          # Design tokens (colors, typography)
-│   ├── global.css          # Reset, layout, sections
-│   ├── tabs.css            # Tab selector (Profile / Blog)
-│   ├── navbar.css          # Side navigation dots
-│   ├── header.css          # Banner, profile photo, info
-│   ├── about.css           # About section
-│   ├── education.css       # Education section
-│   ├── projects.css        # Projects grid + cards
-│   ├── project-detail.css  # Project detail page
-│   ├── slideshow.css       # Image slideshow
-│   ├── skills.css          # Skills section
-│   ├── contact.css         # Contact section
-│   ├── home.css            # Landing page
-│   ├── blog.css            # Blog list + detail styles
-│   ├── footer.css          # Footer
-│   ├── loading.css         # Loading spinner
-│   ├── chat.css            # AI chat bubble
-│   ├── resume-overlay.css  # Resume modal viewer
-│   └── responsive.css      # Media queries
-└── js/
-    ├── main.js             # Entry point
-    ├── app.js              # Core: routing, state, DOM assembly, tab switching
-    ├── components.js       # All DOM builders (header, sections, blog, etc.)
-    ├── data.js             # Data collection (resume.json, blog posts, GitHub)
-    ├── api.js              # GitHub API integration (profile, repos, README)
-    ├── chat.js             # AI chat bubble UI
-    ├── model.js            # Puter.js AI model wrapper
-    ├── theme.js            # Dark/light/auto theme management
-    └── utils.js            # Markdown renderer, frontmatter parser, helpers
-```
-
-## JSON Resume Format
-
-Your `resume.json` must follow the [JSON Resume schema](https://jsonresume.org/schema/). Example:
+Everything is configured inside your own `resume.json`. There is no separate config file.
 
 ```json
 {
-  "basics": {
-    "name": "Your Name",
-    "label": "Your Title",
-    "email": "you@example.com",
-    "url": "https://yourwebsite.com",
-    "summary": "Short bio..."
-  },
-  "work": [ ... ],
-  "education": [ ... ],
-  "skills": [ ... ],
-  "projects": [ ... ]
+  "meta": {
+    "theme": "elegant",
+    "mz-portfolio-config": {
+      "colors": { "accent": "#2f5d62" },
+      "theme": { "mode": "auto", "toggle": "switch" },
+      "sections": { "order": ["about", "projects", "work"], "hide": ["references"] },
+      "projects": { "layout": "grid", "sort": "stars", "github": "matched" },
+      "skills": { "display": "progress" },
+      "animation": { "intro": "code" }
+    }
+  }
 }
 ```
 
-See [jsonresume.org/schema/](https://jsonresume.org/schema/) for full details.
+`/docs` lists every option, its type, its default and what it does. That page is generated from the schema in `js/config.js`. Older config shapes still work: top-level `accent`, `theme.accent`, `themeToggle.style`, `blog: false` and `animation.type`.
 
-## Error Handling
+Animation intros:
+- `none`
+- `fade`
+- `slide`
+- `stagger`
+- `typewriter`
+- `blueprint`
+- `code`: types out each section's builder function (or its HTML with `animation.code.source: "html"`), then reveals the section. Click or press Esc to skip.
 
-- **Missing user**: Clear error if GitHub user does not exist
-- **No public `resume.json` gist**: Clear error if not found
-- **Invalid schema**: Error if `resume.json` is not valid JSON Resume
-- **API rate limits**: Error if GitHub API rate limit is hit
-- **No username**: Friendly landing page with a search input
+### Resume themes (`meta.theme`)
 
-## Browser Support
+These themes are rendered natively from ports of the original packages: `even` (default), `elegant`, `flat`, `kendall`, `stackoverflow`, `macchiato`, `onepage` and `professional`.
 
-- Modern browsers with CSS custom properties and `light-dark()`
-- Graceful fallback for older browsers
+For any other theme name, the viewer asks the JSON Resume registry. If that fails, it shows `even` with a notice.
+
+## Colors
+
+`css/tokens.css` follows TwOP-Architecture (`public/vanilla/styles/style.css`). There are ten light-mode inputs:
+
+| Token | Role |
+|---|---|
+| `--base` | Canvas |
+| `--core` | Text |
+| `--accent` | Actions |
+| `--variant` | Hover/focus |
+| `--surface` | Cards |
+| `--depth` | Borders |
+| `--optimal` | Success |
+| `--risky` | Warning |
+| `--fatal` | Error |
+| `--prime` | Brand |
+
+**How dark mode is generated:**
+- The `--color-*` outputs pass each token through TwOP's `--dm-*` formulas (oklch lightness inversion and chroma scaling).
+- The formulas are written inline as relative colors, so they work in every current browser.
+- Every other shade is a `color-mix()` of these outputs. The app uses no other colors.
+
+## Google Drive setup (site owner)
+
+Browsers can't download Drive files directly, so Drive portfolios use the Drive API with a browser key:
+
+1. In Google Cloud Console, enable the **Google Drive API** and create an **API key**.
+2. Restrict the key:
+   - **HTTP referrers:** your domain only.
+   - **API restrictions:** Drive API only.
+3. Put the key in `index.html`: `<meta name="mz-google-api-key" content="YOUR_KEY">`.
+
+Users then share their `resume.json` file, or a folder containing it, as **Anyone with the link** and open `/<file-or-folder-id>`.
+
+## GitHub rate limits
+
+Unauthenticated visitors get 60 GitHub API calls per hour.
+- A cold visit uses about 3: user, repos and gist list.
+- Gists and READMEs come from raw hosts, which aren't limited.
+- Responses are revalidated with ETags.
+- Each portfolio is snapshotted for 30 minutes.
+- If the limit is hit, a saved copy is shown with a banner, or a countdown page if nothing is saved.
+
+## Development
+
+```bash
+python -m http.server 8000     # then open http://localhost:8000/?p=username
+node --test                    # unit tests (Node 18+, no dependencies)
+```
+
+Path URLs like `/username` need the server to fall back to `404.html`, as GitHub Pages does. Locally, use `?p=username`, `?p=preview` or `?p=docs`. If the site is served from a sub-folder, set `BASE` in `404.html`.
+
+```
+index.html  404.html  error.html  sw.js  manifest.webmanifest  favicon.svg
+css/   tokens · global · header · navbar · sections · projects · detail · blog · home · status · animations · resume-overlay
+js/    main · app · router · config · data · api · merge · components · theme · icons · markdown · utils · log
+js/views/       landing · docs · preview · status
+js/animations/  index · code-reveal
+js/resume/      index · helpers · themes/*.js
+examples/resume.json   tests/*.test.mjs
+```
+
+`js/chat.js`, `js/model.js`, `css/chat.css` and `prompt.md` hold the AI assistant. It isn't loaded yet.
 
 ## License
 
-Personal portfolio – feel free to fork, customize, and deploy.
-
-## Blog
-
-Your public GitHub Gists with `.md` files are automatically treated as blog posts. A **Blog** tab appears next to **My Profile** when blog posts are found.
-
-### How Blog Posts Work
-
-1. Every public gist you own with a `.md` file is a blog post candidate
-2. The app fetches all your gists, finds `.md` files, and parses their **YAML frontmatter** (if present) for metadata
-3. Posts are sorted by date (newest first) and displayed as cards on the Blog tab
-4. Clicking a post opens a clean reading view with rendered Markdown
-
-### YAML Frontmatter (Optional but Recommended)
-
-Add metadata at the top of your `.md` file using standard Jekyll-style YAML frontmatter:
-
-```markdown
----
-title: "My First Blog Post"
-date: 2025-06-15
-tags: [javascript, react]
-description: "A brief summary shown in the blog listing"
-draft: false
----
-
-Your blog content here...
-```
-
-Supported frontmatter fields:
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `title` | string | gist description / filename | Post title |
-| `date` | string | gist `created_at` | Publish date (ISO 8601) |
-| `tags` | array | `[]` | List of tag strings |
-| `description` | string | `""` | Short excerpt for the card view |
-| `preview` | string | `""` | Alias for `description` |
-| `draft` | boolean | `false` | When `true`, post is hidden |
-| `published` | boolean | `true` | When `false`, post is hidden |
-| `image` | string | `""` | Featured image URL (reserved) |
-
-### No Frontmatter? No Problem.
-
-If your `.md` file has no frontmatter, the app falls back to:
-- **Title**: gist description → first `# Heading` → filename (without `.md`)
-- **Date**: gist creation date
-- **Tags**: empty
-
-### Disabling the Blog
-
-To disable the blog feature entirely, add `"blog": false` to your `meta.mz-portfolio-config`:
-
-```json
-{
-  "meta": {
-    "mz-portfolio-config": {
-      "blog": false
-    }
-  }
-}
-```
-
-### Example Blog Gist
-
-A minimal blog post gist:
-
-1. Create a **public gist** on https://gist.github.com
-2. Name the file `hello-world.md`
-3. Add content:
-
-```markdown
----
-title: "Hello World"
-date: 2025-06-15
-tags: [meta]
----
-
-This is my first blog post!
-```
-
-4. That's it — it appears on your portfolio's Blog tab automatically.
-
-## Advanced Customization (meta.mz-portfolio-config)
-
-You can fully customize the design and text of your portfolio by adding a `meta.mz-portfolio-config` section to your `resume.json`. This allows you to override colors, layout, section order, and more—without editing any code.
-
-### Example
-
-```json
-{
-  "basics": { ... },
-  "projects": [ ... ],
-  "meta": {
-    "mz-portfolio-config": {
-      "accent": "#0077ff", // Main accent color
-      "theme": {
-        "dark": true
-      },
-      "text": {
-        "tagline": "Creative Developer",
-        "cta": "Download CV"
-      },
-      "profile": {
-        "photo": "gh", // or custom URL/base64
-        "photoShape": "circle" // circle | rounded | square
-      },
-      "banner": {
-        "image": "https://example.com/banner.jpg"
-      },
-      "themeToggle": {
-        "style": "icon" // icon | slider | switch
-      },
-      "projects": {
-        "layout": "horizontal", // vertical | horizontal
-        "imagePosition": "left" // top | left | right | bottom
-      },
-      "skills": {
-        "display": "tags" // list | tags | progress
-      },
-      "sections": {
-        "order": ["about", "projects", "skills", "education", "contact"],
-        "hide": ["education"]
-      },
-      "animation": {
-        "transitionDuration": "0.3s",
-        "type": "slide", // slide | fade | none
-        "shadowOnHover": true,
-        "glowOnHover": false
-      },
-      "blog": {
-        "enabled": true // set false to disable the Blog tab
-      }
-    }
-  }
-}
-```
-
-- All options are optional. Defaults match the current design.
-- Section order and hide let you rearrange or remove sections.
-- Profile photo can be a URL, base64, or "gh"/"github" for your GitHub avatar.
-- All colors are derived from `accent` for a cohesive look.
-- `blog: false` (boolean) also works as shorthand to disable the blog.
-- See `js/app.js` for all supported options.
-
-### Banner Image
-
-Set `banner.image` to any URL (hosted image, gist raw link, base64 data URI) to use a custom banner instead of the default gradient.
-
-The banner has a fixed **5:1 aspect ratio**. Images are rendered with `background-size: cover` and `background-position: center`, so images with a different ratio will be **auto-cropped to center** both horizontally and vertically. The height adapts automatically to the viewport width.
+Personal portfolio engine. Feel free to fork, customize and deploy.
