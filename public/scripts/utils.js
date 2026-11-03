@@ -39,6 +39,25 @@ export function safeUrl(url, { allowDataImage = false } = {}) {
   }
 }
 
+/**
+ * True when two URLs point to the same page, ignoring protocol (http/https),
+ * "www.", letter case, a trailing slash, query and #hash.
+ */
+export function isSamePage(a, b) {
+  const key = (u) => {
+    try {
+      const url = new URL(u);
+      if (!/^https?:$/.test(url.protocol)) return null;
+      const path = decodeURIComponent(url.pathname).replace(/\/+$/, "");
+      return `${url.host.replace(/^www\./, "")}${path}`.toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const [x, y] = [key(a), key(b)];
+  return x !== null && x === y;
+}
+
 export function isExternalUrl(url) {
   return /^https?:\/\//i.test(url || "");
 }
@@ -193,17 +212,18 @@ function parseYamlValue(value) {
   if (value === "null" || value === "~") return null;
   if (/^-?\d+$/.test(value)) return parseInt(value, 10);
   if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
+  if (value.length > 1 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\(["\\])/g, "$1"); // YAML double-quoted escapes
+  }
+  if (value.length > 1 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'"); // YAML single-quoted escape
   }
   if (value.startsWith("[") && value.endsWith("]")) {
     return value
       .slice(1, -1)
       .split(",")
-      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .map((s) => parseYamlValue(s.trim()))
+      .map(String)
       .filter(Boolean);
   }
   return value;
