@@ -30,21 +30,10 @@
   text-decoration: none;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
+.brand-logo {
+  flex: none;
   width: 2rem;
   height: 2rem;
-  border-radius: 0.55rem;
-  background: var(--color-p);
-  color: var(--on-p);
-  font-size: 0.85rem;
-  letter-spacing: -0.03em;
-}
-
-:root[data-scheme="dark"] .brand-mark {
-  background: var(--color-c);
-  color: var(--color-b);
 }
 
 .landing-links {

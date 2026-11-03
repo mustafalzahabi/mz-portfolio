@@ -8,7 +8,7 @@
 
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
-import { ICONS, networkIcon } from "./icons.js";
+import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
 import { fetchReadme, extractReadmeImages, extractReadmeSummary } from "./api.js";
@@ -745,7 +745,11 @@ export function buildFooter(vm, cfg, ctx) {
     footer.appendChild(h("p.muted", `Last updated ${formatDate(vm.source.updatedAt.slice(0, 10), ctx.locale, { long: true })}`));
   }
   if (cfg.footer.credit) {
-    footer.appendChild(h("p.muted", "Built with ", h("a", { href: ctx.homeHref }, "mz-portfolio"), " — make yours from a resume.json."));
+    footer.appendChild(
+      h("p.muted.footer-credit",
+        h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
+        h("span", " — make yours from a resume.json.")),
+    );
   }
   return footer;
 }
