@@ -1,242 +1,230 @@
 // ============================================================================
-// THEME MANAGEMENT
+// THEME MANAGEMENT — auto / light / dark
+// Colors come from css/tokens.css (TwOP light-dark() outputs); this module only
+// sets data-theme + color-scheme on <html>. A visitor's explicit choice is
+// remembered; otherwise the portfolio owner's theme.mode default applies.
 // ============================================================================
 
-let themeKnobPosition = 0; // 0 = dark (left), 1 = light (right), -1 = auto (thrown off)
+import { ICONS } from "./icons.js";
 
-export function initDarkMode() {
-  const savedMode = localStorage.getItem("theme") || "auto";
-  applyTheme(savedMode);
-}
+const STORAGE_KEY = "mz-theme";
+const MODES = ["auto", "light", "dark"];
+let ownerDefault = "auto";
 
-export function applyTheme(mode) {
-  let effectiveScheme = mode;
+const darkQuery = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 
-  if (mode === "auto") {
-    effectiveScheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+function readStored() {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("theme");
+    return MODES.includes(v) ? v : null;
+  } catch {
+    return null;
   }
-
-  document.documentElement.style.colorScheme = effectiveScheme;
-  document.documentElement.dataset.theme = effectiveScheme;
-  localStorage.setItem("theme", mode);
-  updateThemeToggleButton();
 }
 
-export function getCurrentTheme() {
-  return localStorage.getItem("theme") || "auto";
+export function getThemeMode() {
+  return readStored() || ownerDefault;
 }
 
-export function toggleDarkMode() {
-  const themes = ["auto", "light", "dark"];
-  const current = getCurrentTheme();
-  const currentIndex = themes.indexOf(current);
-  const nextIndex = (currentIndex + 1) % themes.length;
-  applyTheme(themes[nextIndex]);
+export function getEffectiveScheme(mode = getThemeMode()) {
+  if (mode === "auto") return darkQuery?.matches ? "dark" : "light";
+  return mode;
 }
 
-function updateThemeToggleButton() {
-  const knob = document.getElementById("theme-knob");
-  const track = document.getElementById("theme-track");
-  if (!knob || !track) return;
-
-  const mode = getCurrentTheme();
-  const trackRect = track.getBoundingClientRect();
-  const knobRect = knob.getBoundingClientRect();
-  const trackWidth = Math.round(trackRect.width);
-  const knobWidth = Math.round(knobRect.width);
-  const maxTranslate = Math.round(trackWidth - knobWidth);
-
+export function applyTheme(mode, { persist = true } = {}) {
+  if (!MODES.includes(mode)) mode = "auto";
+  const root = document.documentElement;
+  const scheme = getEffectiveScheme(mode);
   if (mode === "auto") {
-    knob.classList.add("auto-mode");
-    const effective = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-    knob.setAttribute("data-mode", effective);
-    knob.setAttribute("data-auto", "true");
-    if (effective === "light") {
-      knob.style.transform = `translate(${maxTranslate}px, -50%)`;
-    } else {
-      knob.style.transform = `translate(0px, -50%)`;
-    }
-  } else if (mode === "light") {
-    knob.classList.remove("auto-mode");
-    knob.setAttribute("data-mode", "light");
-    knob.style.transform = `translate(${maxTranslate}px, -50%)`;
+    delete root.dataset.theme;
+    root.style.colorScheme = "";
   } else {
-    knob.classList.remove("auto-mode");
-    knob.setAttribute("data-mode", "dark");
-    knob.style.transform = "translate(0px, -50%)";
+    root.dataset.theme = scheme;
+    root.style.colorScheme = scheme;
   }
+  root.dataset.scheme = scheme;
+  if (persist) {
+    try {
+      localStorage.setItem(STORAGE_KEY, mode);
+      localStorage.removeItem("theme");
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  document.dispatchEvent(new CustomEvent("mz-themechange", { detail: { mode, scheme } }));
 }
 
-// Listen for system theme changes when in auto mode
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", () => {
-    if (getCurrentTheme() === "auto") {
-      applyTheme("auto");
-    }
+export function initTheme() {
+  applyTheme(getThemeMode(), { persist: false });
+  darkQuery?.addEventListener("change", () => {
+    if (getThemeMode() === "auto") applyTheme("auto", { persist: false });
   });
+}
 
-let _themeMoveHandler = null;
-let _themeUpHandler = null;
+/** Sets the portfolio owner's default (used when the visitor hasn't chosen). */
+export function setOwnerDefault(mode) {
+  ownerDefault = MODES.includes(mode) ? mode : "auto";
+  applyTheme(getThemeMode(), { persist: false });
+}
 
-export function attachThemeSwitchHandlers(track, knob) {
-  // Remove previous document-level handlers if any
-  if (_themeMoveHandler) document.removeEventListener("pointermove", _themeMoveHandler);
-  if (_themeUpHandler) document.removeEventListener("pointerup", _themeUpHandler);
+function nextMode(mode) {
+  return MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+}
 
-  let isDragging = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let dragStartPos = 0;
-  let currentPos = 0;
-  let currentY = 0;
-  let escapeTrack = false;
+const MODE_LABEL = { auto: "Theme: automatic", light: "Theme: light", dark: "Theme: dark" };
 
-  function computeSizes() {
-    const tRect = track.getBoundingClientRect();
-    const kRect = knob.getBoundingClientRect();
-    return {
-      trackWidth: Math.round(tRect.width),
-      trackHeight: Math.round(tRect.height),
-      knobWidth: Math.round(kRect.width),
-      knobHeight: Math.round(kRect.height),
-      maxTranslate: Math.round(tRect.width - kRect.width),
-    };
-  }
+// ============================================================================
+// TOGGLE BUILDERS — "switch" | "icon" | "slider" | "none"
+// ============================================================================
 
-  let { trackWidth, trackHeight, knobWidth, knobHeight, maxTranslate } =
-    computeSizes();
-  const midpoint = maxTranslate / 2;
-  const throwThreshold = 40;
-  const verticalThreshold = 20;
-  const escapeThreshold = 15;
+export function buildThemeToggle(style = "switch") {
+  if (style === "none") return null;
+  if (style === "icon") return buildIconToggle();
+  if (style === "slider") return buildSegmentedToggle();
+  return buildSwitchToggle();
+}
 
-  function snapToPosition(endPos, endY) {
-    const throwThresholdRight = maxTranslate + throwThreshold;
-    const throwThresholdLeft = -throwThreshold;
-    const isOffVertically = Math.abs(endY) > verticalThreshold;
-    const isOffHorizontally =
-      endPos > throwThresholdRight || endPos < throwThresholdLeft;
+function onThemeChange(el, update) {
+  update();
+  const handler = () => (el.isConnected ? update() : document.removeEventListener("mz-themechange", handler));
+  document.addEventListener("mz-themechange", handler);
+}
 
-    if (isOffHorizontally || isOffVertically) {
-      applyTheme("auto");
-    } else if (endPos > midpoint) {
-      applyTheme("light");
-    } else {
-      applyTheme("dark");
-    }
-  }
+// Icon button: cycles auto → light → dark
+function buildIconToggle() {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "theme-toggle theme-toggle--icon";
+  const update = () => {
+    const mode = getThemeMode();
+    btn.innerHTML = ICONS[mode === "auto" ? "auto" : mode === "dark" ? "moon" : "sun"];
+    btn.setAttribute("aria-label", `${MODE_LABEL[mode]}. Click to change.`);
+    btn.title = MODE_LABEL[mode];
+  };
+  btn.addEventListener("click", () => applyTheme(nextMode(getThemeMode())));
+  onThemeChange(btn, update);
+  return btn;
+}
 
+// Segmented control: three radio buttons
+function buildSegmentedToggle() {
+  const group = document.createElement("div");
+  group.className = "theme-toggle theme-toggle--slider";
+  group.setAttribute("role", "radiogroup");
+  group.setAttribute("aria-label", "Color theme");
+  const buttons = MODES.map((mode) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", "radio");
+    b.dataset.mode = mode;
+    b.innerHTML = ICONS[mode === "auto" ? "auto" : mode === "dark" ? "moon" : "sun"];
+    b.setAttribute("aria-label", mode[0].toUpperCase() + mode.slice(1));
+    b.title = MODE_LABEL[mode];
+    b.addEventListener("click", () => applyTheme(mode));
+    group.appendChild(b);
+    return b;
+  });
+  group.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const i = MODES.indexOf(getThemeMode());
+    const mode = MODES[(i + (e.key === "ArrowRight" ? 1 : MODES.length - 1)) % MODES.length];
+    applyTheme(mode);
+    buttons[MODES.indexOf(mode)].focus();
+  });
+  onThemeChange(group, () => {
+    const mode = getThemeMode();
+    buttons.forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+    group.dataset.mode = mode;
+  });
+  return group;
+}
+
+// Draggable switch: drag/tap left = dark, right = light, throw it off = auto
+function buildSwitchToggle() {
+  const wrap = document.createElement("div");
+  wrap.className = "theme-toggle theme-toggle--switch";
+
+  const track = document.createElement("div");
+  track.className = "theme-switch-track";
+  track.setAttribute("role", "switch");
+  track.tabIndex = 0;
+
+  const knob = document.createElement("div");
+  knob.className = "theme-switch-knob";
+  knob.innerHTML = `<span class="theme-icon theme-icon-moon">${ICONS.moon}</span><span class="theme-icon theme-icon-sun">${ICONS.sun}</span>`;
+  track.appendChild(knob);
+  wrap.appendChild(track);
+
+  const maxTranslate = () => Math.max(0, track.clientWidth - knob.offsetWidth - 4);
+  const place = (x, y = 0, animate = true) => {
+    knob.style.transition = animate ? "" : "none";
+    knob.style.transform = `translate(${x}px, ${y}px)`;
+  };
+
+  const update = () => {
+    const mode = getThemeMode();
+    const scheme = getEffectiveScheme(mode);
+    knob.dataset.mode = scheme;
+    knob.classList.toggle("auto-mode", mode === "auto");
+    track.setAttribute("aria-checked", String(scheme === "light"));
+    track.setAttribute("aria-label", `${MODE_LABEL[mode]}. Press to switch; press A for automatic.`);
+    track.title = MODE_LABEL[mode];
+    place(scheme === "light" ? maxTranslate() : 0);
+  };
+
+  let drag = null;
   knob.addEventListener("pointerdown", (e) => {
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    ({ trackWidth, trackHeight, knobWidth, knobHeight, maxTranslate } =
-      computeSizes());
-    const transform = knob.style.transform;
-    const matchX = transform.match(/translate\(([-\d.]+)px/);
-    dragStartPos = matchX ? parseFloat(matchX[1]) : 0;
-    currentY = 0;
-    escapeTrack = false;
+    drag = { x: e.clientX, y: e.clientY, start: getEffectiveScheme() === "light" ? maxTranslate() : 0, dx: 0, dy: 0, moved: false };
+    knob.setPointerCapture?.(e.pointerId);
     knob.classList.add("dragging");
     e.preventDefault();
-    if (e.pointerId && knob.setPointerCapture) {
-      try {
-        knob.setPointerCapture(e.pointerId);
-      } catch (err) {
-        /* ignore */
-      }
-    }
   });
-
-  _themeMoveHandler = (e) => {
-    if (!isDragging) return;
-
-    const deltaX = e.clientX - dragStartX;
-    const deltaY = e.clientY - dragStartY;
-    currentPos = dragStartPos + deltaX;
-
-    const hasEscapedRight = currentPos > maxTranslate + escapeThreshold;
-    const hasEscapedLeft = currentPos < -escapeThreshold;
-
-    if (hasEscapedRight || hasEscapedLeft) {
-      escapeTrack = true;
-    }
-
-    if (escapeTrack) {
-      currentY = deltaY;
-    } else {
-      currentY = 0;
-    }
-
-    knob.style.transform = `translate(${currentPos}px, calc(-50% + ${currentY}px))`;
-    knob.style.transition = "none";
-  };
-
-  _themeUpHandler = () => {
-    if (!isDragging) return;
-    isDragging = false;
+  knob.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    drag.dx = e.clientX - drag.x;
+    drag.dy = e.clientY - drag.y;
+    if (Math.abs(drag.dx) > 3 || Math.abs(drag.dy) > 3) drag.moved = true;
+    const pos = drag.start + drag.dx;
+    const escaped = pos < -12 || pos > maxTranslate() + 12;
+    place(pos, escaped ? drag.dy : 0, false);
+  });
+  const end = () => {
+    if (!drag) return;
     knob.classList.remove("dragging");
-    knob.style.transition = "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)";
-    snapToPosition(currentPos, currentY);
-    try {
-      if (knob.releasePointerCapture) knob.releasePointerCapture();
-    } catch (e) {
-      /* ignore */
+    const { moved, start, dx, dy } = drag;
+    drag = null;
+    if (!moved) {
+      applyTheme(getEffectiveScheme() === "light" ? "dark" : "light");
+      return;
     }
+    const pos = start + dx;
+    const thrown = pos < -40 || pos > maxTranslate() + 40 || Math.abs(dy) > 24;
+    applyTheme(thrown ? "auto" : pos > maxTranslate() / 2 ? "light" : "dark");
   };
-
-  document.addEventListener("pointermove", _themeMoveHandler);
-  document.addEventListener("pointerup", _themeUpHandler);
+  knob.addEventListener("pointerup", end);
+  knob.addEventListener("pointercancel", end);
 
   track.addEventListener("click", (e) => {
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const kRect = knob.getBoundingClientRect();
-    const knobLeft = kRect.left - rect.left;
-    const knobRight = knobLeft + kRect.width;
-
-    if (clickX < knobLeft || clickX > knobRight) {
-      const current = getCurrentTheme();
-      if (current === "auto") {
-        applyTheme("dark");
-      } else if (current === "dark") {
-        applyTheme("light");
-      } else {
-        applyTheme("dark");
-      }
-    }
+    if (e.target.closest(".theme-switch-knob")) return;
+    applyTheme(getEffectiveScheme() === "light" ? "dark" : "light");
   });
-
   track.addEventListener("keydown", (e) => {
     if (e.key === " " || e.key === "Enter") {
       e.preventDefault();
-      const current = getCurrentTheme();
-      if (current === "auto") {
-        applyTheme("dark");
-      } else if (current === "dark") {
-        applyTheme("light");
-      } else {
-        applyTheme("dark");
-      }
-    } else if (e.key === "ArrowRight") {
-      applyTheme("light");
-    } else if (e.key === "ArrowLeft") {
-      applyTheme("dark");
-    }
+      applyTheme(getEffectiveScheme() === "light" ? "dark" : "light");
+    } else if (e.key === "ArrowRight") applyTheme("light");
+    else if (e.key === "ArrowLeft") applyTheme("dark");
+    else if (e.key.toLowerCase() === "a") applyTheme("auto");
   });
 
-  updateThemeToggleButton();
-}
-
-export function setupThemeToggle() {
-  const track = document.getElementById("theme-track");
-  const knob = document.getElementById("theme-knob");
-  if (track && knob) {
-    updateThemeToggleButton();
-  }
+  onThemeChange(wrap, update);
+  // Size is known only once attached
+  requestAnimationFrame(update);
+  if (typeof ResizeObserver === "function") new ResizeObserver(() => !drag && update()).observe(track);
+  return wrap;
 }

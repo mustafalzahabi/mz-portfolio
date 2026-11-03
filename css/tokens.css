@@ -1,23 +1,116 @@
 /* ============================================================================
-   DESIGN TOKENS - COLOR PALETTE & TYPOGRAPHY
+   DESIGN TOKENS — TwOP-Architecture color system
+   Ten input tokens (light mode). Dark mode is generated automatically with the
+   TwOP "Functional Engine" formulas (oklch lightness inversion + chroma
+   scaling), inlined as relative colors so every current browser supports it.
+   Usage: 50% canvas (b, s) · 40% structure (c, d, p, o, r, f) · 10% action (a, v)
+   NOTE: No external colors shall be used at all.
    ============================================================================ */
 :root {
   color-scheme: light dark;
 
-  /* Colors */
-  --accent: light-dark(#b8860b, #e8c55f);
-  --hover: light-dark(#8b6914, #f0d974);
-  --background-color: light-dark(#fef3c7, #705507);
-  --primary: light-dark(#1a1a1a, #e0e0e0);
-  --secondary: light-dark(#666, #aaa);
-  --surface: light-dark(#f2f2f2, #2a2a2a);
-  --border: light-dark(#e5d4b1, #5a4a30);
-  --code: light-dark(#b8860b, #e8c55f);
+  /* Structural Anchor (Constant) */
+  --base: #f7f5f2;    /* main background */
+  --core: #1f1d1a;    /* body text, titles, structural icons */
 
-  /* Gradient */
-  --gradient-banner: radial-gradient(ellipse 150% 100% at 30% 50%, light-dark(#ffd700, #c9944d) 0%, light-dark(#daa520, #a68860) 25%, light-dark(#deb887, #8b7355) 50%, light-dark(#cd853f, #6b5a45) 100%), linear-gradient(45deg, light-dark(#edc951, #b89968) 0%, light-dark(#b8860b, #7a6d5a) 100%);
+  /* Palette Helm (Variable) */
+  --accent: #2f5d62;  /* primary buttons, active links, selection */
+  --variant: #7a6a9b; /* hover, focused inputs, pressed states */
+  --surface: #ebe6df; /* cards, banners, sidebars, nav headers */
+  --depth: #b3aa9e;   /* borders, dividers, recessed wells/inputs */
+
+  /* Signal Flags (Additional) */
+  --optimal: #3f8f5f; /* success */
+  --risky: #c28a2c;   /* warning */
+  --fatal: #b4483f;   /* critical / error */
+
+  /* Contextual Pennant (Optional) */
+  --prime: #3b3a5a;   /* brand: hero, logo accents, large type */
+
+  /* Colors Sail — static fallback (light only) for browsers without
+     relative color syntax; overridden in the @supports block below. */
+  --color-b: var(--base);
+  --color-c: var(--core);
+  --color-a: var(--accent);
+  --color-v: var(--variant);
+  --color-s: var(--surface);
+  --color-d: var(--depth);
+  --color-o: var(--optimal);
+  --color-r: var(--risky);
+  --color-f: var(--fatal);
+  --color-p: var(--prime);
 
   /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-family-mono: 'Courier New', monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-family: var(--font-sans);
+  --font-family-mono: var(--font-mono);
+  --font-scale: 1;
+
+  /* Shape & spacing */
+  --radius: 0.75rem;
+  --radius-sm: calc(var(--radius) * 0.5);
+  --gutter: clamp(1rem, 4vw, 2rem);
+  --content-width: 72rem;
+  --reading-width: 44rem;
+
+  /* Motion */
+  --anim-duration: 0.5s;
+  --anim-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition: 0.2s ease;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+/* Functional Engine (Control) — TwOP --dm-* formulas, inlined */
+@supports (color: oklch(from red l c h)) {
+  :root {
+    /* canvas */
+    --color-b: light-dark(var(--base), oklch(from var(--base) clamp(0.10, calc(1 - l * l), 0.25) calc(c * 0.5) h));
+    --color-s: light-dark(var(--surface), oklch(from var(--surface) clamp(0.10, calc(1 - l * l), 0.25) calc(c * 0.5) h));
+    /* text */
+    --color-c: light-dark(var(--core), oklch(from var(--core) clamp(0.85, calc(1 - l * l), 0.95) calc(c * 0.6) h));
+    /* border */
+    --color-d: light-dark(var(--depth), oklch(from var(--depth) clamp(0.25, calc(1 - l * l), 0.40) calc(c * 0.4) h));
+    /* action */
+    --color-a: light-dark(var(--accent), oklch(from var(--accent) clamp(0.45, calc(1 - l * l), 0.75) calc(c * max(0.70, calc(1 - l * 0.30))) h));
+    --color-v: light-dark(var(--variant), oklch(from var(--variant) clamp(0.45, calc(1 - l * l), 0.75) calc(c * max(0.70, calc(1 - l * 0.30))) h));
+    /* signal */
+    --color-o: light-dark(var(--optimal), oklch(from var(--optimal) clamp(0.45, calc(1 - l * l), 0.80) calc(c * max(0.75, calc(1 - l * 0.25))) h));
+    --color-r: light-dark(var(--risky), oklch(from var(--risky) clamp(0.45, calc(1 - l * l), 0.80) calc(c * max(0.75, calc(1 - l * 0.25))) h));
+    --color-f: light-dark(var(--fatal), oklch(from var(--fatal) clamp(0.45, calc(1 - l * l), 0.80) calc(c * max(0.75, calc(1 - l * 0.25))) h));
+    /* brand */
+    --color-p: light-dark(var(--prime), oklch(from var(--prime) clamp(0.25, calc(1 - l * l), 0.55) calc(c * max(0.60, calc(1 - l * 0.40))) h));
+  }
+}
+
+/* Derived shades — only mixes of the generated outputs */
+:root {
+  --ink-muted: color-mix(in oklab, var(--color-c) 72%, var(--color-d));
+  --ink-soft: color-mix(in oklab, var(--color-c) 55%, var(--color-b));
+  --line: var(--color-d);
+  --line-soft: color-mix(in oklab, var(--color-d) 45%, var(--color-b));
+  --card: color-mix(in oklab, var(--color-s) 55%, var(--color-b));
+  --well: color-mix(in oklab, var(--color-s) 70%, var(--color-d));
+  --tint-a: color-mix(in oklab, var(--color-a) 12%, var(--color-b));
+  --tint-v: color-mix(in oklab, var(--color-v) 14%, var(--color-b));
+  --tint-p: color-mix(in oklab, var(--color-p) 12%, var(--color-b));
+  --tint-o: color-mix(in oklab, var(--color-o) 14%, var(--color-b));
+  --tint-r: color-mix(in oklab, var(--color-r) 16%, var(--color-b));
+  --tint-f: color-mix(in oklab, var(--color-f) 14%, var(--color-b));
+  --on-a: var(--color-b);
+  --on-p: var(--color-b);
+  --shadow: 0 1px 2px color-mix(in oklab, var(--color-c) 8%, transparent),
+    0 8px 24px color-mix(in oklab, var(--color-c) 8%, transparent);
+  --shadow-lg: 0 2px 6px color-mix(in oklab, var(--color-c) 10%, transparent),
+    0 18px 48px color-mix(in oklab, var(--color-c) 14%, transparent);
+  --glow: 0 0 0 1px color-mix(in oklab, var(--color-v) 50%, transparent),
+    0 0 24px color-mix(in oklab, var(--color-v) 35%, transparent);
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--color-v) 55%, transparent);
+  --gradient-banner:
+    radial-gradient(120% 140% at 15% 20%, color-mix(in oklab, var(--color-a) 55%, var(--color-p)) 0%, transparent 60%),
+    radial-gradient(120% 140% at 85% 80%, color-mix(in oklab, var(--color-v) 55%, var(--color-p)) 0%, transparent 65%),
+    linear-gradient(135deg, var(--color-p), color-mix(in oklab, var(--color-p) 70%, var(--color-a)));
 }

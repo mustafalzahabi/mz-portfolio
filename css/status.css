@@ -1,0 +1,155 @@
+/* ============================================================================
+   STATUS PAGES & LOADING SKELETON
+   ============================================================================ */
+
+.status-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 2rem var(--gutter);
+}
+
+.status-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  max-width: 32rem;
+  text-align: center;
+}
+
+.status-card.inline {
+  margin: 3rem auto;
+}
+
+.status-icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 0.25rem;
+  border-radius: 50%;
+  background: var(--tint-a);
+  color: var(--color-a);
+}
+
+.status-icon svg {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+[data-tone="warn"] .status-icon {
+  background: var(--tint-r);
+  color: var(--color-r);
+}
+
+[data-tone="error"] .status-icon {
+  background: var(--tint-f);
+  color: var(--color-f);
+}
+
+.status-title {
+  color: var(--color-p);
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+:root[data-scheme="dark"] .status-title {
+  color: var(--color-c);
+}
+
+.status-text {
+  color: var(--ink-muted);
+}
+
+.status-countdown {
+  color: var(--color-c);
+  font-family: var(--font-family-mono);
+  font-size: clamp(2.5rem, 12vw, 3.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* ---------- skeleton ---------- */
+
+.status-page.is-loading {
+  place-items: start stretch;
+  padding: 0;
+}
+
+.skeleton {
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+
+.skeleton-banner,
+.skeleton-avatar,
+.skeleton-lines span,
+.skeleton-block {
+  background: linear-gradient(90deg, var(--well) 0%, var(--card) 50%, var(--well) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeleton-banner {
+  aspect-ratio: 2.4 / 1;
+  max-height: 18rem;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: -3.5rem;
+  padding: 0 var(--gutter);
+}
+
+.skeleton-avatar {
+  flex: none;
+  width: 7rem;
+  height: 7rem;
+  border: 4px solid var(--color-b);
+  border-radius: 50%;
+}
+
+.skeleton-lines {
+  display: grid;
+  flex: 1;
+  gap: 0.6rem;
+  padding-top: 3rem;
+}
+
+.skeleton-lines span {
+  height: 1rem;
+  border-radius: 999px;
+}
+
+.skeleton-lines span:first-child {
+  width: 60%;
+  height: 1.5rem;
+}
+
+.skeleton-lines span:last-child {
+  width: 40%;
+}
+
+.skeleton-block {
+  height: 8rem;
+  margin: 0 var(--gutter);
+  border-radius: var(--radius);
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}

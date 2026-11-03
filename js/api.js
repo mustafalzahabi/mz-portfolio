@@ -1,468 +1,317 @@
 // ============================================================================
-// GITHUB INTEGRATION
+// REMOTE SOURCES — GitHub API, raw hosts, Google Drive API v3
+// Rate-limit budget: the GitHub REST API allows 60 unauthenticated requests
+// per hour. Only the user profile, repo list and gist list use it; file
+// contents (gists, READMEs) come from raw hosts, which don't count.
 // ============================================================================
 
-export function extractGithubUsername(url) {
-  if (typeof url !== "string") return null;
-  const match = url.match(/github\.com\/([^\/]+)/);
-  return match ? match[1] : null;
-}
+import { debug, warn } from "./log.js";
 
-// ---------------------------------------------------------------------------
-// Rate limit tracking
-// ---------------------------------------------------------------------------
+const GH_API = "https://api.github.com";
 
-let rateLimitInfo = { remaining: null, resetAt: 0, limited: false };
+// ============================================================================
+// RATE LIMIT TRACKING
+// ============================================================================
 
-function updateRateLimit(headers) {
-  const remaining = headers.get("x-ratelimit-remaining");
-  const reset = headers.get("x-ratelimit-reset");
-  if (remaining !== null) rateLimitInfo.remaining = parseInt(remaining, 10);
-  if (reset) rateLimitInfo.resetAt = parseInt(reset, 10) * 1000;
-  rateLimitInfo.limited = rateLimitInfo.remaining !== null && rateLimitInfo.remaining <= 0;
-  if (rateLimitInfo.limited) {
-    try {
-      localStorage.setItem("mz-rate-limited", JSON.stringify({ resetAt: rateLimitInfo.resetAt }));
-    } catch (_) {}
-  } else if (rateLimitInfo.remaining !== null && rateLimitInfo.remaining > 0) {
-    try { localStorage.removeItem("mz-rate-limited"); } catch (_) {}
+const RL_KEY = "mz-rate-limited";
+const rateLimit = { remaining: null, resetAt: 0, limited: false };
+
+(function loadPersistedRateLimit() {
+  try {
+    const data = JSON.parse(localStorage.getItem(RL_KEY) || "null");
+    if (data?.resetAt && Date.now() < data.resetAt) {
+      rateLimit.limited = true;
+      rateLimit.resetAt = data.resetAt;
+    } else {
+      localStorage.removeItem(RL_KEY);
+    }
+  } catch {
+    /* storage unavailable */
+  }
+})();
+
+function trackRateLimit(res) {
+  if (!res.url.startsWith(GH_API)) return;
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const reset = res.headers.get("x-ratelimit-reset");
+  if (remaining !== null) rateLimit.remaining = parseInt(remaining, 10);
+  if (reset) rateLimit.resetAt = parseInt(reset, 10) * 1000;
+  rateLimit.limited =
+    (rateLimit.remaining !== null && rateLimit.remaining <= 0) ||
+    ((res.status === 403 || res.status === 429) && remaining === "0");
+  try {
+    if (rateLimit.limited) localStorage.setItem(RL_KEY, JSON.stringify({ resetAt: rateLimit.resetAt }));
+    else if (rateLimit.remaining > 0) localStorage.removeItem(RL_KEY);
+  } catch {
+    /* storage unavailable */
   }
 }
 
-function loadPersistedRateLimit() {
-  try {
-    const raw = localStorage.getItem("mz-rate-limited");
-    if (raw) {
-      const data = JSON.parse(raw);
-      if (data && data.resetAt && Date.now() < data.resetAt) {
-        rateLimitInfo.limited = true;
-        rateLimitInfo.resetAt = data.resetAt;
-      } else {
-        localStorage.removeItem("mz-rate-limited");
-      }
-    }
-  } catch (_) {}
-}
-
-loadPersistedRateLimit();
-
 export function isRateLimited() {
-  return rateLimitInfo.limited;
-}
-
-export function getRateLimitResetMs() {
-  if (!rateLimitInfo.limited) return 0;
-  return Math.max(0, rateLimitInfo.resetAt - Date.now());
+  if (rateLimit.limited && rateLimit.resetAt && Date.now() >= rateLimit.resetAt) rateLimit.limited = false;
+  return rateLimit.limited;
 }
 
 export function getRateLimitResetAt() {
-  return rateLimitInfo.resetAt;
+  return rateLimit.resetAt || Date.now() + 60 * 60 * 1000;
 }
 
-export function setRateLimitInfo(remaining, resetAt) {
-  rateLimitInfo.remaining = remaining;
-  rateLimitInfo.resetAt = resetAt;
-  rateLimitInfo.limited = remaining <= 0;
-}
+// ============================================================================
+// HTTP WITH ETAG CACHE (localStorage)
+// 304 responses don't count against the GitHub rate limit.
+// ============================================================================
 
-export function getRateLimitInfo() {
-  return { ...rateLimitInfo };
-}
-
-// ---------------------------------------------------------------------------
-// HTTP fetch with localStorage + ETag caching
-// ---------------------------------------------------------------------------
-
-function getCache(cacheKey) {
+function readCache(key) {
   try {
-    const raw = localStorage.getItem(cacheKey);
-    return raw ? JSON.parse(raw) : null;
-  } catch (_) {
+    return JSON.parse(localStorage.getItem(key) || "null");
+  } catch {
     return null;
   }
 }
 
-function setCache(cacheKey, data, etag) {
+function writeCache(key, data, etag) {
   try {
-    localStorage.setItem(cacheKey, JSON.stringify({ data, etag, timestamp: Date.now() }));
-  } catch (_) { /* quota exceeded */ }
-}
-
-async function fetchWithCache(url, cacheKey, fetchOptions = {}) {
-  const cached = getCache(cacheKey);
-
-  const headers = { ...fetchOptions.headers };
-  if (cached?.etag) {
-    headers["If-None-Match"] = cached.etag;
-  }
-
-  try {
-    const res = await fetch(url, { ...fetchOptions, headers });
-
-    // Always track rate limit from response headers
-    updateRateLimit(res.headers);
-
-    if (res.status === 304 && cached?.data) {
-      console.log(`[api] 304 hit for ${cacheKey}, returning cache`);
-      cached.timestamp = Date.now();
-      setCache(cacheKey, cached.data, cached.etag);
-      return cached.data;
-    }
-
-    if (!res.ok) {
-      if (cached?.data) {
-        console.log(`[api] fetch failed (${res.status}), falling back to stale cache for ${cacheKey}`);
-        return cached.data;
-      }
-      return null;
-    }
-
-    const etag = res.headers.get("etag") || "";
-    const contentType = res.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      const data = await res.json();
-      setCache(cacheKey, data, etag);
-      return data;
-    } else {
-      const data = await res.text();
-      setCache(cacheKey, data, etag);
-      return data;
-    }
-  } catch (e) {
-    if (cached?.data) {
-      console.log(`[api] network error, falling back to stale cache for ${cacheKey}: ${e.message}`);
-      return cached.data;
-    }
-    throw e;
+    localStorage.setItem(key, JSON.stringify({ data, etag, timestamp: Date.now() }));
+  } catch {
+    pruneCache();
   }
 }
 
-// ---------------------------------------------------------------------------
-// Raw fetch (no cache) — returns { data, status } for existence checks
-// ---------------------------------------------------------------------------
-
-async function fetchRaw(url, fetchOptions = {}) {
+/** Frees space by removing the oldest mz-cache-* entries. */
+function pruneCache() {
   try {
-    const res = await fetch(url, fetchOptions);
-    updateRateLimit(res.headers);
-    if (res.status === 404) return { data: null, status: 404 };
-    if (res.status === 403) return { data: null, status: 403 };
-    if (!res.ok) return { data: null, status: res.status };
-    const data = await res.json();
-    return { data, status: 200 };
-  } catch (e) {
-    return { data: null, status: 0 };
+    const entries = Object.keys(localStorage)
+      .filter((k) => k.startsWith("mz-cache-"))
+      .map((k) => ({ k, t: readCache(k)?.timestamp || 0 }))
+      .sort((a, b) => a.t - b.t);
+    entries.slice(0, Math.ceil(entries.length / 2)).forEach(({ k }) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
   }
 }
 
-// ---------------------------------------------------------------------------
-// User profile
-// ---------------------------------------------------------------------------
+/**
+ * Fetch with ETag revalidation. Returns { status, data, fromCache }.
+ * status: HTTP status, or 0 on network failure.
+ */
+export async function cachedFetch(url, cacheKey, { as = "json", headers = {}, maxAge = 0 } = {}) {
+  const cached = readCache(cacheKey);
+  if (cached && maxAge && Date.now() - cached.timestamp < maxAge) {
+    return { status: 200, data: cached.data, fromCache: true };
+  }
 
-let githubUserCache = {};
+  const reqHeaders = { ...headers };
+  if (cached?.etag) reqHeaders["If-None-Match"] = cached.etag;
 
-export async function fetchGithubUserProfile(username) {
-  if (githubUserCache[username]) return githubUserCache[username];
+  let res;
   try {
-    const url = `https://api.github.com/users/${username}`;
-    console.log("[fetchGithubUserProfile] fetching:", url);
-    const data = await fetchWithCache(url, `mz-cache-gh-user-${username}`);
-    if (!data) {
-      console.warn(`[fetchGithubUserProfile] returned null for ${username}`);
-      return null;
-    }
-    githubUserCache[username] = data;
-    return data;
+    res = await fetch(url, { headers: reqHeaders });
   } catch (e) {
-    console.warn("[fetchGithubUserProfile] Could not fetch GitHub user profile:", e.message);
+    warn("network error", url, e.message);
+    return cached ? { status: 200, data: cached.data, fromCache: true, stale: true } : { status: 0, data: null };
+  }
+  trackRateLimit(res);
+
+  if (res.status === 304 && cached) {
+    writeCache(cacheKey, cached.data, cached.etag);
+    return { status: 200, data: cached.data, fromCache: true };
+  }
+  if (!res.ok) {
+    debug("fetch failed", res.status, url);
+    if (cached && res.status !== 404) return { status: 200, data: cached.data, fromCache: true, stale: true };
+    return { status: res.status, data: null };
+  }
+
+  const data = as === "text" ? await res.text() : await res.json();
+  writeCache(cacheKey, data, res.headers.get("etag") || "");
+  return { status: 200, data, fromCache: false };
+}
+
+/** Plain fetch for raw hosts (no rate limit). Returns text or null. */
+export async function fetchText(url) {
+  try {
+    const res = await fetch(url);
+    return res.ok ? await res.text() : null;
+  } catch {
     return null;
   }
 }
 
-// Check if a GitHub user exists — uses fetchWithCache so ETag 304 doesn't count against rate limit
-export async function checkUserExists(username) {
-  if (githubUserCache[username]) return { exists: true, rateLimited: isRateLimited() };
-
-  try {
-    const data = await fetchWithCache(
-      `https://api.github.com/users/${username}`,
-      `mz-cache-gh-user-${username}`
-    );
-    if (data) {
-      githubUserCache[username] = data;
-      return { exists: true, rateLimited: isRateLimited() };
+/** Runs async tasks with limited concurrency. */
+export async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
     }
-    return { exists: false, rateLimited: isRateLimited() };
-  } catch (e) {
-    return { exists: false, rateLimited: isRateLimited() };
-  }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
-export async function fetchGithubUserAvatar(username) {
-  const user = await fetchGithubUserProfile(username);
-  return user?.avatar_url || null;
+// ============================================================================
+// GITHUB
+// ============================================================================
+
+/** Returns { status: "ok" | "notfound" | "ratelimited" | "error", user } */
+export async function fetchGithubUser(username) {
+  const { status, data } = await cachedFetch(`${GH_API}/users/${encodeURIComponent(username)}`, `mz-cache-gh-user-${username}`);
+  if (data) return { status: "ok", user: data };
+  if (status === 404) return { status: "notfound", user: null };
+  if (isRateLimited() || status === 403 || status === 429) return { status: "ratelimited", user: null };
+  return { status: "error", user: null };
 }
 
-export async function fetchAndMergeProjects(githubUsername) {
-  try {
-    const url = `https://api.github.com/users/${githubUsername}/repos?type=public&sort=stars&per_page=100`;
-    console.log("[fetchAndMergeProjects] fetching repos:", url);
-    const repos = await fetchWithCache(url, `mz-cache-repos-${githubUsername}`);
-    if (!repos || !Array.isArray(repos)) {
-      console.warn(`[fetchAndMergeProjects] no repos data for ${githubUsername}`);
-      return [];
+export async function fetchGistList(username, maxPages = 3) {
+  const all = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { status, data } = await cachedFetch(
+      `${GH_API}/users/${encodeURIComponent(username)}/gists?per_page=100&page=${page}`,
+      `mz-cache-gists-${username}-${page}`,
+    );
+    if (!Array.isArray(data)) {
+      if (status === 403 || status === 429) return { gists: all, rateLimited: true };
+      break;
     }
-
-    const filteredRepos = repos.filter((repo) => !repo.fork);
-    console.log(`[fetchAndMergeProjects] found ${filteredRepos.length} non-fork repos`);
-
-    const MAX_DETAILED = 10;
-
-    const reposWithData = await Promise.all(
-      filteredRepos.map(async (repo, index) => {
-        if (index >= MAX_DETAILED) {
-          return {
-            name: repo.name,
-            description: repo.description || "",
-            technologies: repo.language ? [repo.language] : [],
-            image: null,
-            allImages: [],
-            readmeDescription: repo.description || "",
-            fullReadme: "",
-            live_link: repo.homepage || null,
-            github_link: repo.html_url,
-            stars: repo.stargazers_count,
-            isGitHubRepo: true,
-          };
-        }
-
-        const readmeData = await fetchReadmeData(
-          githubUsername,
-          repo.name,
-          repo.default_branch,
-        );
-        const languages = await fetchRepoLanguages(githubUsername, repo.name);
-
-        const displayDescription =
-          readmeData?.description || repo.description || "";
-
-        return {
-          name: repo.name,
-          description: repo.description || "",
-          technologies:
-            languages.length > 0
-              ? languages
-              : repo.language
-                ? [repo.language]
-                : [],
-          image: readmeData?.firstImage || null,
-          allImages: readmeData?.allImages || [],
-          readmeDescription: displayDescription,
-          fullReadme: readmeData?.fullText || "",
-          live_link: repo.homepage || null,
-          github_link: repo.html_url,
-          stars: repo.stargazers_count,
-          isGitHubRepo: true,
-        };
-      }),
-    );
-
-    console.log(`[fetchAndMergeProjects] fetched ${reposWithData.length} repos with data`);
-    return reposWithData;
-  } catch (e) {
-    console.warn("[fetchAndMergeProjects] Could not fetch GitHub repos:", e.message);
-    return [];
+    all.push(...data);
+    if (data.length < 100) break;
   }
+  return { gists: all, rateLimited: false };
 }
 
-// GitHub language colors - fetched dynamically
-export let GITHUB_LANGUAGE_COLORS = {};
-const LANGUAGE_COLORS_LOWER = {};
-
-export function getLanguageColor(name) {
-  return GITHUB_LANGUAGE_COLORS[name] || LANGUAGE_COLORS_LOWER[name.toLowerCase()] || null;
+export async function fetchRepos(username) {
+  const { data } = await cachedFetch(
+    `${GH_API}/users/${encodeURIComponent(username)}/repos?type=owner&sort=pushed&per_page=100`,
+    `mz-cache-repos-${username}`,
+  );
+  if (!Array.isArray(data)) return [];
+  return data.map((repo) => ({
+    name: repo.name,
+    description: repo.description || "",
+    technologies: [repo.language, ...(repo.topics || [])].filter(Boolean),
+    language: repo.language || "",
+    topics: repo.topics || [],
+    github_link: repo.html_url,
+    live_link: repo.homepage || "",
+    stars: repo.stargazers_count ?? 0,
+    forks: repo.forks_count ?? 0,
+    fork: !!repo.fork,
+    archived: !!repo.archived,
+    owner: repo.owner?.login || username,
+    defaultBranch: repo.default_branch || "main",
+    updatedAt: repo.pushed_at || repo.updated_at || "",
+    isGitHubRepo: true,
+  }));
 }
 
-// Fetch GitHub language colors from github/linguist languages.yml
-export async function initializeLanguageColors() {
-  try {
-    const yaml = await fetchWithCache(
-      "https://raw.githubusercontent.com/github/linguist/master/lib/linguist/languages.yml",
-      "mz-cache-lang-colors",
-    );
-    if (!yaml) return;
+const README_NAMES = ["README.md", "readme.md", "Readme.md", "README.markdown", "README"];
 
-    GITHUB_LANGUAGE_COLORS = {};
-
-    const lines = yaml.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const langMatch = line.match(/^([a-zA-Z0-9\s\-\+#]+):\s*$/);
-      if (langMatch) {
-        const langName = langMatch[1].trim();
-        for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-          const colorMatch = lines[j].match(
-            /^\s+color:\s*['"](#[0-9a-fA-F]{6})['"]/,
-          );
-          if (colorMatch) {
-            GITHUB_LANGUAGE_COLORS[langName] = colorMatch[1];
-            LANGUAGE_COLORS_LOWER[langName.toLowerCase()] = colorMatch[1];
-            break;
-          }
-          if (
-            lines[j].match(/^[a-zA-Z0-9\s\-\+#]+:\s*$/) &&
-            !lines[j].startsWith(" ")
-          ) {
-            break;
-          }
-        }
-      }
+/** Fetches a README from raw.githubusercontent.com (no API cost). */
+export async function fetchReadme(owner, repo, branch = "main") {
+  const cacheKey = `mz-cache-readme-${owner}-${repo}`;
+  const cached = readCache(cacheKey);
+  if (cached && Date.now() - cached.timestamp < 60 * 60 * 1000) return cached.data;
+  for (const name of README_NAMES) {
+    const text = await fetchText(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${name}`);
+    if (text !== null) {
+      writeCache(cacheKey, text, "");
+      return text;
     }
-  } catch (e) {
-    console.warn("Failed to fetch GitHub language colors:", e);
   }
+  writeCache(cacheKey, "", "");
+  return cached?.data || "";
 }
 
-async function fetchRepoLanguages(username, repoName) {
-  try {
-    const url = `https://api.github.com/repos/${username}/${repoName}/languages`;
-    const data = await fetchWithCache(url, `mz-cache-langs-${username}-${repoName}`);
-    if (!data || typeof data !== "object") return [];
-    return Object.keys(data).sort((a, b) => data[b] - data[a]);
-  } catch (e) {
-    return [];
-  }
-}
+// ============================================================================
+// README PARSING
+// ============================================================================
 
-async function fetchReadmeData(username, repoName, branch) {
-  try {
-    const url = `https://api.github.com/repos/${username}/${repoName}/readme`;
-    const text = await fetchWithCache(
-      url,
-      `mz-cache-readme-${username}-${repoName}`,
-      { headers: { Accept: "application/vnd.github.v3.raw" } },
-    );
+const BADGE_PATTERNS = [
+  "shields.io", "badge", "travis-ci", "circleci.com", "codecov.io", "coveralls.io",
+  "david-dm.org", "snyk.io", "gitter.im", "/workflows/", "actions/workflows", "badgen.net",
+  "forthebadge", "github-readme-stats", "komarev.com", "visitor-badge",
+];
 
-    if (!text || typeof text !== "string") return null;
-
-    const images = extractImages(text, username, repoName, branch);
-    const description = extractDescription(text);
-    const fullReadmeWithoutFirstPara = stripFirstParagraph(text);
-
-    return {
-      firstImage: images[0] || null,
-      allImages: images,
-      description,
-      fullText: fullReadmeWithoutFirstPara,
-    };
-  } catch (e) {
-    return null;
-  }
-}
-
-function extractImages(readme, username, repoName, branch) {
+export function extractReadmeImages(readme, owner, repo, branch) {
   const images = [];
   const seen = new Set();
-
-  // Skip badge/icon services
-  const skipPatterns = [
-    "shields.io",
-    "img.shields.io",
-    "badge",
-    "badges.",
-    "travis-ci",
-    "circleci.com",
-    "codecov.io",
-    "coveralls.io",
-    "david-dm.org",
-    "snyk.io",
-    "devops",
-    "gitter.im",
-    "discord",
-    "chat.badge",
-    "stars",
-    "forks",
-    "issues",
-    "license",
-    "npm",
-    "pypi",
-    "crates.io",
-    ".svg?",  // often tiny badges
-  ];
-
-  function shouldSkip(url) {
-    const lower = url.toLowerCase();
-    return skipPatterns.some((p) => lower.includes(p));
-  }
-
-  function addImage(url, alt) {
+  const add = (url) => {
     if (!url || seen.has(url)) return;
-    if (shouldSkip(url)) return;
+    const lower = url.toLowerCase();
+    if (BADGE_PATTERNS.some((p) => lower.includes(p))) return;
+    if (/\.svg(\?|$)/i.test(lower) && !lower.includes("raw")) return;
     seen.add(url);
-
-    // Resolve relative URLs
-    if (url.startsWith("./") || url.startsWith("/") || (!url.includes("://") && !url.startsWith("data:"))) {
-      const normalized = url.startsWith("./")
-        ? url.slice(2)
-        : url.startsWith("/")
-          ? url.slice(1)
-          : url;
-      images.push(
-        `https://raw.githubusercontent.com/${username}/${repoName}/${branch}/${normalized}`,
-      );
-    } else if (url.includes("://")) {
-      images.push(url);
+    if (/^https?:\/\//i.test(url)) images.push(url);
+    else if (!/^[a-z]+:/i.test(url)) {
+      const path = url.replace(/^\.?\//, "");
+      images.push(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`);
     }
-  }
-
-  // Markdown images: ![alt](url)
-  const mdRegex = /!\[(.*?)\]\((.*?)\)/g;
-  let match;
-  while ((match = mdRegex.exec(readme))) {
-    addImage(match[2], match[1]);
-  }
-
-  // HTML images: <img src="url" ...>  or  <img src='url' ...>
-  const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
-  while ((match = htmlRegex.exec(readme))) {
-    addImage(match[1], "");
-  }
-
+  };
+  let m;
+  const md = /!\[[^\]]*\]\(\s*<?([^\s)>]+)/g;
+  while ((m = md.exec(readme))) add(m[1]);
+  const html = /<img\s[^>]*src=["']([^"']+)["']/gi;
+  while ((m = html.exec(readme))) add(m[1]);
   return images;
 }
 
-function extractDescription(readme) {
-  const lines = readme.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith("#") && !trimmed.startsWith("!")) {
-      return trimmed;
-    }
+/** First real paragraph of a README (skips headings, badges, images, HTML). */
+export function extractReadmeSummary(readme) {
+  for (const block of String(readme || "").split(/\n\s*\n/)) {
+    const t = block.trim();
+    if (!t || /^(#|!\[|<|\[!\[|```|---|\||>)/.test(t)) continue;
+    return t.replace(/\s+/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`]/g, "");
   }
   return "";
 }
 
-function stripFirstParagraph(readme) {
-  const lines = readme.split("\n");
-  let foundPara = false;
-  let result = [];
+// ============================================================================
+// GOOGLE DRIVE (API v3 with a referrer-restricted browser key)
+// The deployer sets <meta name="mz-google-api-key" content="…"> in index.html.
+// ============================================================================
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (
-      !foundPara &&
-      trimmed &&
-      !trimmed.startsWith("#") &&
-      !trimmed.startsWith("!")
-    ) {
-      foundPara = true;
-      continue;
-    }
-    if (foundPara) {
-      result.push(line);
-    }
+const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
+
+export function getDriveApiKey() {
+  return document.querySelector('meta[name="mz-google-api-key"]')?.content?.trim() || "";
+}
+
+async function driveJson(url) {
+  try {
+    const res = await fetch(url);
+    if (res.ok) return { status: 200, data: await res.json() };
+    return { status: res.status, data: null };
+  } catch {
+    return { status: 0, data: null };
   }
+}
 
-  return result.join("\n").trim();
+/** Returns { status: "ok"|"nokey"|"notfound"|"error", meta } */
+export async function fetchDriveMeta(id) {
+  const key = getDriveApiKey();
+  if (!key) return { status: "nokey", meta: null };
+  const fields = "id,name,mimeType,modifiedTime,createdTime,webViewLink";
+  const { status, data } = await driveJson(
+    `${DRIVE_API}/${encodeURIComponent(id)}?fields=${fields}&supportsAllDrives=true&key=${encodeURIComponent(key)}`,
+  );
+  if (data) return { status: "ok", meta: data };
+  if (status === 404 || status === 403) return { status: "notfound", meta: null };
+  return { status: "error", meta: null };
+}
+
+export async function listDriveFolder(folderId) {
+  const key = getDriveApiKey();
+  const q = encodeURIComponent(`'${folderId.replace(/'/g, "")}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime,createdTime,webViewLink)");
+  const { data } = await driveJson(
+    `${DRIVE_API}?q=${q}&fields=${fields}&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true&key=${encodeURIComponent(key)}`,
+  );
+  return data?.files || [];
+}
+
+export async function downloadDriveFile(id) {
+  const key = getDriveApiKey();
+  return fetchText(`${DRIVE_API}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(key)}`);
 }

@@ -1,0 +1,215 @@
+/* ============================================================================
+   DETAIL PAGES — project and blog post (mobile first)
+   ============================================================================ */
+
+.detail {
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.25rem 0 2rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: start;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.detail-head {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.detail-title {
+  color: var(--color-p);
+  font-size: clamp(1.7rem, 7vw, 2.6rem);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+:root[data-scheme="dark"] .detail-title {
+  color: var(--color-c);
+}
+
+.detail-meta {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+
+.detail-lead {
+  max-width: var(--reading-width);
+  font-size: 1.1rem;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.detail-layout {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.detail-main {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.detail-main > h2 {
+  font-size: 1.2rem;
+}
+
+.detail-aside {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.aside-title {
+  font-size: 0.95rem;
+}
+
+.post-cover {
+  width: 100%;
+  max-height: 26rem;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
+.post-detail .prose {
+  margin-inline: auto;
+  font-size: 1.05rem;
+}
+
+.post-detail .detail-head {
+  max-width: var(--reading-width);
+  width: 100%;
+  margin-inline: auto;
+}
+
+/* ---------- gallery ---------- */
+
+.gallery {
+  position: relative;
+  margin-inline: calc(var(--gutter) * -1);
+}
+
+.gallery-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.gallery-track::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  display: grid;
+  place-items: center;
+  max-height: 70vh;
+  background: var(--well);
+}
+
+.gallery-slide img {
+  max-height: 70vh;
+  width: auto;
+  object-fit: contain;
+}
+
+.gallery-btn {
+  position: absolute;
+  top: 50%;
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--color-b) 85%, transparent);
+  color: var(--color-c);
+  box-shadow: var(--shadow);
+  transform: translateY(-50%);
+}
+
+.gallery-btn.prev {
+  left: 0.75rem;
+}
+
+.gallery-btn.next {
+  right: 0.75rem;
+}
+
+/* ---------- pager ---------- */
+
+.pager {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.pager-prev,
+.pager-next {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pager-next {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.pager-pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  border: 0;
+}
+
+@media (min-width: 600px) {
+  .pager:not(.pager-pages) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pager-next:only-child {
+    grid-column: 2;
+  }
+
+  .gallery {
+    margin-inline: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .gallery-btn {
+    display: grid;
+  }
+}
+
+@media (min-width: 900px) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    gap: 2.5rem;
+  }
+
+  .detail {
+    padding-top: 2rem;
+  }
+}
