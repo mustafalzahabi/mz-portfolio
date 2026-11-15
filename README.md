@@ -26,6 +26,7 @@ Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive 
 |---|---|
 | `/` | Landing page |
 | `/username` | GitHub user's portfolio (gist `resume.json` + repos) |
+| `/gh/username` | Same, with GitHub forced as the source |
 | `/<drive-file-or-folder-id>` | Google Drive portfolio |
 | `/<id>/project/<slug>` | A project's own page |
 | `/<id>/blog`, `/<id>/blog/<slug>` | Blog list and posts |
