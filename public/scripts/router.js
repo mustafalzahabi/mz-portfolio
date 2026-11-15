@@ -4,7 +4,7 @@
 //        /preview              local preview (drop / paste a resume.json)
 //        /docs                 configuration reference
 //        /preview/view/...     the previewed portfolio
-//        /gh/:username/...     portfolio, GitHub source forced
+//        /gh/:username/...     redirects to /:username/...
 //        /:id/...              portfolio, source auto-detected (GitHub or Drive)
 // Hash:  #section-id           scroll to a profile section
 // The app may live in a sub-folder (e.g. GitHub Pages project site): the base
@@ -82,19 +82,6 @@ export function parsePath(pathname = location.pathname, base = BASE_PATH) {
   }
   if (RESERVED.has(first)) return { view: "landing" };
 
-  // Explicit GitHub form: /gh/:username/...
-  if (first === "gh" && parts.length > 1) {
-    const user = parts[1].replace(/^@/, "");
-    if (!isGithubUsername(user)) return { view: "landing" };
-    return {
-      view: "portfolio",
-      source: "gh",
-      id: user,
-      base: `${base}gh/${encodeURIComponent(user)}`,
-      sub: parseSub(parts.slice(2)),
-    };
-  }
-
   const detected = detectSource(parts[0]);
   if (!detected.id) return { view: "landing" };
   return {
@@ -132,6 +119,9 @@ export function portfolioPath(id) {
 
 /** Restores a path passed as ?p=/some/path (useful on static servers without an SPA fallback) without reloading. */
 export function rescueRedirect() {
+  // /gh/:username/... -> /:username/...
+  const gh = location.pathname.slice(BASE_PATH.length).match(/^gh\/(.+)$/i);
+  if (gh) history.replaceState(null, "", BASE_PATH + gh[1] + location.search + location.hash);
   const params = new URLSearchParams(location.search);
   if (!params.has("p")) return;
   const target = BASE_PATH + params.get("p").replace(/^\/+/, "");

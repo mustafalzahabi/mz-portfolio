@@ -147,9 +147,6 @@ test("router: path parsing", () => {
     view: "portfolio", source: "gd", id: "1AbC_dEf-123456789012345678", base: "/1AbC_dEf-123456789012345678", sub: { name: "profile" },
   });
   assert.equal(parsePath("/repo/octocat/blog", "/repo/").base, "/repo/octocat");
-  assert.deepEqual(parsePath("/gh/octocat", "/"), { view: "portfolio", source: "gh", id: "octocat", base: "/gh/octocat", sub: { name: "profile" } });
-  assert.equal(parsePath("/gh/octocat/project/x", "/").sub.param, "x");
-  assert.equal(parsePath("/gh/-bad", "/").view, "landing");
   assert.deepEqual(sub("/octocat/project/my%20app"), { name: "project", param: "my app" });
   assert.deepEqual(sub("/octocat/blog"), { name: "blog" });
   assert.deepEqual(sub("/octocat/blog/hello-world"), { name: "post", param: "hello-world" });
