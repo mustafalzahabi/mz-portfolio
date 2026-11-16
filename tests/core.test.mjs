@@ -256,3 +256,15 @@ test("merge: view model from example", () => {
   assert.equal(vm.interests.length, 2);
   assert.equal(vm.references.length, 1);
 });
+
+test("isSamePage: matches a portfolio's own address loosely", async () => {
+  const { isSamePage } = await import("../public/scripts/utils.js");
+  const own = "https://mz-portfolio.pages.dev/mustafalzahabi";
+  assert.ok(isSamePage("https://mz-portfolio.pages.dev/mustafalzahabi", own));
+  assert.ok(isSamePage("http://www.MZ-portfolio.pages.dev/MustafAlzahabi/", own));
+  assert.ok(isSamePage("https://mz-portfolio.pages.dev/mustafalzahabi#projects", own));
+  assert.ok(!isSamePage("https://mz-portfolio.pages.dev/someone-else", own));
+  assert.ok(!isSamePage("https://github.com/mustafalzahabi", own));
+  assert.ok(!isSamePage("mailto:a@b.co", own));
+  assert.ok(!isSamePage("not a url", own));
+});

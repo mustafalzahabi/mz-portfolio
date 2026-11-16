@@ -83,6 +83,7 @@ export function renderLanding() {
         h("nav.landing-links", { "aria-label": "Site" },
           h("a", { href: `${BASE_PATH}preview` }, "Preview"),
           h("a", { href: `${BASE_PATH}docs` }, "Docs"),
+          h("a", { href: `${BASE_PATH}edit` }, "Edit"),
           toggle,
         ),
       ),

@@ -131,7 +131,7 @@ export function renderPreviewEditor(onShow) {
     h("div.docs",
       h("header.landing-top",
         h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
-        h("nav.landing-links", { "aria-label": "Site" }, h("a", { href: `${BASE_PATH}preview`, "aria-current": "page" }, "Preview"), h("a", { href: `${BASE_PATH}docs` }, "Docs")),
+        h("nav.landing-links", { "aria-label": "Site" }, h("a", { href: `${BASE_PATH}preview`, "aria-current": "page" }, "Preview"), h("a", { href: `${BASE_PATH}docs` }, "Docs"), h("a", { href: `${BASE_PATH}edit` }, "Edit")),
       ),
       h("main.docs-main", { id: "main", tabindex: "-1" },
         h("h1.landing-title", "Preview"),

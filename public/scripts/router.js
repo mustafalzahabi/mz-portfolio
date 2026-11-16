@@ -3,6 +3,7 @@
 // Path:  /                     landing page
 //        /preview              local preview (drop / paste a resume.json)
 //        /docs                 configuration reference
+//        /edit                 editor (forms, live preview, save to gist)
 //        /preview/view/...     the previewed portfolio
 //        /gh/:username/...     redirects to /:username/...
 //        /:id/...              portfolio, source auto-detected (GitHub or Drive)
@@ -11,7 +12,7 @@
 // path is derived from this module's own URL.
 // ============================================================================
 
-const RESERVED = new Set(["preview", "docs"]);
+const RESERVED = new Set(["preview", "docs", "edit"]);
 
 export const BASE_PATH =
   typeof location !== "undefined" ? new URL("../", import.meta.url).pathname : "/";
@@ -76,6 +77,7 @@ export function parsePath(pathname = location.pathname, base = BASE_PATH) {
   if (!parts.length) return { view: "landing" };
   const first = parts[0].toLowerCase();
   if (first === "docs" && parts.length === 1) return { view: "docs" };
+  if (first === "edit" && parts.length === 1) return { view: "edit" };
   if (first === "preview") {
     if (parts[1] !== "view") return { view: "preview" };
     return { view: "portfolio", preview: true, source: "preview", id: "preview", base: `${base}preview/view`, sub: parseSub(parts.slice(2)) };

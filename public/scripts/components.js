@@ -6,7 +6,7 @@
 // ctx = { base, locale, present, photo, openResume() }  (base = "/<id>")
 // ============================================================================
 
-import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
+import { h, svgIcon, isSamePage, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile } from "./merge.js";
@@ -722,13 +722,15 @@ export function buildReferences(vm, cfg) {
 // CONTACT & FOOTER
 // ============================================================================
 
-export function buildContact(vm, cfg) {
+export function buildContact(vm, cfg, ctx) {
   const b = vm.basics;
+  // Links back to this very portfolio (e.g. basics.url) are left out
+  const ownUrl = new URL(ctx.base || "/", location.origin).href;
   const links = [];
   if (b.email) links.push({ href: `mailto:${b.email}`, label: b.email, icon: ICONS.mail });
   if (b.phone && cfg.header.showPhone) links.push({ href: `tel:${b.phone.replace(/[^\d+]/g, "")}`, label: b.phone, icon: ICONS.phone });
-  if (b.url) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
-  for (const p of b.profiles) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
+  if (b.url && !isSamePage(b.url, ownUrl)) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
+  for (const p of b.profiles) if (!isSamePage(p.url, ownUrl)) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
   const message = cfg.text.contact_message;
   if (!links.length && !message) return null;
 
@@ -748,7 +750,8 @@ export function buildFooter(vm, cfg, ctx) {
     footer.appendChild(
       h("p.muted.footer-credit",
         h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
-        h("span", " — make yours from a resume.json.")),
+        h("span", " — make yours from a resume.json. "),
+        h("a", { href: `${ctx.homeHref}edit` }, "Edit")),
     );
   }
   return footer;

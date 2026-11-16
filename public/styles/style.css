@@ -16,6 +16,7 @@
 @import url("status.css?v=4");
 @import url("animations.css?v=4");
 @import url("resume-overlay.css?v=4");
+@import url("editor.css?v=4");
 
 /* ============================================================================
    DESIGN TOKENS
@@ -40,7 +41,7 @@
 
   /* Signal Flags (Additional) */
   --optimal: #3f8f5f; /* success */
-  --risky: #c28a2c;   /* warning */
+  --risky: #b07a1f;   /* warning */
   --fatal: #b4483f;   /* critical / error */
 
   /* Contextual Pennant (Optional) */

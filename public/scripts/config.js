@@ -213,7 +213,7 @@ export const DEFAULT_CONFIG = buildDefaults(CONFIG_SCHEMA);
 // LEGACY SHAPES → CURRENT SHAPE
 // ============================================================================
 
-function migrateLegacy(raw) {
+export function migrateLegacy(raw) {
   const cfg = JSON.parse(JSON.stringify(raw || {}));
 
   // accent at top level or theme.accent → colors.accent

@@ -29,6 +29,7 @@ import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
 import { renderDocs } from "./views/docs.js";
+import { renderEditor } from "./views/editor.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -61,6 +62,9 @@ const state = {
 
 let lastRoutedHref = null;
 
+// Inside the editor's live-preview frame: no intro animations, no preview bar.
+const EMBEDDED = typeof window !== "undefined" && window.self !== window.top;
+
 // ============================================================================
 // ROUTING
 // ============================================================================
@@ -73,6 +77,7 @@ async function route() {
     closeResume();
     resetPortfolio();
     if (path.view === "docs") renderDocs();
+    else if (path.view === "edit") renderEditor();
     else if (path.view === "preview") renderPreviewEditor(() => navigate(`${BASE_PATH}preview/view`));
     else renderLanding();
     focusMain();
@@ -160,6 +165,7 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   // This owner's look applies only now, while their portfolio is shown
   applyStyleConfig(config);
   setOwnerDefault(config.theme.mode);
+  if (EMBEDDED) config.animation.intro = "none";
   setTagOptions({ languageColors: config.tags.languageColors });
 
   state.key = key;
@@ -212,7 +218,7 @@ function ensureShell(kind, active) {
   app.replaceChildren(
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
-      vm.source.type === "preview" ? buildPreviewBar() : null,
+      vm.source.type === "preview" && !EMBEDDED ? buildPreviewBar() : null,
       ...top,
       h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
       buildFooter(vm, config, c),
