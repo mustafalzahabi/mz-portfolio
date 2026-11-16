@@ -14,7 +14,7 @@ import {
 } from "../public/scripts/resume/helpers.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const resume = JSON.parse(readFileSync(join(root, "public", "assets", "examples", "resume.json"), "utf8"));
+const resume = JSON.parse(readFileSync(join(root, "tests", "fixtures", "resume.json"), "utf8"));
 
 // Index.js is a browser module; keep the curated list in sync with it here.
 const THEMES = ["even", "elegant", "flat", "kendall", "stackoverflow", "macchiato", "onepage", "professional"];
@@ -68,7 +68,7 @@ for (const name of THEMES) {
       assert.match(html, /^<!doctype html>/i);
       assert.match(html, /<\/html>\s*$/i);
       assert.match(html, /<style[\s>]/i);
-      assert.ok(html.includes("Lina Haddad"), "name missing");
+      assert.ok(html.includes("Full Name"), "name missing");
       assert.ok(!/<script/i.test(html), "output must not contain scripts");
     });
 

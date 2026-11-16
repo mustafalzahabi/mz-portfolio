@@ -48,21 +48,25 @@ So the id alone tells the sources apart, and you can also paste a full `drive.go
 
 Edit a resume with forms instead of raw JSON, with a live preview beside it (Edit / Preview toggle on phones).
 
-- **Resume:** every JSON Resume section, with add, reorder and remove, plus friendly warnings for things like badly formatted dates.
+- **Resume:** every JSON Resume section, with add, duplicate, drag-to-reorder (or arrow buttons) and remove. Every field shows a placeholder, invalid emails, links and dates are flagged as you type, and warnings jump to the field they're about. A search box filters fields and sections.
 - **Portfolio settings:** generated from the same schema as `/docs`.
   - **Colors:** pickers show each token's generated dark-mode color. A live report checks 11 contrast pairs in light and dark mode.
-  - **Section order:** drag-free up/down controls and show/hide toggles.
+  - **Section order:** drag or arrow buttons, plus show/hide toggles.
   - **Also editable:** custom tabs, animations, and the resume theme.
-- **Blog:** create, edit and delete posts (Markdown with live preview, title, date, tags, description, cover, draft).
-- **JSON:** the raw file, editable both ways.
+- **Blog:** create, edit and delete posts: a Markdown toolbar (Ctrl+B / I / K), live preview, word count and reading time, title, slug, date, tags, description, cover, draft and public/secret. Unsaved posts are kept as a local draft.
+- **JSON:** the raw file, editable both ways, validated as you type (line and column for errors) with a Format button.
+- **Live preview** updates in place as you type (no reload), with Phone / Tablet / Full width sizes on desktop.
+- **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to save, and **?** for the shortcut list. The top bar shows the save status; click it to see what changed since the last save.
 
 **Saving to GitHub.** Click *Sign in to save* and paste a personal access token with only the **gist** scope (the dialog links to GitHub with that scope pre-selected).
-- The token is kept in `sessionStorage`, so only that browser tab has it and closing the tab forgets it.
+- The token is kept in this browser's `localStorage` until you click *Sign out*, or until GitHub rejects it (expired or revoked), so reopening the editor keeps you signed in. Sign out on shared computers.
 - It is sent only to `api.github.com`, and never logged or written anywhere else.
-- Saving updates your `resume.json` gist, or creates one if you don't have it yet. If the gist changed on GitHub since you opened it, you're asked before it's overwritten.
+- Saving updates your `resume.json` gist, or creates one if you don't have it yet. Empty fields and blank items are dropped before saving. If the gist changed on GitHub since you opened it, you choose: overwrite it, load the GitHub version, or cancel.
 - After a save, the cached copy is cleared, so your portfolio shows the change right away.
 
-Without signing in, the editor still works: start from your public portfolio, the example or a blank resume, then copy or download the JSON. Unsaved work is kept as a draft for the tab.
+Without signing in, the editor still works: start from a public portfolio, every section ready to fill in, a blank resume or an imported file, then copy or download the JSON. Your work is kept as a draft in this browser (it survives closing the tab) until you save or discard it.
+
+There is no sample data anywhere: Preview's *Load template* fills each field with its placeholder ("Full name", "Job title", …).
 
 ## Tabs
 
@@ -172,7 +176,8 @@ Unauthenticated visitors get 60 GitHub API calls per hour.
 
 ```bash
 node tools/dev-server.mjs        # http://localhost:8000 — serves public/ like Cloudflare Pages
-node --test                      # unit tests (Node 20.11+, no dependencies)
+node --test                      # unit tests + static checks (Node 20.11+, no dependencies)
+node tools/check.mjs             # static checks only
 ```
 
 Cloudflare Pages serves `public/index.html` for every route that isn't a file (SPA fallback), so path URLs like `/username/project/x` just work. `wrangler.toml` sets the Pages output directory to `./public`. The dev server does the same locally. Other static servers have no fallback; use `?p=username` there. Assets are linked with absolute paths (`/styles/…`), so the site must be served from the domain root.
@@ -191,7 +196,10 @@ public/                       Static public origin (Cloudflare Pages output)
 │   ├── index.js              Entry: PortfolioCore class → window.App
 │   ├── app.js  router.js  config.js  data.js  api.js  merge.js
 │   ├── components.js  theme.js  icons.js  languages.js  markdown.js  utils.js  log.js
-│   ├── views/                landing · docs · preview · status
+│   ├── template.js           Resume field specs + placeholder template
+│   ├── editor-core.js        Editor logic without the DOM (undo, diff, validation)
+│   ├── github.js             Gist API for the editor
+│   ├── views/                landing · docs · preview · status · editor
 │   ├── animations/           index · code-reveal
 │   └── resume/               index · helpers · themes/*.js
 ├── styles/
@@ -200,10 +208,11 @@ public/                       Static public origin (Cloudflare Pages output)
 │       blog · home · status · animations · resume-overlay (.css)
 └── assets/
     ├── images/               logo.svg (logo + favicon) …
-    ├── examples/resume.json  Example used by Preview and the tests
     └── prompt.md             AI assistant prompt (not loaded yet)
-tests/                        node --test
+tests/                        node --test (fixtures/resume.json is test-only data)
 tools/dev-server.mjs          Local server with the same SPA fallback as Cloudflare
+tools/check.mjs               Static checks: imports, CSP-safe HTML, no stray colors, @imports
+.github/workflows/test.yml    Runs the tests on every push and PR
 wrangler.toml                 Pages settings (output dir: ./public)
 ```
 

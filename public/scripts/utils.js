@@ -310,9 +310,11 @@ export function toast(message, kind = "info") {
     el.setAttribute("aria-live", "polite");
     document.body.appendChild(el);
   }
+  el.setAttribute("role", kind === "error" ? "alert" : "status");
+  el.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
   el.textContent = message;
   el.dataset.kind = kind;
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => el.classList.remove("show"), kind === "error" ? 5000 : 2600);
 }

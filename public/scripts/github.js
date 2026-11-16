@@ -1,20 +1,21 @@
 // ============================================================================
 // GITHUB WRITE ACCESS — for the editor only.
 // The visitor pastes a personal access token limited to gists. It is kept in
-// sessionStorage (this browser tab only, gone when the tab closes), never
+// localStorage until you sign out or GitHub rejects it (expired/revoked), never
 // logged, and only ever sent to https://api.github.com in an Authorization
 // header. Reads elsewhere in the app stay anonymous.
 // ============================================================================
 
 const API = "https://api.github.com";
 const TOKEN_KEY = "mz-gh-token";
+let lastScopes = null; // classic tokens report their scopes; fine-grained ones don't
 
 export const TOKEN_HELP_URL =
   "https://github.com/settings/tokens/new?scopes=gist&description=mz-portfolio%20editor";
 
 export function getToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return localStorage.getItem(TOKEN_KEY) || "";
   } catch {
     return "";
   }
@@ -22,7 +23,7 @@ export function getToken() {
 
 export function clearToken() {
   try {
-    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
@@ -55,8 +56,10 @@ async function request(method, path, body) {
   } catch {
     throw new GitHubError("Couldn't reach GitHub. Check your connection.", 0);
   }
+  lastScopes = res.headers.get("x-oauth-scopes");
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
+  if (res.status === 401) clearToken();
   if (!res.ok) {
     const messages = {
       401: "GitHub rejected the token. It may be expired or mistyped.",
@@ -75,9 +78,13 @@ export async function signIn(token) {
   if (!/^(gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}$/.test(clean)) {
     throw new GitHubError("That doesn't look like a GitHub token (they start with ghp_ or github_pat_).", 400);
   }
-  sessionStorage.setItem(TOKEN_KEY, clean);
+  localStorage.setItem(TOKEN_KEY, clean);
   try {
-    return await request("GET", "/user");
+    const user = await request("GET", "/user");
+    if (lastScopes !== null && !lastScopes.split(",").map((x) => x.trim()).includes("gist")) {
+      throw new GitHubError("This token doesn't have the \"gist\" permission. Create one with only \"gist\" ticked.", 403);
+    }
+    return user;
   } catch (e) {
     clearToken();
     throw e;

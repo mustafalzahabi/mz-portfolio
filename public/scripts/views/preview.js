@@ -9,9 +9,9 @@ import { BASE_PATH } from "../router.js";
 import { parseResumeJson } from "../data.js";
 import { normalizeConfig } from "../config.js";
 import { validateResume } from "../merge.js";
+import { templateResume } from "../template.js";
 
 const STORAGE_KEY = "mz-preview-json";
-const EXAMPLE_URL = new URL("../../assets/examples/resume.json", import.meta.url).href;
 
 export function getPreviewJson() {
   try {
@@ -119,10 +119,7 @@ export function renderPreviewEditor(onShow) {
     report,
     h("div.preview-actions",
       showBtn,
-      h("button.btn.btn-ghost", { type: "button", onclick: async () => {
-        const res = await fetch(EXAMPLE_URL);
-        if (res.ok) loadText(await res.text());
-      } }, "Load example"),
+      h("button.btn.btn-ghost", { type: "button", onclick: () => loadText(JSON.stringify(templateResume(), null, 2)) }, "Load template"),
       h("a.btn.btn-ghost", { href: `${BASE_PATH}docs` }, "Config docs"),
     ),
   );

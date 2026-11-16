@@ -65,6 +65,23 @@ let lastRoutedHref = null;
 // Inside the editor's live-preview frame: no intro animations, no preview bar.
 const EMBEDDED = typeof window !== "undefined" && window.self !== window.top;
 
+// The editor pushes every change here; the portfolio re-renders in place
+// (no page reload, scroll kept). Only the same-origin parent may talk to us.
+let liveJson = null;
+if (EMBEDDED) {
+  addEventListener("message", async (e) => {
+    if (e.origin !== location.origin || e.source !== window.parent || e.data?.type !== "mz-preview") return;
+    const json = JSON.stringify(e.data.resume ?? {});
+    if (json === liveJson) return;
+    liveJson = json;
+    if (!parsePath().preview) return;
+    const y = scrollY;
+    state.key = null;
+    await route();
+    scrollTo(0, y);
+  });
+}
+
 // ============================================================================
 // ROUTING
 // ============================================================================
@@ -95,7 +112,7 @@ async function route() {
   let result;
 
   if (path.preview) {
-    const json = getPreviewJson();
+    const json = liveJson ?? getPreviewJson();
     try {
       if (!json) throw new Error("no preview");
       const { resume } = analyzeResume(json);

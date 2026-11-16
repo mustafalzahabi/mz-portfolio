@@ -71,10 +71,24 @@
 /* ---------- layout ---------- */
 
 .ed-view-toggle {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
   display: flex;
   justify-content: center;
   gap: 0.4rem;
-  padding: 0.6rem var(--gutter) 0;
+  padding: 0.55rem var(--gutter) calc(0.55rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.ed-view-toggle .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 7rem;
+  justify-content: center;
 }
 
 .ed-layout {
@@ -145,12 +159,36 @@
   gap: 0.35rem;
 }
 
+.ed-frame-wrap {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  background: var(--well);
+}
+
 .ed-frame {
   flex: 1;
   width: 100%;
   min-height: 70dvh;
   border: 0;
   background: var(--color-b);
+  transition: max-width var(--transition);
+}
+
+.ed-preview[data-device="phone"] .ed-frame {
+  max-width: 390px;
+  border-inline: 1px solid var(--line-soft);
+}
+
+.ed-preview[data-device="tablet"] .ed-frame {
+  max-width: 820px;
+  border-inline: 1px solid var(--line-soft);
+}
+
+.ed-devices {
+  display: none;
+  gap: 0.15rem;
 }
 
 @media (min-width: 600px) {
@@ -166,6 +204,10 @@
 @media (min-width: 1100px) {
   .ed-view-toggle {
     display: none;
+  }
+
+  .ed-devices {
+    display: flex;
   }
 
   .ed-layout,
@@ -301,17 +343,14 @@
   color: var(--ink-muted);
 }
 
-.ed-icon-btn.up .icon,
-.ed-icon-btn.down .icon {
-  transform: rotate(90deg);
+.ed-icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
-.ed-icon-btn.up .icon {
-  transform: rotate(90deg) scaleX(1);
-}
-
-.ed-icon-btn.down .icon {
-  transform: rotate(-90deg) scaleX(-1);
+.ed-icon-btn[aria-pressed="true"] {
+  background: var(--well);
+  color: var(--color-a);
 }
 
 @media (hover: hover) {
@@ -625,4 +664,186 @@
 
 .ed-dialog .ed-row {
   justify-content: flex-end;
+}
+
+/* ---------- top bar: history + save status ---------- */
+
+.ed-history {
+  display: flex;
+  gap: 0.1rem;
+}
+
+.ed-status {
+  min-height: 32px;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ed-status:disabled {
+  cursor: default;
+}
+
+.ed-status[data-tone="warn"] {
+  border-color: color-mix(in oklab, var(--color-r) 55%, transparent);
+  background: var(--tint-r);
+  color: var(--color-c);
+}
+
+.ed-status[data-tone="ok"]::before {
+  content: "✓ ";
+  color: var(--color-o);
+}
+
+.ed-keys-btn {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .ed-keys-btn {
+    display: inline-grid;
+  }
+}
+
+/* ---------- panel tools ---------- */
+
+.ed-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+}
+
+.ed-search-wrap {
+  position: relative;
+  flex: 1 1 100%;
+  min-width: 12rem;
+  display: flex;
+  align-items: center;
+}
+
+.ed-search-wrap .icon {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+
+.ed-search {
+  width: 100%;
+  padding-left: 2.2rem;
+}
+
+@media (min-width: 600px) {
+  .ed-search-wrap {
+    flex-basis: 0;
+  }
+}
+
+.ed-warnings .link-btn {
+  text-align: left;
+}
+
+/* ---------- validation ---------- */
+
+.ed-field-error {
+  color: var(--color-f);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ed-field-error:empty {
+  display: none;
+}
+
+.ed-panel .input[aria-invalid="true"] {
+  border-color: var(--color-f);
+  box-shadow: 0 0 0 1px var(--color-f);
+}
+
+/* ---------- drag to reorder ---------- */
+
+.ed-grip {
+  display: inline-grid;
+  place-items: center;
+  color: var(--ink-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ed-item > summary::before {
+  display: none;
+}
+
+.is-dragging {
+  opacity: 0.45;
+}
+
+.is-drop {
+  outline: 2px dashed var(--color-v);
+  outline-offset: 2px;
+}
+
+.ed-order-item {
+  grid-template-columns: auto auto 1fr auto auto;
+  cursor: grab;
+}
+
+/* ---------- markdown toolbar ---------- */
+
+.ed-md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem;
+  padding: 0.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.ed-ol {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* ---------- dialogs ---------- */
+
+.ed-keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.ed-keys kbd {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-family: var(--font-family-mono);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.ed-changes {
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 1.2rem;
+}
+
+.ed-draft-card {
+  display: grid;
+  gap: 0.6rem;
+  border-color: var(--color-v);
+}
+
+[data-tone="error"].ed-hint {
+  color: var(--color-f);
+  font-weight: 600;
 }

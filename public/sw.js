@@ -5,7 +5,7 @@
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v6";
+const CACHE_NAME = "mz-portfolio-v7";
 const SHELL = "/index.html";
 const urlsToCache = [SHELL, "/styles/style.css?v=4", "/scripts/index.js?v=4", "/manifest.json", "/assets/images/logo.svg"];
 const RUNTIME_HOSTS = ["raw.githubusercontent.com", "gist.githubusercontent.com", "avatars.githubusercontent.com"];

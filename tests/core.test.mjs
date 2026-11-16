@@ -9,7 +9,7 @@ import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../
 import { detectSource, parsePath, isGithubUsername, looksLikeDriveId } from "../public/scripts/router.js";
 import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../public/scripts/merge.js";
 
-const example = JSON.parse(readFileSync(new URL("../public/assets/examples/resume.json", import.meta.url), "utf8"));
+const example = JSON.parse(readFileSync(new URL("./fixtures/resume.json", import.meta.url), "utf8"));
 
 // ---------------------------------------------------------------------------
 test("escapeHtml escapes all specials", () => {
@@ -250,7 +250,7 @@ test("merge: validation warnings", () => {
 test("merge: view model from example", () => {
   const { config } = normalizeConfig(example.meta);
   const vm = buildViewModel({ resume: example, github: null, repos: [], posts: [], source: { type: "preview", id: "x" } }, config);
-  assert.equal(vm.basics.name, "Lina Haddad");
+  assert.equal(vm.basics.name, "Full Name");
   assert.equal(vm.basics.location, "Cambridge, Massachusetts, US");
   assert.equal(vm.projects.length, 2);
   assert.equal(vm.interests.length, 2);

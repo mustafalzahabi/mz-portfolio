@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
   "basics": {
-    "name": "Lina Haddad",
+    "name": "Full Name",
     "label": "Architect & Interior Designer",
     "image": "",
-    "email": "lina.haddad@example.com",
+    "email": "name@example.com",
     "phone": "+1 (555) 010-2030",
     "url": "https://example.com",
     "summary": "Architect focused on calm, light-filled spaces. Ten years designing residential and cultural projects, from first sketch to site supervision.",
@@ -18,18 +18,18 @@
     "profiles": [
       {
         "network": "LinkedIn",
-        "username": "linahaddad",
-        "url": "https://www.linkedin.com/in/linahaddad"
+        "username": "username",
+        "url": "https://www.linkedin.com/in/username"
       },
       {
         "network": "Behance",
-        "username": "linahaddad",
-        "url": "https://www.behance.net/linahaddad"
+        "username": "username",
+        "url": "https://www.behance.net/username"
       },
       {
         "network": "GitHub",
-        "username": "linahaddad",
-        "url": "https://github.com/linahaddad"
+        "username": "username",
+        "url": "https://github.com/username"
       }
     ]
   },
@@ -187,7 +187,7 @@
   "references": [
     {
       "name": "Omar Rami, Atelier Rami",
-      "reference": "Lina brings clarity to every project and every team she joins."
+      "reference": "Brings clarity to every project and every team she joins."
     }
   ],
   "projects": [

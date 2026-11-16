@@ -57,7 +57,7 @@ const EXAMPLE = `{
     "mz-portfolio-config": {
       "colors": { "accent": "#2f5d62", "prime": "#3b3a5a" },
       "theme": { "mode": "auto", "toggle": "switch" },
-      "text": { "tagline": "Calm, light-filled spaces.", "sections": { "work": "Experience" } },
+      "text": { "tagline": "Your tagline", "sections": { "work": "Experience" } },
       "sections": { "order": ["about", "projects", "work"], "hide": ["references"] },
       "projects": { "layout": "grid", "sort": "stars", "github": "matched" },
       "skills": { "display": "progress" },

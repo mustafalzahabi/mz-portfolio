@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 
 import { checkPalette, darkHex, contrast, hexToRgb } from "../public/scripts/palette.js";
 import { parseFrontmatter } from "../public/scripts/utils.js";
-import { __test } from "../public/scripts/views/editor.js";
+import { setPath, frontmatter, prune, History, diffSummary, validateField, applyMarkdown } from "../public/scripts/editor-core.js";
+import { SECTIONS, templateResume, blankScaffold } from "../public/scripts/template.js";
+import { validateResume } from "../public/scripts/merge.js";
 
 const css = readFileSync(new URL("../public/styles/style.css", import.meta.url), "utf8");
 const DEFAULTS = Object.fromEntries(
@@ -39,15 +41,15 @@ test("palette: WCAG contrast reference values", () => {
 
 test("editor: setPath removes empty values and prunes empty parents", () => {
   const o = { basics: { name: "A", location: { city: "X" } } };
-  __test.setPath(o, ["basics", "location", "city"], "");
+  setPath(o, ["basics", "location", "city"], "");
   assert.deepEqual(o, { basics: { name: "A" } });
-  __test.setPath(o, ["work", 0, "highlights"], ["one"]);
+  setPath(o, ["work", 0, "highlights"], ["one"]);
   assert.deepEqual(o.work, [{ highlights: ["one"] }]);
 });
 
 test("editor: blog frontmatter round-trips through the parser", () => {
   const post = { title: 'He said "hi"', date: "2026-11-03", tags: ["notes", "a b"], description: "Short", image: "", draft: true, body: "# Hello\n\nText" };
-  const { metadata, body } = parseFrontmatter(__test.frontmatter(post));
+  const { metadata, body } = parseFrontmatter(frontmatter(post));
   assert.equal(metadata.title, 'He said "hi"');
   assert.equal(String(metadata.date), "2026-11-03");
   assert.deepEqual(metadata.tags, ["notes", "a b"]);
@@ -58,4 +60,57 @@ test("editor: blog frontmatter round-trips through the parser", () => {
 test("logo: logo.svg carries its own color", () => {
   const file = readFileSync(new URL("../public/assets/images/logo.svg", import.meta.url), "utf8");
   assert.match(file, /fill="#2f5d62"/);
+});
+
+test("template: covers every section with placeholder text and validates", () => {
+  const t = templateResume();
+  assert.equal(t.basics.name, "Full name");
+  for (const s of SECTIONS) assert.equal(t[s.key]?.length, 1, s.key);
+  assert.deepEqual(validateResume(t), []);
+  assert.ok(!JSON.stringify(t).match(/Lina|Haddad|Jack/));
+});
+
+test("template: blank scaffold prunes to an empty resume", () => {
+  assert.deepEqual(prune(blankScaffold()), {});
+  assert.deepEqual(prune({ work: [{}, { name: "A", highlights: ["", "x"] }], basics: { name: " " } }), { work: [{ name: "A", highlights: ["x"] }] });
+});
+
+test("history: undo/redo with per-field merging", () => {
+  let t = 0;
+  const hist = new History({ a: "" }, { now: () => t });
+  hist.push({ a: "h" }, "a");
+  t = 100;
+  hist.push({ a: "hi" }, "a"); // merged into the previous step
+  t = 2000;
+  hist.push({ a: "hi", b: 1 }, "b");
+  assert.deepEqual(hist.undo(), { a: "hi" });
+  assert.deepEqual(hist.undo(), { a: "" });
+  assert.equal(hist.canUndo, false);
+  assert.deepEqual(hist.redo(), { a: "hi" });
+  hist.push({ a: "new" }, "a"); // a new edit drops the redo branch
+  assert.equal(hist.canRedo, false);
+});
+
+test("diffSummary: describes changes per section", () => {
+  const a = { basics: { name: "A", label: "B" }, work: [{ name: "x" }] };
+  const b = { basics: { name: "A2", label: "B2" }, work: [{ name: "x" }, { name: "y" }], skills: [{ name: "s" }] };
+  assert.deepEqual(diffSummary(a, b), ["basics: 2 fields changed", "work: 1 added", "skills: 1 added"]);
+  assert.deepEqual(diffSummary(a, a), []);
+});
+
+test("validateField: email, url, date, tel", () => {
+  assert.equal(validateField("email", "a@b.co"), "");
+  assert.ok(validateField("email", "nope"));
+  assert.equal(validateField("url", "https://x.dev"), "");
+  assert.ok(validateField("url", "javascript:alert(1)"));
+  assert.equal(validateField("date", "2024-06"), "");
+  assert.ok(validateField("date", "2024-13"));
+  assert.ok(validateField("tel", "call me"));
+  assert.equal(validateField("email", ""), "");
+});
+
+test("applyMarkdown: wraps selections and prefixes lines", () => {
+  assert.deepEqual(applyMarkdown("say hi", 4, 6, "bold"), { text: "say **hi**", start: 6, end: 8 });
+  assert.equal(applyMarkdown("a\nb", 0, 3, "list").text, "- a\n- b");
+  assert.equal(applyMarkdown("x", 1, 1, "link").text, "x[link text](https://)");
 });
