@@ -6,6 +6,9 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f5f2",
-  "theme_color": "#3b3a5a",
-  "icons": [{ "src": "/assets/images/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "theme_color": "#f7f5f2",
+  "icons": [
+    { "src": "/assets/images/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/assets/images/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
 }

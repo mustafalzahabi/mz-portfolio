@@ -208,7 +208,6 @@ public/                       Static public origin (Cloudflare Pages output)
 │       blog · home · status · animations · resume-overlay (.css)
 └── assets/
     ├── images/               logo.svg (logo + favicon) …
-    └── prompt.md             AI assistant prompt (not loaded yet)
 tests/                        node --test (fixtures/resume.json is test-only data)
 tools/dev-server.mjs          Local server with the same SPA fallback as Cloudflare
 tools/check.mjs               Static checks: imports, CSP-safe HTML, no stray colors, @imports
@@ -216,7 +215,7 @@ tools/check.mjs               Static checks: imports, CSP-safe HTML, no stray co
 wrangler.toml                 Pages settings (output dir: ./public)
 ```
 
-`scripts/chat.js`, `scripts/model.js`, `styles/chat.css` and `assets/prompt.md` hold the AI assistant. It isn't loaded yet.
+The unfinished AI assistant lives in `experimental/`, outside `public/`, so it is not deployed.
 
 **TwOP's "no logic bleed" rule:** TwOP says secrets never go in `public/`. The only key here is the optional Google Drive browser key, which is public by design and must be locked to your domain (see above). Anything truly secret would need a private origin.
 

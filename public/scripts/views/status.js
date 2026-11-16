@@ -36,13 +36,18 @@ export function showLoading(label = "Loading portfolio…") {
   const app = document.getElementById("app");
   app.setAttribute("aria-busy", "true");
   app.replaceChildren(
-    h("main.status-page.is-loading", { id: "main", "aria-label": label },
-      h("div.skeleton",
-        h("div.skeleton-banner"),
-        h("div.skeleton-row", h("div.skeleton-avatar"), h("div.skeleton-lines", h("span"), h("span"))),
-        h("div.skeleton-block"),
-        h("div.skeleton-block"),
+    // Same classes as the real header/tabs/sections, so the layout doesn't jump
+    h("header.profile-header.is-skeleton", { "aria-hidden": "true" },
+      h("div.profile-banner.sk"),
+      h("div.profile-info",
+        h("div.profile-photo.sk"),
+        h("div.profile-details", h("span.sk.sk-line.sk-name"), h("span.sk.sk-line.sk-title"), h("span.sk.sk-line.sk-facts")),
+        h("div.profile-actions", h("span.sk.sk-btn"), h("span.sk.sk-btn")),
       ),
+    ),
+    h("nav.tabs", { "aria-hidden": "true" }, h("div.tabs-inner", h("span.sk.sk-tab"), h("span.sk.sk-tab"), h("span.sk.sk-tab"))),
+    h("main.portfolio", { id: "main", "aria-label": label },
+      [0, 1].map(() => h("section.section", { "aria-hidden": "true" }, h("span.sk.sk-line.sk-heading"), h("div.card.sk-card", h("span.sk.sk-line"), h("span.sk.sk-line"), h("span.sk.sk-line.sk-short")))),
       h("p.visually-hidden", { role: "status" }, label),
     ),
   );

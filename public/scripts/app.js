@@ -421,6 +421,13 @@ function updateHead(vm, config) {
   setMeta("property", "og:url", location.href.split("#")[0]);
   setMeta("property", "og:image", image);
   setMeta("name", "twitter:card", image ? "summary" : "");
+  let canonical = document.head.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.appendChild(canonical);
+  }
+  canonical.href = location.href.split("#")[0].split("?")[0];
 
   let ld = document.getElementById("mz-jsonld");
   if (!ld) {

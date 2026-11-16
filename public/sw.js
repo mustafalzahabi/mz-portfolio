@@ -5,9 +5,65 @@
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v7";
+const CACHE_NAME = "mz-portfolio-v9";
 const SHELL = "/index.html";
-const urlsToCache = [SHELL, "/styles/style.css?v=4", "/scripts/index.js?v=4", "/manifest.json", "/assets/images/logo.svg"];
+// Everything the app loads, so a first visit works offline. tools/check.mjs
+// keeps this list in sync with the files on disk.
+const urlsToCache = [
+  "/index.html",
+  "/styles/style.css?v=5",
+  "/scripts/index.js?v=5",
+  "/manifest.json",
+  "/assets/images/logo.svg",
+  "/markup/sandbox.html",
+  "/styles/animations.css",
+  "/styles/blog.css",
+  "/styles/detail.css",
+  "/styles/editor.css",
+  "/styles/global.css",
+  "/styles/header.css",
+  "/styles/home.css",
+  "/styles/navbar.css",
+  "/styles/project-page.css",
+  "/styles/projects.css",
+  "/styles/resume-overlay.css",
+  "/styles/sections.css",
+  "/styles/status.css",
+  "/scripts/animations/code-reveal.js",
+  "/scripts/animations/index.js",
+  "/scripts/api.js",
+  "/scripts/app.js",
+  "/scripts/components.js",
+  "/scripts/config.js",
+  "/scripts/data.js",
+  "/scripts/editor-core.js",
+  "/scripts/github.js",
+  "/scripts/icons.js",
+  "/scripts/languages.js",
+  "/scripts/log.js",
+  "/scripts/markdown.js",
+  "/scripts/merge.js",
+  "/scripts/palette.js",
+  "/scripts/resume/helpers.js",
+  "/scripts/resume/index.js",
+  "/scripts/resume/themes/elegant.js",
+  "/scripts/resume/themes/even.js",
+  "/scripts/resume/themes/flat.js",
+  "/scripts/resume/themes/kendall.js",
+  "/scripts/resume/themes/macchiato.js",
+  "/scripts/resume/themes/onepage.js",
+  "/scripts/resume/themes/professional.js",
+  "/scripts/resume/themes/stackoverflow.js",
+  "/scripts/router.js",
+  "/scripts/template.js",
+  "/scripts/theme.js",
+  "/scripts/utils.js",
+  "/scripts/views/docs.js",
+  "/scripts/views/editor.js",
+  "/scripts/views/landing.js",
+  "/scripts/views/preview.js",
+  "/scripts/views/status.js",
+];
 const RUNTIME_HOSTS = ["raw.githubusercontent.com", "gist.githubusercontent.com", "avatars.githubusercontent.com"];
 
 self.addEventListener("install", (event) => {

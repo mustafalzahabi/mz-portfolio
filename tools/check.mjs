@@ -91,8 +91,27 @@ export function checkCssImports(file = join(PUBLIC, "styles", "style.css")) {
   return problems;
 }
 
+/** sw.js pre-caches every loaded file, with the same ?v= as index.html. */
+export function checkSwCache() {
+  const problems = [];
+  const sw = readFileSync(join(PUBLIC, "sw.js"), "utf8");
+  const listed = [...sw.match(/const urlsToCache = \[([\s\S]*?)\];/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const paths = new Set(listed.map((u) => u.split("?")[0]));
+  for (const u of listed) if (!existsSync(join(PUBLIC, u.split("?")[0]))) problems.push(`sw.js: cached "${u}" does not exist`);
+  const html = readFileSync(join(PUBLIC, "index.html"), "utf8");
+  for (const m of html.matchAll(/(?:href|src)="(\/(?:styles|scripts)\/[^"]+\?v=\d+)"/g)) {
+    if (!listed.includes(m[1])) problems.push(`sw.js: index.html loads "${m[1]}" but it isn't pre-cached`);
+  }
+  const loaded = [...walk(join(PUBLIC, "scripts")).filter((f) => extname(f) === ".js"), ...loadedStyles()];
+  for (const f of loaded) {
+    const url = "/" + relative(PUBLIC, f).replace(/\\/g, "/");
+    if (!paths.has(url)) problems.push(`sw.js: "${url}" is not pre-cached`);
+  }
+  return problems;
+}
+
 export function runAll() {
-  return { imports: checkImports(), html: checkHtml(), colors: checkColors(), cssImports: checkCssImports() };
+  return { imports: checkImports(), html: checkHtml(), colors: checkColors(), cssImports: checkCssImports(), swCache: checkSwCache() };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
