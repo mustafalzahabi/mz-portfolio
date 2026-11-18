@@ -58,9 +58,16 @@ Edit a resume with forms instead of raw JSON, with a live preview beside it (Edi
 - **Live preview** updates in place as you type (no reload), with Phone / Tablet / Full width sizes on desktop.
 - **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to save, and **?** for the shortcut list. The top bar shows the save status; click it to see what changed since the last save.
 
-**Saving to GitHub.** Click *Sign in to save* and paste a personal access token with only the **gist** scope (the dialog links to GitHub with that scope pre-selected).
+**Saving to GitHub.** Click *Sign in to save*, then *Sign in with GitHub*. GitHub asks you to allow the **gist** scope only. (A personal access token can still be pasted under *Use a personal access token instead*.)
 - The token is kept in this browser's `localStorage` until you click *Sign out*, or until GitHub rejects it (expired or revoked), so reopening the editor keeps you signed in. Sign out on shared computers.
 - It is sent only to `api.github.com`, and never logged or written anywhere else.
+
+**Setting up "Sign in with GitHub"** (once per deployment). GitHub needs a secret to finish a login, and its token endpoint can't be called from a page. So one small, stateless Cloudflare Pages Function in `functions/api/auth/` does that single step; there's no database and nothing is stored.
+1. On GitHub, open *Settings → Developer settings → OAuth Apps → New OAuth App*. Set *Homepage URL* to your site and *Authorization callback URL* to `https://<your-domain>/api/auth/callback`.
+2. Generate a client secret.
+3. In Cloudflare Pages, open *Settings → Variables and secrets* and add `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (encrypted) for Production. Then redeploy.
+
+A GitHub OAuth App allows only one callback URL. To use sign-in on staging too, create a second OAuth App for the staging domain and set its variables in the Preview environment. Until the variables exist, the button explains that sign-in isn't set up and the token option still works. `node tools/dev-server.mjs` doesn't run Functions; use `npx wrangler pages dev public` to test sign-in locally.
 - Saving updates your `resume.json` gist, or creates one if you don't have it yet. Empty fields and blank items are dropped before saving. If the gist changed on GitHub since you opened it, you choose: overwrite it, load the GitHub version, or cancel.
 - After a save, the cached copy is cleared, so your portfolio shows the change right away.
 

@@ -871,7 +871,7 @@ async function openPost(post) {
 function blogPanel() {
   const panel = h("div.ed-panel");
   if (!ed.user) {
-    panel.appendChild(h("div.ed-empty", h("p", "Blog posts are public gists with a .md file. Sign in with a GitHub token to create, edit and delete them here."), signInButton()));
+    panel.appendChild(h("div.ed-empty", h("p", "Blog posts are public gists with a .md file. Sign in with GitHub to create, edit and delete them here."), signInButton()));
     return panel;
   }
   if (ed.post) return postEditor(panel);
@@ -1104,42 +1104,74 @@ function signInButton() {
   return h("button.btn.btn-primary", { type: "button", onclick: openSignIn }, svgIcon(ICONS.github), "Sign in to save");
 }
 
+// "Sign in with GitHub" goes through /api/auth (a Cloudflare Pages Function),
+// which comes back to /edit#gh_token=… (or #gh_error=…). The draft is in
+// localStorage, so leaving the page for GitHub loses nothing.
+const LOGIN_URL = "/api/auth/login?return=/edit";
+
+const LOGIN_ERRORS = {
+  denied: "Sign-in was cancelled on GitHub.",
+  state: "Sign-in expired or was started in another tab. Please try again.",
+  github: "GitHub didn't finish the sign-in. Please try again.",
+  not_configured: "GitHub sign-in isn't set up on this site yet. Use a token instead.",
+};
+
+/** Reads and removes the sign-in result from the URL fragment. */
+export function takeLoginResult() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const token = params.get("gh_token");
+  const error = params.get("gh_error");
+  if (!token && !error) return null;
+  history.replaceState(history.state, "", location.pathname + location.search);
+  return { token, error: error && (LOGIN_ERRORS[error] || LOGIN_ERRORS.github) };
+}
+
 function openSignIn() {
-  const input = h("input.input", { type: "password", autocomplete: "off", spellcheck: "false", placeholder: "ghp_… or github_pat_…", id: "gh-token" });
-  const error = h("p.ed-error", { "aria-live": "polite" });
-  const submit = h("button.btn.btn-primary", { type: "submit" }, "Sign in");
+  const tokenForm = tokenSignInForm(() => dialog.close());
   const dialog = h("dialog.ed-dialog",
-    h("form", { method: "dialog", onsubmit: async (e) => {
-      e.preventDefault();
-      error.textContent = "";
-      submit.disabled = true;
-      submit.textContent = "Checking…";
-      try {
-        ed.user = await signIn(input.value);
-        dialog.close();
-        toast(`Signed in as ${ed.user.login}`);
-        await afterSignIn();
-      } catch (err) {
-        error.textContent = err.message;
-        submit.disabled = false;
-        submit.textContent = "Sign in";
-      }
-    } },
-      h("h2", "Sign in with a GitHub token"),
-      h("ol.ed-steps",
-        h("li", h("a", { href: TOKEN_HELP_URL }, "Create a token on GitHub"), " (opens with only the ", h("strong", "gist"), " permission ticked). Pick an expiry date."),
-        h("li", "Copy the token and paste it below."),
-      ),
-      field("Token", input),
-      h("p.ed-hint", "The token is saved in this browser until you sign out (or it expires), and is sent only to api.github.com. It can only change your gists — nothing else on your account. Use Sign out on shared computers."),
-      error,
-      h("div.ed-row", h("button.btn.btn-ghost", { type: "button", onclick: () => dialog.close() }, "Cancel"), submit),
+    h("div.ed-signin",
+      h("h2", "Sign in"),
+      h("p", "Your resume and blog posts are saved as gists on your GitHub account."),
+      h("a.btn.btn-primary.ed-signin-github", { href: LOGIN_URL }, svgIcon(ICONS.github), "Sign in with GitHub"),
+      h("p.ed-hint", "Asks only for permission to manage your gists. You stay signed in on this browser until you sign out."),
+      h("details.ed-signin-token", h("summary", "Use a personal access token instead"), tokenForm),
+      h("div.ed-row", h("button.btn.btn-ghost", { type: "button", onclick: () => dialog.close() }, "Cancel")),
     ),
   );
   dialog.addEventListener("close", () => dialog.remove());
   document.body.appendChild(dialog);
   dialog.showModal();
-  input.focus();
+}
+
+function tokenSignInForm(done) {
+  const input = h("input.input", { type: "password", autocomplete: "off", spellcheck: "false", placeholder: "ghp_… or github_pat_…", id: "gh-token" });
+  const error = h("p.ed-error", { "aria-live": "polite" });
+  const submit = h("button.btn.btn-primary", { type: "submit" }, "Sign in");
+  return h("form", { onsubmit: async (e) => {
+    e.preventDefault();
+    error.textContent = "";
+    submit.disabled = true;
+    submit.textContent = "Checking…";
+    try {
+      ed.user = await signIn(input.value);
+      done();
+      toast(`Signed in as ${ed.user.login}`);
+      await afterSignIn();
+    } catch (err) {
+      error.textContent = err.message;
+      submit.disabled = false;
+      submit.textContent = "Sign in";
+    }
+  } },
+    h("ol.ed-steps",
+      h("li", h("a", { href: TOKEN_HELP_URL, target: "_blank", rel: "noopener" }, "Create a token on GitHub"), " (opens with only the ", h("strong", "gist"), " permission ticked)."),
+      h("li", "Copy the token and paste it below."),
+    ),
+    field("Token", input),
+    h("p.ed-hint", "Saved in this browser until you sign out, and sent only to api.github.com."),
+    error,
+    h("div.ed-row", submit),
+  );
 }
 
 async function afterSignIn() {
@@ -1301,7 +1333,7 @@ function startScreen() {
     h("div.ed-start-grid",
       h("article.card",
         h("h2.landing-h3", "My resume gist"),
-        h("p", "Sign in with a GitHub token to load and save your own resume.json gist and blog posts."),
+        h("p", "Sign in with GitHub to load and save your own resume.json gist and blog posts."),
         ed.user ? h("button.btn.btn-primary", { type: "button", onclick: async (e) => {
           e.currentTarget.disabled = true;
           try {
@@ -1531,6 +1563,19 @@ export async function renderEditor() {
   if (!ed.resume) {
     const draft = readDraft();
     if (draft?.dirty) begin(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null });
+  }
+  const login = takeLoginResult();
+  if (login?.error) toast(login.error, "error");
+  if (login?.token) {
+    try {
+      ed.user = await signIn(login.token);
+      toast(`Signed in as ${ed.user.login}`);
+      render();
+      await afterSignIn();
+      return;
+    } catch (e) {
+      toast(e.message, "error");
+    }
   }
   if (getToken() && !ed.user) {
     try {
