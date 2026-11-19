@@ -1,0 +1,328 @@
+/* ============================================================================
+   EDIT MODE — editing a portfolio in place (scripts/edit/mode.js)
+   ============================================================================ */
+
+/* ---------- Edit button (owner / preview) ---------- */
+
+.ed-fab {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  min-height: 48px;
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---------- top toolbar ---------- */
+
+.ed-toolbar {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.9rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-b) 90%, transparent);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-50%);
+  backdrop-filter: blur(12px);
+}
+
+.ed-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 0.3rem;
+  color: var(--color-a);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.ed-toolbar .btn {
+  min-height: 38px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+}
+
+/* ---------- bottom bar ---------- */
+
+.ed-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 70;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem var(--gutter) calc(0.6rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 94%, transparent);
+  box-shadow: 0 -8px 24px -16px color-mix(in oklab, var(--color-c) 30%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.ed-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+body.is-editing {
+  padding-bottom: 5rem; /* room for the bar */
+}
+
+/* ---------- typing in place ---------- */
+
+.is-editing [data-edit-path] {
+  border-radius: 0.35rem;
+  outline: 1.5px dashed transparent;
+  outline-offset: 3px;
+  cursor: text;
+  transition: outline-color 0.15s, background 0.15s;
+}
+
+.is-editing [data-edit-path]:hover {
+  outline-color: color-mix(in oklab, var(--color-a) 55%, transparent);
+}
+
+.is-editing [data-edit-path]:focus {
+  outline: 2px solid var(--color-a);
+  background: color-mix(in oklab, var(--color-a) 6%, transparent);
+}
+
+.is-editing [data-edit-path]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-soft);
+}
+
+.is-editing [data-edit-path][aria-multiline="true"]:focus {
+  white-space: pre-wrap;
+}
+
+.ed-ghost-field {
+  color: var(--ink-soft) !important;
+  cursor: pointer;
+}
+
+.ed-readonly {
+  opacity: 0.75;
+}
+
+/* ---------- photo / banner pencil ---------- */
+
+.ed-photo-host {
+  position: relative;
+}
+
+.ed-pencil {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--color-b);
+  border-radius: 50%;
+  background: var(--color-c);
+  color: var(--color-b);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.ed-pencil:hover {
+  transform: scale(1.08);
+}
+
+/* left/top are set from the photo's position (edit/mode.js) */
+
+.is-editing .preview-bar {
+  display: none;
+}
+
+.ed-pencil.is-banner {
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 1rem;
+  width: auto;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+}
+
+/* ---------- item toolbar ---------- */
+
+.ed-item-host {
+  position: relative;
+}
+
+.ed-item-tools {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 4;
+  display: flex;
+  gap: 0.1rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--color-b);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ed-item-host:hover > .ed-item-tools,
+.ed-item-host:focus-within > .ed-item-tools {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .ed-item-tools {
+    opacity: 1;
+  }
+}
+
+.ed-item-tools .ed-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+}
+
+.ed-add {
+  margin-top: 1rem;
+  border-style: dashed;
+}
+
+.ed-missing {
+  padding: 1.5rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.ed-missing-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ed-blog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Customize drawer ---------- */
+
+.ed-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  width: min(30rem, 100vw);
+  border-left: 1px solid var(--line-soft);
+  background: var(--color-b);
+  box-shadow: -20px 0 50px -20px color-mix(in oklab, var(--color-c) 35%, transparent);
+  animation: ed-slide 0.2s ease-out;
+}
+
+.ed-drawer[hidden] {
+  display: none;
+}
+
+@keyframes ed-slide {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+}
+
+.ed-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
+}
+
+.ed-drawer .ed-tabs {
+  flex: none;
+}
+
+.ed-drawer .ed-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 1100px) {
+  body.ed-drawer-open {
+    padding-right: 30rem; /* the page stays visible beside the drawer */
+  }
+
+  body.ed-drawer-open .ed-toolbar {
+    left: calc(50% - 15rem);
+  }
+
+  body.ed-drawer-open .ed-bar {
+    right: 30rem;
+  }
+}
+
+/* ---------- popover (photo / banner) ---------- */
+
+.ed-popover {
+  width: min(36rem, calc(100vw - 2rem));
+}
+
+.ed-popover-body {
+  display: grid;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem 1.25rem;
+}
+
+.ed-popover-body .ed-drawer-head {
+  padding-inline: 0;
+}
+
+.ed-popover-body > .ed-row {
+  justify-content: flex-end;
+}
+
+/* ---------- phones ---------- */
+
+@media (max-width: 599px) {
+  .ed-toolbar-label {
+    display: none;
+  }
+
+  .ed-bar .ed-status {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ed-save-draft {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-drawer {
+    animation: none;
+  }
+}
+
+.ed-popover .ed-picker > .ed-label {
+  display: none;
+}

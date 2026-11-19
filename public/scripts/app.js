@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { resolveImage } from "./images.js";
+import { templateResume } from "./template.js";
 import { completeSignIn } from "./account.js";
 import { h, svgIcon, safeUrl } from "./utils.js";
 import { ICONS } from "./icons.js";
@@ -31,7 +32,7 @@ import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
 import { renderDocs } from "./views/docs.js";
-import { renderEditor } from "./views/editor.js";
+import { setupEditing, afterRender, routeEdit } from "./edit/mode.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -108,7 +109,7 @@ async function route() {
     closeResume();
     resetPortfolio();
     if (path.view === "docs") renderDocs();
-    else if (path.view === "edit") renderEditor();
+    else if (path.view === "edit") return routeEdit(navigate);
     else if (path.view === "preview") renderPreviewEditor(() => navigate(`${BASE_PATH}preview/view`));
     else renderLanding();
     focusMain();
@@ -118,6 +119,7 @@ async function route() {
   const key = path.preview ? "preview" : `${path.source}:${path.id.toLowerCase()}`;
   if (state.key === key && state.vm) {
     renderSub(path.sub);
+    afterRender();
     return;
   }
 
@@ -126,7 +128,9 @@ async function route() {
   let result;
 
   if (path.preview) {
-    const json = liveJson ?? getPreviewJson();
+    // ?demo: the placeholder template (used by the homepage's live mock)
+    const demo = new URLSearchParams(location.search).has("demo");
+    const json = liveJson ?? (demo ? JSON.stringify(templateResume()) : getPreviewJson());
     try {
       if (!json) throw new Error("no preview");
       const { resume } = analyzeResume(json);
@@ -154,9 +158,28 @@ async function route() {
 
   const { data } = result;
   if (!data.resume && !data.repos.length) return showEmpty(path.id);
+  state.data = data; // kept for in-place re-renders while editing
   if (!(await showPortfolio(data, key, path.base, loadId))) return;
   renderSub(path.sub);
+  afterRender();
   if (result.offline) showOfflineBanner(result);
+}
+
+/**
+ * Re-renders the current portfolio from an edited resume, without refetching
+ * and without intro animations (edit mode). Keeps the scroll position.
+ */
+async function rerenderPortfolio(resume) {
+  if (!state.data || !state.vm) return;
+  const y = scrollY;
+  const sub = parsePath().sub;
+  teardownAnimations();
+  resetStyleConfig();
+  if (!(await showPortfolio({ ...state.data, resume }, state.key, state.base))) return;
+  state.introPlayed = true;
+  renderSub(sub);
+  scrollTo(0, y);
+  afterRender();
 }
 
 // Clears everything one portfolio applied (its colors, fonts, radius, motion,
@@ -476,6 +499,13 @@ export function init() {
   rescueRedirect();
   initTheme();
   interceptLinks();
+  setupEditing({
+    state,
+    rerender: rerenderPortfolio,
+    setPublished: (resume) => {
+      state.data = { ...state.data, resume };
+    },
+  });
   history.scrollRestoration = "manual";
 
   // Fragment navigation fires both popstate and hashchange in most browsers;
@@ -493,6 +523,7 @@ export function init() {
   addEventListener("mz-auth", () => {
     const view = parsePath().view;
     if (view === "edit" || view === "landing") route();
+    else if (view === "portfolio") afterRender();
   });
 
   // Back from "Sign in with GitHub": store the token before the first render

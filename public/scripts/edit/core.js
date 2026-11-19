@@ -1,9 +1,9 @@
 // ============================================================================
-// EDITOR (/edit) — edit a resume.json and the portfolio config with forms,
-// see a live preview, and save to your own gist. Blog posts (.md gists) can be
-// created, edited and deleted too. Without signing in, everything still works
-// locally: copy or download the JSON instead of saving. Drafts are kept in this
-// browser (localStorage) until saved or discarded.
+// EDIT CORE — the draft resume, undo/redo, forms, settings, JSON, blog posts
+// and saving. The portfolio page itself is the preview: edit/mode.js shows
+// these panels in the Customize drawer and re-renders the page through
+// hooks.onChange(). Drafts are kept in this browser (localStorage) and can be
+// saved to a secret gist to continue on another device.
 // ============================================================================
 
 import { h, svgIcon, toast, copyText, downloadFile, slugify, parseFrontmatter, readingTime } from "../utils.js";
@@ -31,9 +31,9 @@ const humanize = (v) => String(v).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[
 
 const DRAFT_KEY = "mz-editor-draft";
 const POST_DRAFT_KEY = "mz-editor-post-draft";
-const PREVIEW_KEY = "mz-preview-json";
-const PREVIEW_GH_KEY = "mz-preview-github"; // read by app.js for the preview's GitHub photo
-const DEVICES = [["phone", "Phone", "phoneDevice"], ["tablet", "Tablet", "tablet"], ["full", "Full width", "monitor"]];
+
+/** Set by edit/mode.js: onChange re-renders the page, onSaved reloads it from GitHub. */
+export const hooks = { onChange: () => {}, onSaved: () => {}, onStatus: () => {} };
 
 // ============================================================================
 // STATE
@@ -51,9 +51,7 @@ const ed = {
   history: null,
   posts: null, // [{ gistId, filename, title, … }] once loaded
   post: null, // post being edited
-  root: null,
-  frame: null,
-  device: "full",
+  root: null, // the Customize drawer, while open
   query: { resume: "", settings: "" },
   open: new Set(["basics", "settings:colors", "settings:theme"]), // expanded groups
 };
@@ -117,8 +115,6 @@ function group(key, summaryChildren, body) {
 // CHANGE HANDLING
 // ============================================================================
 
-let previewTimer = null;
-
 const snapshot = () => JSON.stringify(prune(ed.resume));
 
 function computeDirty() {
@@ -138,8 +134,7 @@ function afterChange() {
   ed.dirty = computeDirty();
   saveDraft();
   updateStatus();
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(pushPreview, 250);
+  hooks.onChange();
 }
 
 function undo() {
@@ -169,35 +164,9 @@ function readDraft() {
   return d && d.resume && typeof d.resume === "object" ? d : null;
 }
 
-/** Sends the resume to the live-preview frame, which re-renders in place. */
-function pushPreview() {
-  if (!ed.resume) return;
-  try {
-    sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(ed.resume));
-  } catch {
-    /* too large — postMessage still updates the frame */
-  }
-  const github = githubForPreview();
-  try {
-    sessionStorage.setItem(PREVIEW_GH_KEY, JSON.stringify(github));
-  } catch {
-    /* ignore */
-  }
-  ed.frame?.contentWindow?.postMessage({ type: "mz-preview", resume: ed.resume, github }, location.origin);
-}
-
-function reloadPreview() {
-  pushPreview();
-  try {
-    ed.frame.contentWindow.location.reload();
-  } catch {
-    ed.frame.src = ed.frame.src;
-  }
-}
-
 // Drafts are kept in localStorage, so leaving only needs a warning when that failed.
 function beforeUnload(e) {
-  if (ed.dirty && ed.draftFailed && location.pathname.startsWith(`${BASE_PATH}edit`)) {
+  if (ed.dirty && ed.draftFailed) {
     e.preventDefault();
     e.returnValue = "";
   }
@@ -1342,16 +1311,9 @@ function tokenSignInForm(done) {
   );
 }
 
+/** A token sign-in changes who owns what's on screen: start fresh. */
 async function afterSignIn() {
-  ed.posts = null;
-  if (!ed.resume) {
-    try {
-      await loadOwnResume();
-    } catch (e) {
-      toast(e.message, "error");
-    }
-  }
-  render();
+  location.reload();
 }
 
 async function fetchOwnResume() {
@@ -1383,13 +1345,10 @@ let undoBtn = null;
 let redoBtn = null;
 
 function updateStatus(note) {
-  document.title = `${ed.dirty ? "• " : ""}Editor — mz-portfolio`;
-  const docName = ed.root?.querySelector(".ed-doc-name");
-  if (docName) docName.textContent = ed.resume?.basics?.name || "Untitled resume";
   if (undoBtn) undoBtn.disabled = !ed.history?.canUndo;
   if (redoBtn) redoBtn.disabled = !ed.history?.canRedo;
   if (saveBtn) {
-    saveBtn.textContent = ed.saving ? "Saving…" : !ed.user ? "Sign in to save" : ed.source?.type === "gist" ? "Save" : "Create resume gist";
+    saveBtn.textContent = ed.saving ? "Publishing…" : !ed.user ? "Sign in to publish" : ed.source?.type === "gist" ? "Publish" : "Publish portfolio";
     saveBtn.disabled = ed.saving || (ed.user && ed.source?.type === "gist" && !ed.dirty);
   }
   if (!statusEl) return;
@@ -1426,7 +1385,7 @@ async function save() {
           const resume = parseResumeJson(await gistFileText(remote, ed.source.filename));
           begin(resume, { ...ed.source, updatedAt: remote.updated_at }, { base: prune(resume), savedAt: remote.updated_at });
           ed.saving = false;
-          render();
+          hooks.onChange();
           toast("Loaded the version from GitHub.");
           return;
         }
@@ -1442,14 +1401,13 @@ async function save() {
       const filename = getResumeFilename();
       const gist = await createGist({ description: "My resume", files: { [filename]: { content } }, isPublic: true });
       ed.source = { type: "gist", id: gist.id, filename, updatedAt: gist.updated_at, url: gist.html_url };
-      render();
     }
     const changes = diffSummary(ed.base || {}, clean);
     ed.base = clean;
     ed.savedAt = new Date().toISOString();
     forgetCachedPortfolio(ed.user.login);
     ed.ownResume = null;
-    toast(changes.length ? `Saved: ${changes.slice(0, 3).join(" · ")}${changes.length > 3 ? " …" : ""}` : "Saved.");
+    toast(changes.length ? `Published: ${changes.slice(0, 3).join(" · ")}${changes.length > 3 ? " …" : ""}` : "Published.");
   } catch (e) {
     toast(e.message, "error");
   }
@@ -1457,160 +1415,12 @@ async function save() {
   ed.dirty = computeDirty();
   saveDraft();
   updateStatus();
-}
-
-// ============================================================================
-// START SCREEN
-// ============================================================================
-
-function startScreen() {
-  const error = h("p.ed-error", { role: "alert" });
-  const start = (resume, source, opts) => {
-    begin(resume, source, opts);
-    render();
-  };
-  const draft = readDraft();
-  const firstName = String(ed.user?.name || "").split(/\s+/)[0];
-
-  // ---------- hero ----------
-  const hero = ed.user
-    ? h("header.ed-home-hero",
-        avatarImg(ed.user, 56),
-        h("div", h("h1", `Welcome back${firstName ? `, ${firstName}` : ""}`), h("p.muted", `Signed in as @${ed.user.login}`)),
-      )
-    : h("header.ed-home-hero.is-guest",
-        h("div",
-          h("h1", "Edit your portfolio"),
-          h("p.muted", "Fill in your resume with simple forms, watch the portfolio update as you type, and save it to your GitHub in one click."),
-        ),
-        h("div.ed-home-signin",
-          githubButton("Sign in with GitHub", ".btn-lg"),
-          h("p.ed-hint", "Saves to a gist on your account. Only asks for gist access."),
-          h("button.link-btn", { type: "button", onclick: openSignIn }, "Other ways to sign in"),
-        ),
-      );
-
-  // ---------- your resume (signed in) ----------
-  let resumeCard = null;
-  if (ed.user) {
-    resumeCard = h("section.ed-home-card", { "aria-busy": "true" },
-      h("div.ed-home-card-icon", svgIcon(ICONS.file)),
-      h("div.ed-home-card-body", h("h2", "Your resume"), h("p.muted", "Looking for your resume.json on GitHub…")),
-    );
-    (ed.ownResume ? Promise.resolve(ed.ownResume) : fetchOwnResume().then((r) => (ed.ownResume = r || false))).then((own) => {
-      resumeCard.setAttribute("aria-busy", "false");
-      const body = resumeCard.querySelector(".ed-home-card-body");
-      if (own) {
-        body.replaceChildren(
-          h("h2", own.resume.basics?.name || "Your resume"),
-          h("p.muted", `${own.source.filename} · updated ${ago(own.source.updatedAt)}`),
-          h("div.ed-row",
-            h("button.btn.btn-primary", { type: "button", onclick: () => start(own.resume, own.source, { base: prune(own.resume), savedAt: own.source.updatedAt }) }, svgIcon(ICONS.pencil), "Open editor"),
-            h("a.btn.btn-ghost", { href: `${BASE_PATH}${encodeURIComponent(ed.user.login)}` }, svgIcon(ICONS.eye), "View portfolio"),
-            own.source.url ? h("a.btn.btn-ghost", { href: own.source.url, target: "_blank", rel: "noopener" }, svgIcon(ICONS.external), "Gist") : null,
-          ),
-        );
-      } else {
-        body.replaceChildren(
-          h("h2", "No resume yet"),
-          h("p.muted", `Start one below. Saving creates a ${getResumeFilename()} gist on your account.`),
-          h("div.ed-row",
-            h("button.btn.btn-primary", { type: "button", onclick: () => start({ ...blankScaffold(), basics: { name: ed.user.name || "" } }, { type: "local" }) }, svgIcon(ICONS.plus), "Create my resume"),
-          ),
-        );
-      }
-    }).catch((e) => {
-      resumeCard.setAttribute("aria-busy", "false");
-      resumeCard.querySelector(".ed-home-card-body p").textContent = e.message;
-    });
-  }
-
-  // ---------- unsaved draft ----------
-  const draftCard = draft
-    ? h("section.ed-home-card.is-draft",
-        h("div.ed-home-card-icon", svgIcon(ICONS.clock)),
-        h("div.ed-home-card-body",
-          h("h2", "Unsaved draft"),
-          h("p.muted", `${draft.resume.basics?.name ? `${draft.resume.basics.name} · ` : ""}edited ${ago(draft.editedAt)}${draft.dirty ? " · not saved to GitHub yet" : ""}`),
-          h("div.ed-row",
-            h("button.btn.btn-primary", { type: "button", onclick: () => start(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null }) }, "Continue"),
-            h("button.btn.btn-ghost", { type: "button", onclick: () => {
-              if (draft.dirty && !confirm("Discard this draft? Unsaved changes will be lost.")) return;
-              store.remove(DRAFT_KEY);
-              render();
-            } }, "Discard"),
-          ),
-        ),
-      )
-    : null;
-
-  // ---------- other ways to start ----------
-  const fileInput = h("input", { type: "file", accept: ".json,application/json", class: "visually-hidden", id: "ed-import" });
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    try {
-      start(parseResumeJson(await file.text()), { type: "local" });
-    } catch (e) {
-      error.textContent = e.message;
-    }
-  });
-
-  const username = h("input.input", { type: "text", placeholder: "GitHub username", autocomplete: "off", spellcheck: "false", "aria-label": "GitHub username" });
-  const copyForm = h("form.ed-option-form", { hidden: true, onsubmit: async (e) => {
-    e.preventDefault();
-    error.textContent = "";
-    const name = username.value.trim();
-    if (!name) return;
-    const btn = copyForm.querySelector("button");
-    btn.disabled = true;
-    try {
-      const { gists } = await fetchGistList(name);
-      const gist = gists.find((g) => g.files?.[getResumeFilename()]);
-      if (!gist) throw new Error(`${name} has no public ${getResumeFilename()}.`);
-      start(parseResumeJson(await fetchText(gist.files[getResumeFilename()].raw_url)), { type: "local" });
-    } catch (err) {
-      error.textContent = err.message;
-      btn.disabled = false;
-    }
-  } }, username, h("button.btn.btn-primary", { type: "submit" }, "Copy"));
-
-  const option = (icon, title, text, onclick, extra) => h("li",
-    h("button.ed-option", { type: "button", onclick },
-      h("span.ed-option-icon", svgIcon(ICONS[icon])),
-      h("span.ed-option-text", h("strong", title), h("span.muted", text)),
-      svgIcon(ICONS.chevronRight),
-    ),
-    extra,
-  );
-
-  const options = h("section.ed-home-options", { "aria-labelledby": "ed-start-title" },
-    h("h2", { id: "ed-start-title" }, ed.user ? "Start something new" : "Or try it without an account"),
-    h("ul.ed-options", { role: "list" },
-      option("layers", "Every section, ready to fill", "A guided resume with one empty item per section.", () => start(blankScaffold(), { type: "local" })),
-      option("file", "Blank resume", "Just your name. Add sections as you go.", () => start({ basics: { name: ed.user?.name || "" } }, { type: "local" })),
-      option("upload", "Import a resume.json", "Open a JSON Resume file from your computer.", () => fileInput.click()),
-      option("search", "Copy a public portfolio", "Start from someone's public resume.json.", () => {
-        copyForm.hidden = !copyForm.hidden;
-        if (!copyForm.hidden) username.focus();
-      }, copyForm),
-    ),
-    fileInput,
-  );
-
-  return h("div.ed-home", hero, resumeCard, draftCard, options, error);
+  if (!ed.dirty) hooks.onSaved();
 }
 
 // ============================================================================
 // LAYOUT
 // ============================================================================
-
-const TABS = [
-  ["resume", "Resume"],
-  ["settings", "Portfolio settings"],
-  ["blog", "Blog"],
-  ["json", "JSON"],
-];
 
 function renderPanel({ keepFocus = false } = {}) {
   const slot = ed.root?.querySelector("#ed-panel");
@@ -1625,197 +1435,18 @@ function renderPanel({ keepFocus = false } = {}) {
   if (focusedPath) slot.querySelector(`[data-path="${CSS.escape(focusedPath)}"]`)?.focus({ preventScroll: true });
 }
 
-function topBar() {
-  saveBtn = h("button.btn.btn-primary.ed-save", { type: "button", onclick: save });
-  statusEl = h("button.ed-status", { type: "button", title: "See what changed", onclick: showChanges });
-  undoBtn = iconButton("undo", "Undo (Ctrl+Z)", undo);
-  redoBtn = iconButton("redo", "Redo (Ctrl+Shift+Z)", redo);
+// ============================================================================
+// STATUS CONTROLS — edit/mode.js builds the bar and hands its buttons here
+// ============================================================================
 
-  const json = () => `${JSON.stringify(prune(ed.resume), null, 2)}\n`;
-  const more = ed.resume
-    ? dropdown({
-        button: h("button.icon-btn", { type: "button", title: "More" }, svgIcon(ICONS.more)),
-        label: "More actions",
-        className: ".ed-more",
-        items: [
-          ed.user && ed.source?.type === "gist" ? { label: "View my portfolio", icon: "external", href: `${BASE_PATH}${encodeURIComponent(ed.user.login)}` } : null,
-          ed.source?.url ? { label: "Open the gist on GitHub", icon: "github", href: ed.source.url, newTab: true } : null,
-          { label: "Copy JSON", icon: "copy", onclick: async () => toast((await copyText(json())) ? "JSON copied" : "Couldn't copy") },
-          { label: "Download resume.json", icon: "download", onclick: () => downloadFile("resume.json", json(), "application/json") },
-          "sep",
-          { label: "Keyboard shortcuts", icon: "keyboard", onclick: showShortcuts },
-          { label: "Close and start over", icon: "arrowLeft", onclick: () => {
-            if (ed.dirty && ed.source?.type === "gist" && !confirm("Close the editor? Your unsaved changes stay as a draft.")) return;
-            ed.resume = null;
-            ed.post = null;
-            ed.ownResume = null;
-            render();
-          } },
-        ],
-      })
-    : null;
-
-  const title = ed.resume
-    ? h("div.ed-doc",
-        h("strong.ed-doc-name", ed.resume.basics?.name || "Untitled resume"),
-        statusEl,
-      )
-    : null;
-
-  return h("header.ed-top",
-    h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span.ed-brand-label", "editor")),
-    title,
-    h("span.ed-spacer"),
-    ed.resume ? h("div.ed-history", undoBtn, redoBtn) : null,
-    more,
-    ed.resume ? saveBtn : null,
-    ed.user ? accountMenu({ user: ed.user }) : ed.resume ? null : h("a.btn.btn-ghost", { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), h("span.btn-label", "Sign in")),
-  );
-}
-
-function render() {
-  const app = document.getElementById("app");
-  ed.root = h("div.editor", { dataset: { view: "edit" } });
-  ed.root.appendChild(topBar());
-
-  if (!ed.resume) {
-    statusEl = saveBtn = undoBtn = redoBtn = null;
-    ed.root.appendChild(h("main.docs-main", { id: "main", tabindex: "-1" }, startScreen()));
-    app.replaceChildren(ed.root);
-    document.title = "Editor — mz-portfolio";
-    return;
-  }
-
-  const tabs = h("nav.ed-tabs", { "aria-label": "Editor sections" },
-    TABS.map(([key, label]) => h("button.tab", { type: "button", dataset: { tab: key }, "aria-current": ed.tab === key ? "page" : null, onclick: () => {
-      if (ed.tab === "blog" && ed.post?.dirty && key !== "blog") toast("Unsaved post changes are kept as a draft in this browser.");
-      ed.tab = key;
-      ed.post = null;
-      ed.root.querySelectorAll(".ed-tabs .tab").forEach((t) => {
-        if (t.dataset.tab === key) t.setAttribute("aria-current", "page");
-        else t.removeAttribute("aria-current");
-      });
-      renderPanel();
-    } }, label)),
-  );
-
-  ed.frame = h("iframe.ed-frame", { src: `${BASE_PATH}preview/view`, title: "Live preview" });
-  ed.frame.addEventListener("load", pushPreview);
-  const preview = h("section.ed-preview", { "aria-label": "Live preview", dataset: { device: ed.device } });
-  const devices = h("div.ed-devices", { role: "group", "aria-label": "Preview width" },
-    DEVICES.map(([key, label, icon]) => {
-      const b = iconButton(icon, label, () => {
-        ed.device = key;
-        preview.dataset.device = key;
-        devices.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-      });
-      b.setAttribute("aria-pressed", String(ed.device === key));
-      return b;
-    }));
-  preview.append(
-    h("div.ed-preview-bar", h("span", svgIcon(ICONS.eye), "Live preview"), devices, h("button.link-btn", { type: "button", onclick: reloadPreview }, "Reload")),
-    h("div.ed-frame-wrap", ed.frame),
-  );
-
-  const viewToggle = h("div.ed-view-toggle", { role: "group", "aria-label": "Show" },
-    h("button.chip", { type: "button", "aria-pressed": "true", onclick: (e) => setMobileView("edit", e.currentTarget) }, "Edit"),
-    h("button.chip", { type: "button", "aria-pressed": "false", onclick: (e) => setMobileView("preview", e.currentTarget) }, svgIcon(ICONS.eye), "Preview"),
-  );
-
-  const layout = h("div.ed-layout", { dataset: { mobile: "edit" } },
-    h("section.ed-editor", { "aria-label": "Editor" }, tabs, h("div.ed-scroll", { id: "ed-panel" })),
-    preview,
-  );
-  function setMobileView(view, btn) {
-    layout.dataset.mobile = view;
-    viewToggle.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === btn)));
-    scrollTo(0, 0);
-  }
-
-  ed.root.append(h("main", { id: "main", tabindex: "-1" }, layout), viewToggle);
-  app.replaceChildren(ed.root);
-  try {
-    sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(ed.resume));
-    sessionStorage.setItem(PREVIEW_GH_KEY, JSON.stringify(githubForPreview()));
-  } catch {
-    /* too large — the frame gets it by postMessage on load */
-  }
-  renderPanel();
+export function bindControls(controls) {
+  ({ saveBtn = null, statusEl = null, undoBtn = null, redoBtn = null } = controls);
   updateStatus();
 }
 
-// ============================================================================
-// KEYBOARD
-// ============================================================================
-
-function onKeydown(e) {
-  if (!location.pathname.startsWith(`${BASE_PATH}edit`) || document.querySelector("dialog[open]")) return;
-  const mod = e.ctrlKey || e.metaKey;
-  const key = e.key.toLowerCase();
-  const target = e.target;
-  const inText = target instanceof HTMLElement && target.matches("input, textarea, select, [contenteditable]");
-  if (mod && key === "s") {
-    e.preventDefault();
-    save();
-    return;
-  }
-  if (!ed.resume) return;
-  // The JSON and post bodies keep the browser's own undo
-  const nativeUndo = target instanceof HTMLElement && target.matches(".ed-json, .ed-md");
-  const inPost = ed.tab === "blog" && ed.post;
-  if (mod && !nativeUndo && !inPost && (key === "z" || key === "y")) {
-    e.preventDefault();
-    if (key === "y" || e.shiftKey) redo();
-    else undo();
-    return;
-  }
-  if (!mod && !inText && e.key === "?") {
-    e.preventDefault();
-    showShortcuts();
-  }
-}
-
-// ============================================================================
-// ENTRY
-// ============================================================================
-
-export async function renderEditor() {
-  document.title = "Editor — mz-portfolio";
-  removeEventListener("beforeunload", beforeUnload);
-  addEventListener("beforeunload", beforeUnload);
-  removeEventListener("keydown", onKeydown);
-  addEventListener("keydown", onKeydown);
-
-  if (!ed.resume) {
-    const draft = readDraft();
-    if (draft?.dirty) begin(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null });
-  }
-
-  // Draw right away with the remembered account; check it with GitHub after
-  if (!getToken()) {
-    ed.user = null;
-    ed.verified = false;
-    ed.posts = null;
-    ed.post = null;
-    ed.ownResume = null;
-  } else if (!ed.user) ed.user = cachedUser();
-  render();
-
-  if (getToken() && !ed.verified) {
-    try {
-      const fresh = await currentUser();
-      ed.verified = true;
-      const changedUser = fresh?.login !== ed.user?.login || fresh?.avatar_url !== ed.user?.avatar_url;
-      ed.user = fresh;
-      if (changedUser) render();
-    } catch (e) {
-      if (e.status === 401) {
-        clearToken();
-        ed.user = null;
-        render();
-        toast("Your GitHub sign-in expired. Please sign in again.", "error");
-      }
-      // offline etc. — keep the remembered account
-    }
-  }
-}
+export {
+  ed, store, ago, begin, changed, undo, redo, save, saveDraft, readDraft, computeDirty, updateStatus,
+  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPosts,
+  photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
+  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL,
+};
