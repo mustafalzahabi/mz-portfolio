@@ -29,40 +29,18 @@ const STEPS = [
 ];
 
 /**
- * A miniature of a real portfolio page (same layout as components.js
- * buildHeader/buildTabs/sections at this width), built from the site's tokens.
+ * The real portfolio renderer, scaled down: /preview/view?demo shows the
+ * placeholder template, so the picture always matches the actual design.
  */
 function heroMock() {
-  const line = (w, cls = "") => h(`span.lp-mock-line${cls}`, { style: `--w:${w}` });
+  const frame = h("iframe", { src: `${BASE_PATH}preview/view?demo`, title: "Example portfolio", loading: "lazy", scrolling: "no", tabindex: "-1", "aria-hidden": "true" });
+  const viewport = h("div.lp-mock-viewport", frame);
+  const fit = () => viewport.style.setProperty("--scale", String(viewport.clientWidth / 1280 || 0.4));
+  new ResizeObserver(fit).observe(viewport);
   return h("div.lp-mock", { "aria-hidden": "true" },
     h("div.lp-mock-window",
-      h("div.lp-mock-bar", h("span"), h("span"), h("span"), h("span.lp-mock-url", `${location.host}${BASE_PATH}you`)),
-      h("div.lp-mock-page",
-        h("div.lp-mock-banner", h("span.lp-mock-toggle", h("span"))),
-        h("div.lp-mock-info",
-          h("span.lp-mock-avatar", "YN"),
-          h("span.lp-mock-details",
-            h("strong.lp-mock-name", "Your Name"),
-            h("span.lp-mock-role", "Product Designer"),
-            h("span.lp-mock-facts", svgIcon(ICONS.pin), "Amsterdam"),
-          ),
-        ),
-        h("span.lp-mock-actions",
-          h("span.lp-mock-btn.is-primary", svgIcon(ICONS.doc), "Resume"),
-          h("span.lp-mock-link", svgIcon(ICONS.mail)), h("span.lp-mock-link", svgIcon(ICONS.github)), h("span.lp-mock-link", svgIcon(ICONS.linkedin)),
-        ),
-        h("div.lp-mock-tabs", h("span.is-on", "Profile"), h("span", "Blog")),
-        h("div.lp-mock-section",
-          h("strong.lp-mock-heading", "Projects"),
-          h("div.lp-mock-cards",
-            [["SA", "0", "70%"], ["DK", "1", "55%"]].map(([ini, tone, w]) =>
-              h("div.lp-mock-card",
-                h("span.lp-mock-cover", { dataset: { tone } }, ini),
-                h("span.lp-mock-card-body", line(w, ".is-title"), line("90%"), h("span.lp-mock-tags", h("span", "UI"), h("span", "Web"))),
-              )),
-          ),
-        ),
-      ),
+      h("div.lp-mock-bar", h("span"), h("span"), h("span"), h("span.lp-mock-url", "mz-portfolio.pages.dev/you")),
+      viewport,
     ),
     h("div.lp-mock-chip.is-a", svgIcon(ICONS.star), "128 stars"),
     h("div.lp-mock-chip.is-b", svgIcon(ICONS.check), "Saved to GitHub"),
