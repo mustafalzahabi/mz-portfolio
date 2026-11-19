@@ -1,6 +1,7 @@
 // ============================================================================
 // GITHUB WRITE ACCESS — for the editor only.
-// The visitor pastes a personal access token limited to gists. It is kept in
+// Sign-in (GitHub OAuth via /api/auth, or a pasted token) gives a token limited
+// to gists. It is kept in
 // localStorage until you sign out or GitHub rejects it (expired/revoked), never
 // logged, and only ever sent to https://api.github.com in an Authorization
 // header. Reads elsewhere in the app stay anonymous.
@@ -21,8 +22,30 @@ export function getToken() {
   }
 }
 
+const USER_KEY = "mz-gh-user";
+
+/** The last known signed-in user ({ login, name, avatar_url }), to draw the UI before /user answers. */
+export function cachedUser() {
+  if (!getToken()) return null;
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function rememberUser(user) {
+  try {
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify({ login: user.login, name: user.name || "", avatar_url: user.avatar_url || "" }));
+  } catch {
+    /* ignore */
+  }
+  return user;
+}
+
 export function clearToken() {
   try {
+    localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
@@ -84,7 +107,7 @@ export async function signIn(token) {
     if (lastScopes !== null && !lastScopes.split(",").map((x) => x.trim()).includes("gist")) {
       throw new GitHubError("This token doesn't have the \"gist\" permission. Create one with only \"gist\" ticked.", 403);
     }
-    return user;
+    return rememberUser(user);
   } catch (e) {
     clearToken();
     throw e;
@@ -92,7 +115,7 @@ export async function signIn(token) {
 }
 
 export async function currentUser() {
-  return getToken() ? request("GET", "/user") : null;
+  return getToken() ? rememberUser(await request("GET", "/user")) : null;
 }
 
 /** All of the signed-in user's gists (public and secret), newest first. */

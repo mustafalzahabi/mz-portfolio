@@ -1,5 +1,7 @@
 // ============================================================================
 // LANDING PAGE
+// Hero with a live-looking portfolio mock, feature bento, steps, config
+// sample and a closing call to action. Styles: styles/landing.css.
 // ============================================================================
 
 import { h, svgIcon } from "../utils.js";
@@ -7,21 +9,73 @@ import { ICONS, logoImg } from "../icons.js";
 import { BASE_PATH, detectSource, portfolioPath, navigate } from "../router.js";
 import { getRecent, clearRecent } from "../data.js";
 import { buildThemeToggle } from "../theme.js";
+import { accountMenu, avatarImg, loginUrl } from "../account.js";
+import { cachedUser } from "../github.js";
 
 const FEATURES = [
-  { icon: "zap", title: "Live from your resume", text: "Edit your resume.json gist or Drive file and the portfolio updates. No build, no deploy." },
-  { icon: "doc", title: "Your JSON Resume theme", text: "The resume viewer renders popular JSON Resume themes natively — set meta.theme and it looks the same." },
-  { icon: "merge", title: "Projects, merged", text: "Resume projects are matched with your GitHub repos, adding stars, READMEs and images." },
-  { icon: "palette", title: "Colors & dark mode", text: "Ten color tokens with dark mode generated automatically. Change any of them from your resume." },
-  { icon: "phoneDevice", title: "Mobile first", text: "Designed for phones first, with a full desktop layout. Works offline after the first visit." },
-  { icon: "sliders", title: "Fully configurable", text: "Section order, layouts, animations, texts and more — all from meta in your resume.json." },
+  { icon: "zap", title: "Live from your resume", text: "Change your resume.json and the portfolio follows. No build, no deploy, no hosting to manage.", size: "wide" },
+  { icon: "palette", title: "Your colors", text: "Ten color tokens, with dark mode generated for you." },
+  { icon: "merge", title: "Projects, merged", text: "Resume projects meet your GitHub repos: stars, READMEs and images." },
+  { icon: "doc", title: "Printable resume", text: "Eight classic JSON Resume themes, rendered natively." },
+  { icon: "phoneDevice", title: "Mobile first", text: "Made for phones, great on desktop, works offline." },
+  { icon: "pencil", title: "A real editor", text: "Forms for every section, a live preview, undo, and one-click save to GitHub.", size: "wide" },
+  { icon: "blog", title: "A blog, built in", text: "Write posts in Markdown. Each one is a gist you own." },
 ];
 
-export function renderLanding() {
-  document.title = "mz-portfolio — turn your resume.json into a portfolio";
-  const app = document.getElementById("app");
+const STEPS = [
+  ["Write", "Fill in your resume in the editor, or bring a resume.json you already have."],
+  ["Save", "It's stored as a gist on your GitHub account. You own it, nothing else to sign up for."],
+  ["Share", "Your portfolio lives at a short link with your username. Update it any time."],
+];
 
-  const input = h("input.input.landing-input", {
+/**
+ * A miniature of a real portfolio page (same layout as components.js
+ * buildHeader/buildTabs/sections at this width), built from the site's tokens.
+ */
+function heroMock() {
+  const line = (w, cls = "") => h(`span.lp-mock-line${cls}`, { style: `--w:${w}` });
+  return h("div.lp-mock", { "aria-hidden": "true" },
+    h("div.lp-mock-window",
+      h("div.lp-mock-bar", h("span"), h("span"), h("span"), h("span.lp-mock-url", `${location.host}${BASE_PATH}you`)),
+      h("div.lp-mock-page",
+        h("div.lp-mock-banner", h("span.lp-mock-toggle", h("span"))),
+        h("div.lp-mock-info",
+          h("span.lp-mock-avatar", "YN"),
+          h("span.lp-mock-details",
+            h("strong.lp-mock-name", "Your Name"),
+            h("span.lp-mock-role", "Product Designer"),
+            h("span.lp-mock-facts", svgIcon(ICONS.pin), "Amsterdam"),
+          ),
+        ),
+        h("span.lp-mock-actions",
+          h("span.lp-mock-btn.is-primary", svgIcon(ICONS.doc), "Resume"),
+          h("span.lp-mock-link", svgIcon(ICONS.mail)), h("span.lp-mock-link", svgIcon(ICONS.github)), h("span.lp-mock-link", svgIcon(ICONS.linkedin)),
+        ),
+        h("div.lp-mock-tabs", h("span.is-on", "Profile"), h("span", "Blog")),
+        h("div.lp-mock-section",
+          h("strong.lp-mock-heading", "Projects"),
+          h("div.lp-mock-cards",
+            [["SA", "0", "70%"], ["DK", "1", "55%"]].map(([ini, tone, w]) =>
+              h("div.lp-mock-card",
+                h("span.lp-mock-cover", { dataset: { tone } }, ini),
+                h("span.lp-mock-card-body", line(w, ".is-title"), line("90%"), h("span.lp-mock-tags", h("span", "UI"), h("span", "Web"))),
+              )),
+          ),
+        ),
+      ),
+    ),
+    h("div.lp-mock-chip.is-a", svgIcon(ICONS.star), "128 stars"),
+    h("div.lp-mock-chip.is-b", svgIcon(ICONS.check), "Saved to GitHub"),
+  );
+}
+
+export function renderLanding() {
+  document.title = "mz-portfolio — turn your resume into a portfolio";
+  const app = document.getElementById("app");
+  const user = cachedUser();
+
+  // ---------- open a portfolio ----------
+  const input = h("input.lp-input", {
     id: "portfolio-id",
     type: "text",
     inputmode: "url",
@@ -32,92 +86,128 @@ export function renderLanding() {
     required: true,
     "aria-describedby": "source-hint",
   });
-  const hint = h("p.landing-hint", { id: "source-hint", "aria-live": "polite" }, "Enter a GitHub username, or paste a Google Drive file or folder link.");
-
+  const hint = h("p.lp-hint", { id: "source-hint", "aria-live": "polite" }, "See anyone's portfolio: type a GitHub username.");
   input.addEventListener("input", () => {
     const { source, id } = detectSource(input.value);
     hint.dataset.state = input.value && !id ? "error" : "";
     hint.textContent = !input.value
-      ? "Enter a GitHub username, or paste a Google Drive file or folder link."
+      ? "See anyone's portfolio: type a GitHub username."
       : source === "gd"
         ? `Google Drive · ${id}`
         : source === "auto" || source === "gh"
-          ? `GitHub · github.com/${id}`
+          ? `Opens ${location.host}${BASE_PATH}${id}`
           : "That doesn't look like a GitHub username or a Drive link.";
   });
-
-  const form = h("form.landing-form", {
+  const form = h("form.lp-search", {
     role: "search",
     onsubmit: (e) => {
       e.preventDefault();
       const { source, id } = detectSource(input.value);
-      if (!id || !source) {
-        input.focus();
-        return;
-      }
+      if (!id || !source) return input.focus();
       navigate(portfolioPath(id));
     },
   },
     h("label.visually-hidden", { for: "portfolio-id" }, "GitHub username or Google Drive link"),
-    h("div.landing-field", svgIcon(ICONS.search), input, h("button.btn.btn-primary", { type: "submit" }, "Open portfolio")),
+    h("div.lp-search-field", svgIcon(ICONS.search), input, h("button.lp-search-go", { type: "submit", "aria-label": "Open portfolio" }, svgIcon(ICONS.arrowRight))),
     hint,
   );
 
   const recent = getRecent();
   const recentBlock = recent.length
-    ? h("section.landing-recent", { "aria-labelledby": "recent-title" },
-        h("div.landing-recent-head",
-          h("h2.landing-h3", { id: "recent-title" }, "Recently viewed"),
-          h("button.link-btn", { type: "button", onclick: (e) => { clearRecent(); e.target.closest("section").remove(); } }, "Clear"),
-        ),
-        h("ul.chip-list", { role: "list" }, recent.map((r) => h("li", h("a.chip", { href: portfolioPath(r.id) }, r.name)))),
+    ? h("div.lp-recent",
+        h("span.muted", "Recently viewed:"),
+        recent.slice(0, 5).map((r) => h("a.lp-recent-chip", { href: portfolioPath(r.id) }, r.name)),
+        h("button.link-btn", { type: "button", onclick: (e) => { clearRecent(); e.target.closest(".lp-recent").remove(); } }, "Clear"),
       )
     : null;
 
-  const toggle = buildThemeToggle("switch");
+  // ---------- primary actions ----------
+  const ctas = user
+    ? h("div.lp-ctas",
+        h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, svgIcon(ICONS.pencil), "Edit my portfolio"),
+        h("a.btn.btn-ghost.lp-btn", { href: `${BASE_PATH}${encodeURIComponent(user.login)}` }, avatarImg(user, 22), "View it"),
+      )
+    : h("div.lp-ctas",
+        h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, "Create your portfolio", svgIcon(ICONS.arrowRight)),
+        h("a.btn.btn-ghost.lp-btn", { href: loginUrl(`${BASE_PATH}edit`), dataset: { external: "" } }, svgIcon(ICONS.github), "Sign in with GitHub"),
+      );
+
+  const toggle = buildThemeToggle("icon");
 
   app.replaceChildren(
-    h("div.landing",
-      h("header.landing-top",
-        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
-        h("nav.landing-links", { "aria-label": "Site" },
-          h("a", { href: `${BASE_PATH}preview` }, "Preview"),
+    h("div.landing.lp",
+      h("div.lp-glow", { "aria-hidden": "true" }, h("span"), h("span"), h("span")),
+      h("header.lp-top",
+        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(30), h("span", "mz-portfolio")),
+        h("nav.lp-nav", { "aria-label": "Site" },
           h("a", { href: `${BASE_PATH}docs` }, "Docs"),
-          h("a", { href: `${BASE_PATH}edit` }, "Edit"),
+          h("a", { href: `${BASE_PATH}preview` }, "Preview"),
+          user ? null : h("a", { href: `${BASE_PATH}edit` }, "Editor"),
           toggle,
+          accountMenu({ user }),
         ),
       ),
-      h("main.landing-main", { id: "main", tabindex: "-1" },
-        h("section.landing-hero",
-          h("p.eyebrow", "JSON Resume → portfolio"),
-          h("h1.landing-title", "Your resume, as a living portfolio."),
-          h("p.landing-lead", "Point it at a resume.json in a public GitHub gist or Google Drive and get a themed, responsive portfolio with projects, a blog and a printable resume."),
-          form,
-          recentBlock,
-        ),
-        h("section.landing-features", { "aria-label": "Features" },
-          FEATURES.map((f) => h("article.card.feature", h("div.feature-icon", svgIcon(ICONS[f.icon])), h("h2.landing-h3", f.title), h("p", f.text))),
-        ),
-        h("section.landing-steps", { "aria-labelledby": "steps-title" },
-          h("h2.landing-h2", { id: "steps-title" }, "How it works"),
-          h("ol.steps",
-            h("li", h("strong", "Write a resume.json"), h("span", " following the ", h("a", { href: "https://jsonresume.org/schema/" }, "JSON Resume schema"), ". Check it in ", h("a", { href: `${BASE_PATH}preview` }, "Preview"), " first.")),
-            h("li", h("strong", "Publish it"), h("span", " as a public gist named resume.json, or a Drive file shared with “Anyone with the link”.")),
-            h("li", h("strong", "Share your link"), h("span", ` — ${location.host}${BASE_PATH}your-username. Public gists with a .md file become blog posts.`)),
+      h("main.lp-main", { id: "main", tabindex: "-1" },
+        h("section.lp-hero",
+          h("div.lp-hero-text",
+            h("p.lp-badge", h("span.lp-badge-dot"), user ? `Welcome back, ${user.name?.split(/\s+/)[0] || user.login}` : "Free · open source · no backend"),
+            h("h1.lp-title", "Your resume, ", h("span.lp-gradient-text", "as a living portfolio.")),
+            h("p.lp-lead", "Write it once as a JSON Resume. Get a fast, beautiful portfolio with projects, a blog and a printable resume, all saved on your own GitHub."),
+            ctas,
+            form,
+            recentBlock,
           ),
+          heroMock(),
         ),
-        h("section.landing-config", { "aria-labelledby": "config-title" },
-          h("h2.landing-h2", { id: "config-title" }, "Configured from your resume"),
-          h("p", "Add a ", h("code", "meta[\"mz-portfolio-config\"]"), " block to your resume.json to change colors, layout, sections and animations. Everything is optional."),
-          h("pre.code-sample", h("code", `"meta": {
+
+        h("section.lp-section", { "aria-labelledby": "features-title" },
+          h("div.lp-section-head",
+            h("p.lp-kicker", "Why it's different"),
+            h("h2.lp-h2", { id: "features-title" }, "Everything a portfolio needs. Nothing to maintain."),
+          ),
+          h("div.lp-bento", FEATURES.map((f) =>
+            h(`article.lp-tile${f.size === "wide" ? ".is-wide" : ""}`,
+              h("span.lp-tile-icon", svgIcon(ICONS[f.icon])),
+              h("h3", f.title),
+              h("p", f.text),
+            ))),
+        ),
+
+        h("section.lp-section", { "aria-labelledby": "steps-title" },
+          h("div.lp-section-head",
+            h("p.lp-kicker", "How it works"),
+            h("h2.lp-h2", { id: "steps-title" }, "Live in three steps."),
+          ),
+          h("ol.lp-steps", STEPS.map(([title, text], i) =>
+            h("li", h("span.lp-step-num", String(i + 1)), h("h3", title), h("p", text)))),
+        ),
+
+        h("section.lp-section.lp-split", { "aria-labelledby": "config-title" },
+          h("div",
+            h("p.lp-kicker", "For tinkerers"),
+            h("h2.lp-h2", { id: "config-title" }, "Configured from your resume."),
+            h("p.lp-text", "Colors, layout, section order, animations and tabs all live in one optional block of your resume.json. Prefer forms? The editor writes it for you."),
+            h("a.btn.btn-ghost", { href: `${BASE_PATH}docs` }, "All options", svgIcon(ICONS.arrowRight)),
+          ),
+          h("div.lp-code",
+            h("div.lp-code-bar", h("span"), h("span"), h("span"), h("em", "resume.json")),
+            h("pre", h("code", `"meta": {
   "theme": "elegant",
   "mz-portfolio-config": {
     "colors": { "accent": "#2f5d62" },
-    "sections": { "order": ["about", "projects", "work"] },
+    "sections": { "order": ["about", "projects"] },
     "animation": { "intro": "code" }
   }
 }`)),
-          h("a.btn.btn-ghost", { href: `${BASE_PATH}docs` }, "All options", svgIcon(ICONS.arrowRight)),
+          ),
+        ),
+
+        h("section.lp-final",
+          h("h2", user ? "Pick up where you left off." : "Your portfolio is five minutes away."),
+          h("p", user ? "Your resume, settings and posts are one click away." : "Start in the editor. No account needed until you save."),
+          h("div.lp-ctas", user
+            ? h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, svgIcon(ICONS.pencil), "Open the editor")
+            : h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, "Create your portfolio", svgIcon(ICONS.arrowRight))),
         ),
       ),
       h("footer.site-footer",

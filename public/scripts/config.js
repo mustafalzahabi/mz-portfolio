@@ -95,7 +95,7 @@ export const CONFIG_SCHEMA = {
   },
   header: {
     _desc: "Header details and actions.",
-    links: list("Links shown on the banner, in order. Any basics.profiles network name works.", ["email", "github", "linkedin"]),
+    links: list("Profile links shown as round buttons next to the main button, in order. Any basics.profiles network name works.", ["email", "github", "linkedin"]),
     showLocation: bool("Show basics.location.", true),
     showPhone: bool("Show basics.phone.", false),
     share: bool("Show a Share button.", true),

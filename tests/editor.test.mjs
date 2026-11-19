@@ -114,3 +114,12 @@ test("applyMarkdown: wraps selections and prefixes lines", () => {
   assert.equal(applyMarkdown("a\nb", 0, 3, "list").text, "- a\n- b");
   assert.equal(applyMarkdown("x", 1, 1, "link").text, "x[link text](https://)");
 });
+
+test("images: uploaded gist images are recognised, other links pass through", async () => {
+  const { isGistImage, resolveImage } = await import("../public/scripts/images.js");
+  assert.equal(isGistImage("https://gist.githubusercontent.com/u/abc/raw/123/portfolio-photo.txt"), true);
+  assert.equal(isGistImage("https://example.com/photo.txt"), false);
+  assert.equal(isGistImage("https://gist.githubusercontent.com/u/abc/raw/photo.png"), false);
+  assert.equal(await resolveImage("https://example.com/a.jpg"), "https://example.com/a.jpg");
+  assert.equal(await resolveImage("javascript:alert(1)"), "");
+});

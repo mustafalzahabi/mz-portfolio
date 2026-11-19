@@ -88,16 +88,6 @@ export function buildHeader(vm, cfg, ctx) {
   const toggle = buildThemeToggle(cfg.theme.toggle);
   if (toggle) banner.appendChild(h("div.banner-toggle", toggle));
 
-  const bannerLinks = h("nav.banner-links", { "aria-label": "Profiles" });
-  for (const key of cfg.header.links) {
-    if (key === "email" && b.email) {
-      bannerLinks.appendChild(h("a.banner-link", { href: `mailto:${b.email}`, "aria-label": "Email" }, svgIcon(ICONS.mail), h("span", "Email")));
-      continue;
-    }
-    const p = findProfile(b, key);
-    if (p) bannerLinks.appendChild(h("a.banner-link", { href: p.url, "aria-label": p.network }, svgIcon(networkIcon(p.network)), h("span", p.network)));
-  }
-  if (bannerLinks.children.length) banner.appendChild(bannerLinks);
   header.appendChild(banner);
 
   // Identity
@@ -151,6 +141,17 @@ export function buildHeader(vm, cfg, ctx) {
   if (cfg.header.share) {
     actions.appendChild(h("button.btn.btn-ghost", { type: "button", onclick: () => sharePage(b) }, svgIcon(ICONS.share), h("span.btn-label", "Share")));
   }
+  // Profile links (header.links) as round icon buttons — the banner stays clean
+  const links = h("nav.profile-links", { "aria-label": "Profiles" });
+  for (const key of cfg.header.links) {
+    if (key === "email" && b.email) {
+      links.appendChild(h("a.profile-link", { href: `mailto:${b.email}`, "aria-label": "Email", title: "Email" }, svgIcon(ICONS.mail)));
+      continue;
+    }
+    const p = findProfile(b, key);
+    if (p) links.appendChild(h("a.profile-link", { href: p.url, "aria-label": p.network, title: p.network }, svgIcon(networkIcon(p.network))));
+  }
+  if (links.children.length) actions.appendChild(links);
   if (actions.children.length) details.appendChild(actions);
 
   info.appendChild(details);
@@ -389,13 +390,15 @@ export function buildProjects(vm, cfg, ctx) {
   const section = createSection("projects", "Projects", cfg);
   const grid = h("div.projects", { dataset: { layout: pc.layout, image: pc.imagePosition } });
 
-  for (const p of vm.projects) {
+  for (const [i, p] of vm.projects.entries()) {
     const card = h("a.card.project-card", { href: `${ctx.base}/project/${encodeURIComponent(p.slug)}`, "aria-label": `${p.name} — details` });
     const cover = p.image || p.images[0];
-    if (cover && pc.imagePosition !== "none") {
-      card.appendChild(
-        h("div.project-media", h("img", { src: cover, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.remove() })),
-      );
+    if (pc.imagePosition !== "none") {
+      // No picture → a generated cover in the owner's colors, so every card has a visual
+      const generated = () => h("div.project-media.is-generated", { dataset: { tone: String(i % 3) }, "aria-hidden": "true" }, h("span", initials(p.name)));
+      card.appendChild(cover
+        ? h("div.project-media", h("img", { src: cover, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.replaceWith(generated()) }))
+        : generated());
     }
     const body = h("div.project-body");
     const title = h("h3.project-title", p.name);

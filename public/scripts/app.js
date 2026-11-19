@@ -2,6 +2,8 @@
 // APP — routing, loading, and assembling the portfolio
 // ============================================================================
 
+import { resolveImage } from "./images.js";
+import { completeSignIn } from "./account.js";
 import { h, svgIcon, safeUrl } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
@@ -52,6 +54,7 @@ const state = {
   vm: null,
   config: null,
   photo: "",
+  banner: "",
   shell: null, // "profile" (banner + tabs) | "page" (slim bar, e.g. project pages)
   page: null, // which view is rendered inside the shell
   introPlayed: false,
@@ -68,12 +71,23 @@ const EMBEDDED = typeof window !== "undefined" && window.self !== window.top;
 // The editor pushes every change here; the portfolio re-renders in place
 // (no page reload, scroll kept). Only the same-origin parent may talk to us.
 let liveJson = null;
+let liveGithub; // { login, avatar_url } of the resume's GitHub account, for its photo
+const previewGithub = () => {
+  if (liveGithub !== undefined) return liveGithub;
+  try {
+    return JSON.parse(sessionStorage.getItem("mz-preview-github") || "null");
+  } catch {
+    return null;
+  }
+};
 if (EMBEDDED) {
   addEventListener("message", async (e) => {
     if (e.origin !== location.origin || e.source !== window.parent || e.data?.type !== "mz-preview") return;
     const json = JSON.stringify(e.data.resume ?? {});
-    if (json === liveJson) return;
+    const github = e.data.github?.login ? { login: String(e.data.github.login), avatar_url: String(e.data.github.avatar_url || "") } : null;
+    if (json === liveJson && JSON.stringify(github) === JSON.stringify(liveGithub)) return;
     liveJson = json;
+    liveGithub = github;
     if (!parsePath().preview) return;
     const y = scrollY;
     state.key = null;
@@ -116,7 +130,7 @@ async function route() {
     try {
       if (!json) throw new Error("no preview");
       const { resume } = analyzeResume(json);
-      result = { status: "ok", data: { resume, github: null, repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } } };
+      result = { status: "ok", data: { resume, github: previewGithub(), repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } } };
     } catch {
       navigate(`${BASE_PATH}preview`, { replace: true });
       return;
@@ -189,7 +203,8 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   state.base = base;
   state.vm = vm;
   state.config = config;
-  state.photo = pickPhoto(vm, config);
+  // Uploaded images live in the gist as text files; resolve them to data: URLs
+  [state.photo, state.banner] = await Promise.all([resolveImage(pickPhoto(vm, config)), resolveImage(config.banner.image)]);
   state.shell = null;
   state.page = null;
   state.introPlayed = false;
@@ -210,7 +225,7 @@ function ctx() {
     locale: config.text.locale,
     present: config.text.present,
     photo: state.photo,
-    bannerImage: safeUrl(config.banner.image, { allowDataImage: true }),
+    bannerImage: state.banner,
     homeHref: BASE_PATH,
     openResume: () => navigate(`${state.base}/resume`),
   };
@@ -474,8 +489,15 @@ export function init() {
   };
   addEventListener("popstate", onNavigate);
   addEventListener("hashchange", onNavigate);
+  // Signing in/out redraws pages that show the account (landing, editor)
+  addEventListener("mz-auth", () => {
+    const view = parsePath().view;
+    if (view === "edit" || view === "landing") route();
+  });
 
-  onNavigate();
+  // Back from "Sign in with GitHub": store the token before the first render
+  if (/[#&]gh_(token|error)=/.test(location.hash)) completeSignIn().finally(onNavigate);
+  else onNavigate();
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).catch(() => {});

@@ -20,12 +20,19 @@ import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, blankScaffold
 import { getPath, setPath, isEmpty, prune, History, diffSummary, validateField, frontmatter, applyMarkdown } from "../editor-core.js";
 import {
   TOKEN_HELP_URL, getToken, signIn, clearToken, currentUser, listMyGists, getGist, createGist,
-  updateGist, deleteGist, gistFileText, forgetCachedPortfolio,
+  updateGist, deleteGist, gistFileText, forgetCachedPortfolio, cachedUser,
 } from "../github.js";
+import { accountMenu, avatarImg, dropdown, loginUrl } from "../account.js";
+import { resolveImage, imageToDataUrl, isGistImage, IMAGE_FILES } from "../images.js";
+import { selectMenu } from "../ui.js";
+
+/** "photoShape" / "two-column" → "Photo shape" / "Two column" */
+const humanize = (v) => String(v).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 const DRAFT_KEY = "mz-editor-draft";
 const POST_DRAFT_KEY = "mz-editor-post-draft";
 const PREVIEW_KEY = "mz-preview-json";
+const PREVIEW_GH_KEY = "mz-preview-github"; // read by app.js for the preview's GitHub photo
 const DEVICES = [["phone", "Phone", "phoneDevice"], ["tablet", "Tablet", "tablet"], ["full", "Full width", "monitor"]];
 
 // ============================================================================
@@ -170,7 +177,13 @@ function pushPreview() {
   } catch {
     /* too large — postMessage still updates the frame */
   }
-  ed.frame?.contentWindow?.postMessage({ type: "mz-preview", resume: ed.resume }, location.origin);
+  const github = githubForPreview();
+  try {
+    sessionStorage.setItem(PREVIEW_GH_KEY, JSON.stringify(github));
+  } catch {
+    /* ignore */
+  }
+  ed.frame?.contentWindow?.postMessage({ type: "mz-preview", resume: ed.resume, github }, location.origin);
 }
 
 function reloadPreview() {
@@ -198,9 +211,10 @@ let uid = 0;
 
 function field(label, input, hint) {
   const id = `f${++uid}`;
-  input.id = id;
+  const control = input.control || input; // custom selects label their button
+  control.id = id;
   const error = h("p.ed-field-error", { id: `${id}-err`, "aria-live": "polite" });
-  input.setAttribute("aria-describedby", `${id}-err`);
+  control.setAttribute("aria-describedby", `${id}-err`);
   return h("div.ed-field", h("label", { for: id }, label), input, hint ? h("p.ed-hint", hint) : null, error);
 }
 
@@ -506,8 +520,7 @@ function cfgInput(path, node, current) {
 
   switch (node.type) {
     case "enum": {
-      const sel = h("select.input", node.values.map((v) => h("option", { value: v, selected: v === current ? true : null }, v)));
-      sel.addEventListener("change", () => set(sel.value));
+      const sel = selectMenu({ options: node.values.map((v) => ({ value: v, label: humanize(v) })), value: current, onChange: set });
       return field(label, sel, node.desc);
     }
     case "boolean": {
@@ -556,6 +569,164 @@ function cfgInput(path, node, current) {
       return field(label, t, node.desc);
     }
   }
+}
+
+// ---------- photo & banner pickers ----------
+// The choice lives only in the portfolio settings (profile.photo /
+// banner.image): basics.image and your GitHub avatar are never changed.
+
+/** The GitHub account behind this resume: its GitHub profile, else the signed-in user. */
+function githubForPreview() {
+  const p = (ed.resume?.basics?.profiles || []).find((x) => /github/i.test(String(x?.network || "")));
+  const login = String(p?.username || String(p?.url || "").match(/github\.com\/([^/?#]+)/i)?.[1] || ed.user?.login || "");
+  if (!login) return null;
+  const own = ed.user && ed.user.login.toLowerCase() === login.toLowerCase();
+  return { login, avatar_url: own ? ed.user.avatar_url : `https://github.com/${encodeURIComponent(login)}.png` };
+}
+
+function thumb(src, fallback, extraClass = "") {
+  const box = h(`span.ed-thumb${extraClass}`, { "aria-hidden": "true" });
+  const showFallback = () => box.replaceChildren(h("span.ed-thumb-text", fallback));
+  showFallback();
+  if (src) {
+    resolveImage(src).then((url) => {
+      if (!url) return;
+      const img = h("img", { src: url, alt: "", decoding: "async" });
+      img.addEventListener("error", showFallback);
+      box.replaceChildren(img);
+    });
+  }
+  return box;
+}
+
+function choiceCards(name, options, selected, onPick) {
+  const wrap = h("div.ed-choices", { role: "radiogroup" });
+  for (const o of options) {
+    const input = h("input", { type: "radio", name, value: o.value, checked: o.value === selected ? true : null, disabled: o.disabled ? true : null });
+    input.addEventListener("change", () => input.checked && onPick(o.value));
+    wrap.appendChild(h("label.ed-choice", { dataset: { disabled: o.disabled ? "" : null } }, input, o.thumb, h("span.ed-choice-text", h("strong", o.label), h("span.muted", o.hint))));
+  }
+  return wrap;
+}
+
+/**
+ * Uploads a picked image into the resume gist as a .txt file (gists only hold
+ * text) and returns its raw link. The link includes the commit, so a new
+ * upload never shows a cached old image.
+ */
+async function uploadImage(kind, file) {
+  if (!ed.user) {
+    openSignIn();
+    return "";
+  }
+  if (ed.source?.type !== "gist") {
+    toast("Saving your resume to GitHub first…");
+    await save();
+    if (ed.source?.type !== "gist") return "";
+  }
+  const dataUrl = await imageToDataUrl(file, kind === "photo"
+    ? { maxWidth: 480, maxHeight: 480, square: true }
+    : { maxWidth: 1800, maxHeight: 900 });
+  const filename = IMAGE_FILES[kind];
+  const saved = await updateGist(ed.source.id, { files: { [filename]: { content: dataUrl } } });
+  ed.source.updatedAt = saved.updated_at;
+  const raw = saved.files?.[filename]?.raw_url;
+  if (!raw) throw new Error("GitHub didn't return a link for the uploaded image.");
+  return raw;
+}
+
+/** "Upload image" button + "or paste a link" field, shared by both pickers. */
+function imageSource(kind, current, onSet) {
+  const file = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif,image/avif", class: "visually-hidden" });
+  const upload = h("button.btn.btn-ghost", { type: "button", onclick: () => file.click() }, svgIcon(ICONS.upload), "Upload image");
+  file.addEventListener("change", async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    upload.disabled = true;
+    upload.lastChild.textContent = "Uploading…";
+    try {
+      const url = await uploadImage(kind, f);
+      if (url) {
+        onSet(url);
+        toast("Image uploaded to your gist.");
+      }
+    } catch (e) {
+      toast(e.message, "error");
+    }
+    upload.disabled = false;
+    upload.lastChild.textContent = "Upload image";
+  });
+  const uploaded = isGistImage(current);
+  const link = h("input.input", { type: "url", placeholder: "https://…/image.jpg", value: uploaded ? "" : current });
+  link.addEventListener("change", () => {
+    const v = link.value.trim();
+    const err = validateField("url", v);
+    link.setAttribute("aria-invalid", err ? "true" : "false");
+    if (err) return toast(err, "error");
+    onSet(v);
+  });
+  return h("div.ed-image-source",
+    h("div.ed-row", upload, file, uploaded ? h("span.ed-uploaded", svgIcon(ICONS.check), "Uploaded image in use") : null),
+    field("Or paste an image link", link, kind === "photo" ? "Square images look best." : "A wide image works best (about 1800×750)."),
+  );
+}
+
+function photoPicker() {
+  const box = h("div.ed-field.ed-picker");
+  const draw = () => {
+    const current = String(getPath(normalizeConfig(ed.resume.meta || {}).config, ["profile", "photo"]) || "");
+    const mode = current === "none" ? "none" : /^(gh|github)$/.test(current) ? "gh" : current ? "custom" : "auto";
+    const gh = githubForPreview();
+    const own = String(ed.resume.basics?.image || "");
+    const initials = String(ed.resume.basics?.name || "?").split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+    const set = (v) => {
+      setCfg(["profile", "photo"], v);
+      changed({ key: "cfg.profile.photo" });
+      draw();
+    };
+    const pick = (v) => {
+      if (v === "custom") {
+        box.querySelector(".ed-image-source button")?.focus();
+        return;
+      }
+      set(v === "auto" ? "" : v);
+    };
+    box.replaceChildren(
+      h("span.ed-label", "Photo"),
+      h("p.ed-hint", "Only changes what this portfolio shows. Your resume's photo and your GitHub avatar stay as they are."),
+      choiceCards("photo", [
+        { value: "auto", label: "Automatic", hint: own ? "Your resume photo" : gh ? "Your GitHub photo" : "Your initials", thumb: thumb(own || gh?.avatar_url, initials) },
+        { value: "gh", label: "GitHub photo", hint: gh ? `@${gh.login}` : "Add a GitHub profile in Basics", thumb: thumb(gh?.avatar_url, "GH"), disabled: !gh },
+        { value: "custom", label: "Your own image", hint: "Upload or paste a link", thumb: thumb(mode === "custom" ? current : "", "+") },
+        { value: "none", label: "No photo", hint: "Shows your initials", thumb: thumb("", initials) },
+      ], mode, pick),
+      imageSource("photo", mode === "custom" ? current : "", set),
+    );
+  };
+  draw();
+  return box;
+}
+
+function bannerPicker() {
+  const box = h("div.ed-field.ed-picker");
+  const draw = () => {
+    const current = String(getPath(normalizeConfig(ed.resume.meta || {}).config, ["banner", "image"]) || "");
+    const set = (v) => {
+      setCfg(["banner", "image"], v);
+      changed({ key: "cfg.banner.image" });
+      draw();
+    };
+    box.replaceChildren(
+      h("span.ed-label", "Banner"),
+      choiceCards("banner", [
+        { value: "gradient", label: "Gradient", hint: "Made from your colors", thumb: h("span.ed-thumb.ed-thumb-wide.ed-thumb-gradient", { "aria-hidden": "true" }) },
+        { value: "image", label: "Image", hint: "Upload or paste a link", thumb: thumb(current, "+", ".ed-thumb-wide") },
+      ], current ? "image" : "gradient", (v) => (v === "gradient" ? set("") : box.querySelector(".ed-image-source button")?.focus())),
+      imageSource("banner", current, set),
+    );
+  };
+  draw();
+  return box;
 }
 
 function defaultTokens() {
@@ -699,8 +870,11 @@ function tabsGroup() {
       renderFields: (p) => [
         boundInput([...p, "label"], "Label", "text", { placeholder: "Tab label" }),
         (() => {
-          const sel = h("select.input", TAB_TYPES.map((v) => h("option", { value: v, selected: getPath(ed.resume, [...p, "type"]) === v ? true : null }, v)));
-          sel.addEventListener("change", () => { setPath(ed.resume, [...p, "type"], sel.value); changed(); });
+          const sel = selectMenu({
+            options: TAB_TYPES.map((v) => ({ value: v, label: humanize(v) })),
+            value: getPath(ed.resume, [...p, "type"]),
+            onChange: (v) => { setPath(ed.resume, [...p, "type"], v); changed(); },
+          });
           return field("Type", sel);
         })(),
         boundInput([...p, "url"], "URL (https; raw GitHub/gist link for files)", "url", { placeholder: "https://…" }),
@@ -728,19 +902,22 @@ function settingsPanel() {
   if (warnings.length) panel.appendChild(warningsBox(warnings, `${warnings.length} setting(s) need attention`));
 
   // Resume theme (JSON Resume standard meta.theme)
-  const themeSel = h("select.input",
-    CURATED_THEMES.map((t) => h("option", { value: t.name, selected: t.name === config.resume.theme ? true : null }, t.label)),
-    CURATED_THEMES.some((t) => t.name === config.resume.theme) ? null : h("option", { value: config.resume.theme, selected: true }, `${config.resume.theme} (from the registry)`),
-  );
-  themeSel.addEventListener("change", () => {
-    setPath(ed.resume, ["meta", "theme"], themeSel.value);
-    changed();
+  const themeSel = selectMenu({
+    options: [
+      ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
+      ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
+    ],
+    value: config.resume.theme,
+    onChange: (v) => {
+      setPath(ed.resume, ["meta", "theme"], v);
+      changed();
+    },
   });
   panel.appendChild(group("settings:theme", [h("strong", "Resume theme"), h("span.muted", "meta.theme")], h("div.ed-group-body", field("Theme for the resume viewer", themeSel))));
 
   for (const [name, node] of Object.entries(CONFIG_SCHEMA)) {
     const body = h("div.ed-group-body");
-    const details = group(`settings:${name}`, [h("strong", name), node._desc ? h("span.muted", node._desc) : null], body);
+    const details = group(`settings:${name}`, [h("strong", name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())), node._desc ? h("span.muted", node._desc) : null], body);
     if (name === "colors") body.appendChild(colorsGroup(config));
     else if (name === "sections") body.appendChild(sectionsGroup(config));
     else if (name === "tabs") body.appendChild(tabsGroup());
@@ -749,7 +926,9 @@ function settingsPanel() {
       const walk = (n, path) => {
         for (const [k, child] of Object.entries(n)) {
           if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
-          if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
+          if (name === "profile" && k === "photo") body.appendChild(photoPicker());
+          else if (name === "banner" && k === "image") body.appendChild(bannerPicker());
+          else if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
           else {
             body.appendChild(h("h3.ed-sub", k));
             walk(child, [...path, k]);
@@ -997,6 +1176,7 @@ function postEditor(panel) {
       p.dirty = false;
       store.remove(POST_DRAFT_KEY);
       forgetCachedPortfolio(ed.user.login);
+    ed.ownResume = null;
       toast(p.isPublic ? "Post saved. It's live on your portfolio." : "Post saved as a secret gist.");
       renderPanel();
     } catch (e) {
@@ -1016,6 +1196,7 @@ function postEditor(panel) {
       ed.post = null;
       store.remove(POST_DRAFT_KEY);
       forgetCachedPortfolio(ed.user.login);
+    ed.ownResume = null;
       toast("Post deleted.");
       renderPanel();
     } catch (e) {
@@ -1100,42 +1281,29 @@ function showChanges() {
 // ACCOUNT
 // ============================================================================
 
-function signInButton() {
-  return h("button.btn.btn-primary", { type: "button", onclick: openSignIn }, svgIcon(ICONS.github), "Sign in to save");
+// "Sign in with GitHub" goes through /api/auth (a Cloudflare Pages Function),
+// which comes back to /edit#gh_token=…; app.js stores the token. The draft is
+// in localStorage, so leaving the page for GitHub loses nothing.
+const LOGIN_URL = loginUrl(`${BASE_PATH}edit`);
+
+function githubButton(label = "Sign in with GitHub", cls = "") {
+  return h(`a.btn.btn-primary${cls}`, { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), label);
 }
 
-// "Sign in with GitHub" goes through /api/auth (a Cloudflare Pages Function),
-// which comes back to /edit#gh_token=… (or #gh_error=…). The draft is in
-// localStorage, so leaving the page for GitHub loses nothing.
-const LOGIN_URL = "/api/auth/login?return=/edit";
-
-const LOGIN_ERRORS = {
-  denied: "Sign-in was cancelled on GitHub.",
-  state: "Sign-in expired or was started in another tab. Please try again.",
-  github: "GitHub didn't finish the sign-in. Please try again.",
-  not_configured: "GitHub sign-in isn't set up on this site yet. Use a token instead.",
-};
-
-/** Reads and removes the sign-in result from the URL fragment. */
-export function takeLoginResult() {
-  const params = new URLSearchParams(location.hash.slice(1));
-  const token = params.get("gh_token");
-  const error = params.get("gh_error");
-  if (!token && !error) return null;
-  history.replaceState(history.state, "", location.pathname + location.search);
-  return { token, error: error && (LOGIN_ERRORS[error] || LOGIN_ERRORS.github) };
+function signInButton() {
+  return githubButton("Sign in to save");
 }
 
 function openSignIn() {
   const tokenForm = tokenSignInForm(() => dialog.close());
   const dialog = h("dialog.ed-dialog",
     h("div.ed-signin",
-      h("h2", "Sign in"),
-      h("p", "Your resume and blog posts are saved as gists on your GitHub account."),
-      h("a.btn.btn-primary.ed-signin-github", { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), "Sign in with GitHub"),
-      h("p.ed-hint", "Asks only for permission to manage your gists. You stay signed in on this browser until you sign out."),
+      h("div.ed-signin-mark", logoImg(40)),
+      h("h2", "Sign in to save"),
+      h("p.muted", "Your resume and blog posts are saved as gists on your GitHub account. Your draft stays here while you sign in."),
+      githubButton("Continue with GitHub", ".ed-signin-github"),
       h("details.ed-signin-token", h("summary", "Use a personal access token instead"), tokenForm),
-      h("div.ed-row", h("button.btn.btn-ghost", { type: "button", onclick: () => dialog.close() }, "Cancel")),
+      h("button.link-btn.ed-signin-cancel", { type: "button", onclick: () => dialog.close() }, "Not now"),
     ),
   );
   dialog.addEventListener("close", () => dialog.remove());
@@ -1216,6 +1384,8 @@ let redoBtn = null;
 
 function updateStatus(note) {
   document.title = `${ed.dirty ? "• " : ""}Editor — mz-portfolio`;
+  const docName = ed.root?.querySelector(".ed-doc-name");
+  if (docName) docName.textContent = ed.resume?.basics?.name || "Untitled resume";
   if (undoBtn) undoBtn.disabled = !ed.history?.canUndo;
   if (redoBtn) redoBtn.disabled = !ed.history?.canRedo;
   if (saveBtn) {
@@ -1278,6 +1448,7 @@ async function save() {
     ed.base = clean;
     ed.savedAt = new Date().toISOString();
     forgetCachedPortfolio(ed.user.login);
+    ed.ownResume = null;
     toast(changes.length ? `Saved: ${changes.slice(0, 3).join(" · ")}${changes.length > 3 ? " …" : ""}` : "Saved.");
   } catch (e) {
     toast(e.message, "error");
@@ -1293,14 +1464,87 @@ async function save() {
 // ============================================================================
 
 function startScreen() {
-  const username = h("input.input", { type: "text", placeholder: "GitHub username", autocomplete: "off", spellcheck: "false", "aria-label": "GitHub username" });
-  const error = h("p.ed-error", { "aria-live": "polite" });
+  const error = h("p.ed-error", { role: "alert" });
   const start = (resume, source, opts) => {
     begin(resume, source, opts);
     render();
   };
   const draft = readDraft();
+  const firstName = String(ed.user?.name || "").split(/\s+/)[0];
 
+  // ---------- hero ----------
+  const hero = ed.user
+    ? h("header.ed-home-hero",
+        avatarImg(ed.user, 56),
+        h("div", h("h1", `Welcome back${firstName ? `, ${firstName}` : ""}`), h("p.muted", `Signed in as @${ed.user.login}`)),
+      )
+    : h("header.ed-home-hero.is-guest",
+        h("div",
+          h("h1", "Edit your portfolio"),
+          h("p.muted", "Fill in your resume with simple forms, watch the portfolio update as you type, and save it to your GitHub in one click."),
+        ),
+        h("div.ed-home-signin",
+          githubButton("Sign in with GitHub", ".btn-lg"),
+          h("p.ed-hint", "Saves to a gist on your account. Only asks for gist access."),
+          h("button.link-btn", { type: "button", onclick: openSignIn }, "Other ways to sign in"),
+        ),
+      );
+
+  // ---------- your resume (signed in) ----------
+  let resumeCard = null;
+  if (ed.user) {
+    resumeCard = h("section.ed-home-card", { "aria-busy": "true" },
+      h("div.ed-home-card-icon", svgIcon(ICONS.file)),
+      h("div.ed-home-card-body", h("h2", "Your resume"), h("p.muted", "Looking for your resume.json on GitHub…")),
+    );
+    (ed.ownResume ? Promise.resolve(ed.ownResume) : fetchOwnResume().then((r) => (ed.ownResume = r || false))).then((own) => {
+      resumeCard.setAttribute("aria-busy", "false");
+      const body = resumeCard.querySelector(".ed-home-card-body");
+      if (own) {
+        body.replaceChildren(
+          h("h2", own.resume.basics?.name || "Your resume"),
+          h("p.muted", `${own.source.filename} · updated ${ago(own.source.updatedAt)}`),
+          h("div.ed-row",
+            h("button.btn.btn-primary", { type: "button", onclick: () => start(own.resume, own.source, { base: prune(own.resume), savedAt: own.source.updatedAt }) }, svgIcon(ICONS.pencil), "Open editor"),
+            h("a.btn.btn-ghost", { href: `${BASE_PATH}${encodeURIComponent(ed.user.login)}` }, svgIcon(ICONS.eye), "View portfolio"),
+            own.source.url ? h("a.btn.btn-ghost", { href: own.source.url, target: "_blank", rel: "noopener" }, svgIcon(ICONS.external), "Gist") : null,
+          ),
+        );
+      } else {
+        body.replaceChildren(
+          h("h2", "No resume yet"),
+          h("p.muted", `Start one below. Saving creates a ${getResumeFilename()} gist on your account.`),
+          h("div.ed-row",
+            h("button.btn.btn-primary", { type: "button", onclick: () => start({ ...blankScaffold(), basics: { name: ed.user.name || "" } }, { type: "local" }) }, svgIcon(ICONS.plus), "Create my resume"),
+          ),
+        );
+      }
+    }).catch((e) => {
+      resumeCard.setAttribute("aria-busy", "false");
+      resumeCard.querySelector(".ed-home-card-body p").textContent = e.message;
+    });
+  }
+
+  // ---------- unsaved draft ----------
+  const draftCard = draft
+    ? h("section.ed-home-card.is-draft",
+        h("div.ed-home-card-icon", svgIcon(ICONS.clock)),
+        h("div.ed-home-card-body",
+          h("h2", "Unsaved draft"),
+          h("p.muted", `${draft.resume.basics?.name ? `${draft.resume.basics.name} · ` : ""}edited ${ago(draft.editedAt)}${draft.dirty ? " · not saved to GitHub yet" : ""}`),
+          h("div.ed-row",
+            h("button.btn.btn-primary", { type: "button", onclick: () => start(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null }) }, "Continue"),
+            h("button.btn.btn-ghost", { type: "button", onclick: () => {
+              if (draft.dirty && !confirm("Discard this draft? Unsaved changes will be lost.")) return;
+              store.remove(DRAFT_KEY);
+              render();
+            } }, "Discard"),
+          ),
+        ),
+      )
+    : null;
+
+  // ---------- other ways to start ----------
   const fileInput = h("input", { type: "file", accept: ".json,application/json", class: "visually-hidden", id: "ed-import" });
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
@@ -1312,68 +1556,49 @@ function startScreen() {
     }
   });
 
-  return h("div.ed-start",
-    h("h1.landing-title", "Edit a portfolio"),
-    h("p.landing-lead", "Change your resume and portfolio settings with forms and a live preview, then save straight to your gist."),
-    draft ? h("article.card.ed-draft-card",
-      h("h2.landing-h3", "Continue your draft"),
-      h("p", `${draft.resume.basics?.name ? `${draft.resume.basics.name} · ` : ""}edited ${ago(draft.editedAt)}${draft.dirty ? " · not saved to GitHub" : ""}.`),
-      h("div.ed-row",
-        h("button.btn.btn-primary", { type: "button", onclick: () => {
-          begin(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null });
-          render();
-        } }, "Continue"),
-        h("button.btn.btn-ghost", { type: "button", onclick: () => {
-          if (draft.dirty && !confirm("Discard this draft? Unsaved changes will be lost.")) return;
-          store.remove(DRAFT_KEY);
-          render();
-        } }, "Discard"),
-      ),
-    ) : null,
-    h("div.ed-start-grid",
-      h("article.card",
-        h("h2.landing-h3", "My resume gist"),
-        h("p", "Sign in with GitHub to load and save your own resume.json gist and blog posts."),
-        ed.user ? h("button.btn.btn-primary", { type: "button", onclick: async (e) => {
-          e.currentTarget.disabled = true;
-          try {
-            if (!(await loadOwnResume())) start({ ...blankScaffold(), basics: { name: ed.user.name || "" } }, { type: "local" });
-            else render();
-          } catch (err) {
-            error.textContent = err.message;
-            e.currentTarget.disabled = false;
-          }
-        } }, "Open my resume") : signInButton(),
-      ),
-      h("article.card",
-        h("h2.landing-h3", "Start from a public portfolio"),
-        h("p", "Copy anyone's public resume.json as a starting point. Saving creates your own gist."),
-        h("form.ed-row", { onsubmit: async (e) => {
-          e.preventDefault();
-          error.textContent = "";
-          const name = username.value.trim();
-          if (!name) return;
-          try {
-            const { gists } = await fetchGistList(name);
-            const gist = gists.find((g) => g.files?.[getResumeFilename()]);
-            if (!gist) throw new Error(`${name} has no public ${getResumeFilename()}.`);
-            start(parseResumeJson(await fetchText(gist.files[getResumeFilename()].raw_url)), { type: "local" });
-          } catch (err) { error.textContent = err.message; }
-        } }, username, h("button.btn.btn-ghost", { type: "submit" }, "Load")),
-      ),
-      h("article.card",
-        h("h2.landing-h3", "Start fresh"),
-        h("p", "Every section ready to fill in, an empty resume, or a resume.json file from your computer."),
-        h("div.ed-row",
-          h("button.btn.btn-ghost", { type: "button", onclick: () => start(blankScaffold(), { type: "local" }) }, "All sections"),
-          h("button.btn.btn-ghost", { type: "button", onclick: () => start({ basics: { name: "" } }, { type: "local" }) }, "Blank"),
-          fileInput,
-          h("label.btn.btn-ghost", { for: "ed-import" }, svgIcon(ICONS.upload), "Import file"),
-        ),
-      ),
+  const username = h("input.input", { type: "text", placeholder: "GitHub username", autocomplete: "off", spellcheck: "false", "aria-label": "GitHub username" });
+  const copyForm = h("form.ed-option-form", { hidden: true, onsubmit: async (e) => {
+    e.preventDefault();
+    error.textContent = "";
+    const name = username.value.trim();
+    if (!name) return;
+    const btn = copyForm.querySelector("button");
+    btn.disabled = true;
+    try {
+      const { gists } = await fetchGistList(name);
+      const gist = gists.find((g) => g.files?.[getResumeFilename()]);
+      if (!gist) throw new Error(`${name} has no public ${getResumeFilename()}.`);
+      start(parseResumeJson(await fetchText(gist.files[getResumeFilename()].raw_url)), { type: "local" });
+    } catch (err) {
+      error.textContent = err.message;
+      btn.disabled = false;
+    }
+  } }, username, h("button.btn.btn-primary", { type: "submit" }, "Copy"));
+
+  const option = (icon, title, text, onclick, extra) => h("li",
+    h("button.ed-option", { type: "button", onclick },
+      h("span.ed-option-icon", svgIcon(ICONS[icon])),
+      h("span.ed-option-text", h("strong", title), h("span.muted", text)),
+      svgIcon(ICONS.chevronRight),
     ),
-    error,
+    extra,
   );
+
+  const options = h("section.ed-home-options", { "aria-labelledby": "ed-start-title" },
+    h("h2", { id: "ed-start-title" }, ed.user ? "Start something new" : "Or try it without an account"),
+    h("ul.ed-options", { role: "list" },
+      option("layers", "Every section, ready to fill", "A guided resume with one empty item per section.", () => start(blankScaffold(), { type: "local" })),
+      option("file", "Blank resume", "Just your name. Add sections as you go.", () => start({ basics: { name: ed.user?.name || "" } }, { type: "local" })),
+      option("upload", "Import a resume.json", "Open a JSON Resume file from your computer.", () => fileInput.click()),
+      option("search", "Copy a public portfolio", "Start from someone's public resume.json.", () => {
+        copyForm.hidden = !copyForm.hidden;
+        if (!copyForm.hidden) username.focus();
+      }, copyForm),
+    ),
+    fileInput,
+  );
+
+  return h("div.ed-home", hero, resumeCard, draftCard, options, error);
 }
 
 // ============================================================================
@@ -1401,51 +1626,51 @@ function renderPanel({ keepFocus = false } = {}) {
 }
 
 function topBar() {
-  saveBtn = h("button.btn.btn-primary", { type: "button", onclick: save });
+  saveBtn = h("button.btn.btn-primary.ed-save", { type: "button", onclick: save });
   statusEl = h("button.ed-status", { type: "button", title: "See what changed", onclick: showChanges });
   undoBtn = iconButton("undo", "Undo (Ctrl+Z)", undo);
   redoBtn = iconButton("redo", "Redo (Ctrl+Shift+Z)", redo);
 
-  const account = ed.user
-    ? h("div.ed-account",
-        h("img", { src: ed.user.avatar_url, alt: "", width: 28, height: 28 }),
-        h("span.btn-label", ed.user.login),
-        h("button.link-btn", { type: "button", onclick: () => {
-          if (!confirm("Sign out? The token is removed from this browser.")) return;
-          clearToken();
-          ed.user = null;
-          ed.posts = null;
-          ed.post = null;
-          render();
-        } }, "Sign out"))
+  const json = () => `${JSON.stringify(prune(ed.resume), null, 2)}\n`;
+  const more = ed.resume
+    ? dropdown({
+        button: h("button.icon-btn", { type: "button", title: "More" }, svgIcon(ICONS.more)),
+        label: "More actions",
+        className: ".ed-more",
+        items: [
+          ed.user && ed.source?.type === "gist" ? { label: "View my portfolio", icon: "external", href: `${BASE_PATH}${encodeURIComponent(ed.user.login)}` } : null,
+          ed.source?.url ? { label: "Open the gist on GitHub", icon: "github", href: ed.source.url, newTab: true } : null,
+          { label: "Copy JSON", icon: "copy", onclick: async () => toast((await copyText(json())) ? "JSON copied" : "Couldn't copy") },
+          { label: "Download resume.json", icon: "download", onclick: () => downloadFile("resume.json", json(), "application/json") },
+          "sep",
+          { label: "Keyboard shortcuts", icon: "keyboard", onclick: showShortcuts },
+          { label: "Close and start over", icon: "arrowLeft", onclick: () => {
+            if (ed.dirty && ed.source?.type === "gist" && !confirm("Close the editor? Your unsaved changes stay as a draft.")) return;
+            ed.resume = null;
+            ed.post = null;
+            ed.ownResume = null;
+            render();
+          } },
+        ],
+      })
     : null;
 
-  const exportMenu = ed.resume
-    ? h("div.ed-row.ed-export",
-        iconButton("copy", "Copy JSON", async () => toast((await copyText(JSON.stringify(prune(ed.resume), null, 2))) ? "JSON copied" : "Couldn't copy")),
-        iconButton("download", "Download resume.json", () => downloadFile("resume.json", `${JSON.stringify(prune(ed.resume), null, 2)}\n`, "application/json")),
+  const title = ed.resume
+    ? h("div.ed-doc",
+        h("strong.ed-doc-name", ed.resume.basics?.name || "Untitled resume"),
+        statusEl,
       )
     : null;
 
-  const live = ed.user && ed.source?.type === "gist"
-    ? h("a.btn.btn-ghost", { href: `${BASE_PATH}${encodeURIComponent(ed.user.login)}` }, svgIcon(ICONS.external), h("span.btn-label", "My portfolio"))
-    : null;
-
   return h("header.ed-top",
-    h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "editor")),
-    ed.resume ? h("div.ed-history", undoBtn, redoBtn) : null,
-    ed.resume ? statusEl : null,
+    h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span.ed-brand-label", "editor")),
+    title,
     h("span.ed-spacer"),
-    iconButton("keyboard", "Keyboard shortcuts (?)", showShortcuts, ".ed-keys-btn"),
-    account || (ed.resume ? null : signInButtonSmall()),
-    live,
-    exportMenu,
+    ed.resume ? h("div.ed-history", undoBtn, redoBtn) : null,
+    more,
     ed.resume ? saveBtn : null,
+    ed.user ? accountMenu({ user: ed.user }) : ed.resume ? null : h("a.btn.btn-ghost", { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), h("span.btn-label", "Sign in")),
   );
-}
-
-function signInButtonSmall() {
-  return h("button.btn.btn-ghost", { type: "button", onclick: openSignIn }, svgIcon(ICONS.github), h("span.btn-label", "Sign in"));
 }
 
 function render() {
@@ -1511,6 +1736,7 @@ function render() {
   app.replaceChildren(ed.root);
   try {
     sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(ed.resume));
+    sessionStorage.setItem(PREVIEW_GH_KEY, JSON.stringify(githubForPreview()));
   } catch {
     /* too large — the frame gets it by postMessage on load */
   }
@@ -1564,26 +1790,32 @@ export async function renderEditor() {
     const draft = readDraft();
     if (draft?.dirty) begin(draft.resume, draft.source || { type: "local" }, { base: draft.base || null, savedAt: draft.savedAt || null });
   }
-  const login = takeLoginResult();
-  if (login?.error) toast(login.error, "error");
-  if (login?.token) {
-    try {
-      ed.user = await signIn(login.token);
-      toast(`Signed in as ${ed.user.login}`);
-      render();
-      await afterSignIn();
-      return;
-    } catch (e) {
-      toast(e.message, "error");
-    }
-  }
-  if (getToken() && !ed.user) {
-    try {
-      ed.user = await currentUser();
-    } catch (e) {
-      if (e.status === 401) clearToken();
-      else toast(e.message, "error"); // offline etc. — keep the token
-    }
-  }
+
+  // Draw right away with the remembered account; check it with GitHub after
+  if (!getToken()) {
+    ed.user = null;
+    ed.verified = false;
+    ed.posts = null;
+    ed.post = null;
+    ed.ownResume = null;
+  } else if (!ed.user) ed.user = cachedUser();
   render();
+
+  if (getToken() && !ed.verified) {
+    try {
+      const fresh = await currentUser();
+      ed.verified = true;
+      const changedUser = fresh?.login !== ed.user?.login || fresh?.avatar_url !== ed.user?.avatar_url;
+      ed.user = fresh;
+      if (changedUser) render();
+    } catch (e) {
+      if (e.status === 401) {
+        clearToken();
+        ed.user = null;
+        render();
+        toast("Your GitHub sign-in expired. Please sign in again.", "error");
+      }
+      // offline etc. — keep the remembered account
+    }
+  }
 }

@@ -1,11 +1,11 @@
 // ============================================================================
-// SERVICE WORKER — app shell offline + cached raw content
+// SERVICE WORKER â€” app shell offline + cached raw content
 // Navigations: network first, falling back to the cached shell (every path is
 // the SPA). Same-origin assets and raw GitHub/gist content: stale-while-
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v11";
+const CACHE_NAME = "mz-portfolio-v16";
 const SHELL = "/index.html";
 // Everything the app loads, so a first visit works offline. tools/check.mjs
 // keeps this list in sync with the files on disk.
@@ -16,6 +16,7 @@ const urlsToCache = [
   "/manifest.json",
   "/assets/images/logo.svg",
   "/markup/sandbox.html",
+  "/styles/account.css",
   "/styles/animations.css",
   "/styles/blog.css",
   "/styles/detail.css",
@@ -23,12 +24,15 @@ const urlsToCache = [
   "/styles/global.css",
   "/styles/header.css",
   "/styles/home.css",
+  "/styles/landing.css",
   "/styles/navbar.css",
   "/styles/project-page.css",
   "/styles/projects.css",
   "/styles/resume-overlay.css",
   "/styles/sections.css",
   "/styles/status.css",
+  "/styles/ui.css",
+  "/scripts/account.js",
   "/scripts/animations/code-reveal.js",
   "/scripts/animations/index.js",
   "/scripts/api.js",
@@ -39,6 +43,7 @@ const urlsToCache = [
   "/scripts/editor-core.js",
   "/scripts/github.js",
   "/scripts/icons.js",
+  "/scripts/images.js",
   "/scripts/languages.js",
   "/scripts/log.js",
   "/scripts/markdown.js",
@@ -57,6 +62,7 @@ const urlsToCache = [
   "/scripts/router.js",
   "/scripts/template.js",
   "/scripts/theme.js",
+  "/scripts/ui.js",
   "/scripts/utils.js",
   "/scripts/views/docs.js",
   "/scripts/views/editor.js",
@@ -89,7 +95,7 @@ async function staleWhileRevalidate(request) {
       if (res.ok) cache.put(request, res.clone());
       return res;
     })
-    .catch(() => cached);
+    .catch(() => cached || Response.error());
   return cached || network;
 }
 

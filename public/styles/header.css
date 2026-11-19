@@ -220,23 +220,6 @@
     bottom: 1rem;
   }
 
-  .profile-info {
-    grid-template-columns: auto 1fr;
-    justify-items: start;
-    align-items: end;
-    gap: 1.5rem;
-    text-align: left;
-  }
-
-  .profile-details {
-    justify-items: start;
-    padding-top: 1rem;
-  }
-
-  .profile-facts,
-  .profile-actions {
-    justify-content: flex-start;
-  }
 }
 
 /* ============================================================================
@@ -394,4 +377,59 @@
   .tab:hover {
     color: var(--color-v);
   }
+}
+
+/* ---------- side-by-side identity from tablet width ----------
+   Photo on the left overlapping the banner, name and details beside it. */
+@media (min-width: 640px) {
+  .profile-info {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    align-items: start; /* the photo keeps its upward overlap; text starts under the banner */
+    gap: 0.5rem 1.5rem;
+    text-align: left;
+  }
+
+  .profile-details {
+    justify-items: start;
+    padding-top: 0.9rem;
+  }
+
+  .profile-facts,
+  .profile-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- profile links: round icon buttons beside the actions ---------- */
+
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.profile-link {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--color-b);
+  color: var(--color-c);
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+@media (hover: hover) {
+  .profile-link:hover {
+    border-color: var(--color-a);
+    color: var(--color-a);
+    transform: translateY(-1px);
+  }
+}
+
+.profile-link:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
 }
