@@ -2,6 +2,16 @@
 
 Turn a [JSON Resume](https://jsonresume.org/) (`resume.json`) into a responsive portfolio, rendered entirely in the browser. Pure HTML, CSS and JavaScript: no framework, no build step, no runtime dependencies.
 
+![Home page](docs/screenshots/home.png)
+
+## Screenshots
+
+**A portfolio.** The photo overlaps the banner, with your details, actions and profile links beside it.
+
+![A portfolio](docs/screenshots/portfolio.png)
+
+<p align="center"><strong>Editing in place, on a phone</strong><br><img src="docs/screenshots/editing-mobile.png" alt="Edit mode on a phone" width="300"></p>
+
 ## Features
 
 - **Live from your resume.** The resume loads from a public GitHub gist or Google Drive. Edit it and the site updates.
@@ -44,21 +54,25 @@ So the id alone tells the sources apart, and you can also paste a full `drive.go
 
 `?gistname=cv` loads `cv.json` instead of `resume.json`.
 
-## Editor (`/edit`)
+## Editing your portfolio
 
-Edit a resume with forms instead of raw JSON, with a live preview beside it (Edit / Preview toggle on phones).
+There's no separate editor: you edit your portfolio right on the page. Sign in with GitHub, open your own portfolio (or click *Edit my portfolio* in the account menu, or go to `/edit`), then click **Edit portfolio**.
 
-- **Resume:** every JSON Resume section, with add, duplicate, drag-to-reorder (or arrow buttons) and remove. Every field shows a placeholder, invalid emails, links and dates are flagged as you type, and warnings jump to the field they're about. A search box filters fields and sections.
-- **Portfolio settings:** generated from the same schema as `/docs`.
-  - **Colors:** pickers show each token's generated dark-mode color. A live report checks 11 contrast pairs in light and dark mode.
-  - **Section order:** drag or arrow buttons, plus show/hide toggles.
-  - **Also editable:** custom tabs, animations, and the resume theme.
-- **Blog:** create, edit and delete posts: a Markdown toolbar (Ctrl+B / I / K), live preview, word count and reading time, title, slug, date, tags, description, cover, draft and public/secret. Unsaved posts are kept as a local draft.
-- **JSON:** the raw file, editable both ways, validated as you type (line and column for errors) with a Format button.
-- **Live preview** updates in place as you type (no reload), with Phone / Tablet / Full width sizes on desktop.
-- **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to save, and **?** for the shortcut list. The top bar shows the save status; click it to see what changed since the last save.
+- **Type in place:** your name, title, About text, and the titles, companies, summaries and highlights of every entry. Empty fields show a placeholder.
+- **Photo and banner:** the pencil buttons open the pickers: your GitHub photo, an uploaded image, a link, or none; a color gradient or an image for the banner. This changes only the portfolio, never your resume's photo or your GitHub avatar.
+- **Items:** hover (or tap) an item for its toolbar: move up/down, duplicate, delete, and *More fields* for everything else (dates, links, keywords…). *Add …* buttons sit under each section, and empty sections can be added from *Add a section*.
+- **Customize** opens a drawer beside the page:
+  - **Content:** every JSON Resume field as a form, with validation and search.
+  - **Customize:** colors (with dark-mode previews and a contrast report), section order and visibility, tabs, animations, the resume theme and every other setting from `/docs`.
+  - **Blog:** create, edit and delete posts with a Markdown toolbar and live preview. On your blog pages, *New post* and *Edit post* open it directly.
+  - **JSON:** the raw file, validated as you type.
+- **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to publish, **?** for shortcuts. The bottom bar shows what changed; click it for the details.
 
-**Saving to GitHub.** Click *Sign in to save*, then *Sign in with GitHub*. GitHub asks you to allow the **gist** scope only. (A personal access token can still be pasted under *Use a personal access token instead*.)
+**Drafts.** Edits are a draft until you click **Publish**. The draft is kept in this browser automatically. **Save draft** also stores it on GitHub in a *secret* gist (`mz-portfolio-draft.json`) so you can continue on another device: the next time you open edit mode, you're offered the newest draft. Secret gists are unlisted (only reachable by their link) and never shown on your portfolio; the draft gist is deleted when you publish.
+
+**Without an account,** `/edit` opens a preview with every section ready to fill in, editable the same way; copy or download the JSON when you're done, or sign in to publish it.
+
+**Signing in.** Click *Sign in*, then *Sign in with GitHub*. GitHub asks you to allow the **gist** scope only. (A personal access token can still be pasted under *Use a personal access token instead*.)
 - The token is kept in this browser's `localStorage` until you click *Sign out*, or until GitHub rejects it (expired or revoked), so reopening the editor keeps you signed in. Sign out on shared computers.
 - It is sent only to `api.github.com`, and never logged or written anywhere else.
 
@@ -67,11 +81,9 @@ Edit a resume with forms instead of raw JSON, with a live preview beside it (Edi
 2. Generate a client secret.
 3. In Cloudflare Pages, open *Settings → Variables and secrets* and add `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (encrypted) for Production. Then redeploy.
 
-A GitHub OAuth App allows only one callback URL. To use sign-in on staging too, create a second OAuth App for the staging domain and set its variables in the Preview environment. Until the variables exist, the button explains that sign-in isn't set up and the token option still works. `node tools/dev-server.mjs` doesn't run Functions; use `npx wrangler pages dev public` to test sign-in locally.
-- Saving updates your `resume.json` gist, or creates one if you don't have it yet. Empty fields and blank items are dropped before saving. If the gist changed on GitHub since you opened it, you choose: overwrite it, load the GitHub version, or cancel.
-- After a save, the cached copy is cleared, so your portfolio shows the change right away.
-
-Without signing in, the editor still works: start from a public portfolio, every section ready to fill in, a blank resume or an imported file, then copy or download the JSON. Your work is kept as a draft in this browser (it survives closing the tab) until you save or discard it.
+Add one redirect URI per domain you use (production, staging; an OAuth App allows up to 10) and set the variables in both the Production and Preview environments. Until the variables exist, the button explains that sign-in isn't set up and the token option still works. `node tools/dev-server.mjs` doesn't run Functions; use `npx wrangler pages dev public` to test sign-in locally.
+- Publishing updates your `resume.json` gist, or creates one if you don't have it yet. Empty fields and blank items are dropped before saving. If the gist changed on GitHub since you opened it, you choose: overwrite it, load the GitHub version, or cancel.
+- After publishing, the cached copy is cleared, so visitors see the change right away.
 
 There is no sample data anywhere: Preview's *Load template* fills each field with its placeholder ("Full name", "Job title", …).
 
@@ -206,7 +218,8 @@ public/                       Static public origin (Cloudflare Pages output)
 │   ├── template.js           Resume field specs + placeholder template
 │   ├── editor-core.js        Editor logic without the DOM (undo, diff, validation)
 │   ├── github.js             Gist API for the editor
-│   ├── views/                landing · docs · preview · status · editor
+│   ├── views/                landing · docs · preview · status
+│   ├── edit/                 mode.js (editing on the page) · core.js (draft, forms, saving)
 │   ├── animations/           index · code-reveal
 │   └── resume/               index · helpers · themes/*.js
 ├── styles/
