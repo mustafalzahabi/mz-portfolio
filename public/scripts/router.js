@@ -146,6 +146,7 @@ export function interceptLinks(root = document) {
     if (!a || a.target === "_blank" || a.hasAttribute("download") || a.dataset.external !== undefined) return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(BASE_PATH)) return;
+    if (url.pathname.startsWith("/api/")) return; // server routes (sign-in) → real navigation
     const samePage = url.pathname === location.pathname && url.search === location.search;
     if (samePage && url.hash) return; // in-page anchor → native
     e.preventDefault();

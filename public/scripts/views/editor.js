@@ -1132,7 +1132,7 @@ function openSignIn() {
     h("div.ed-signin",
       h("h2", "Sign in"),
       h("p", "Your resume and blog posts are saved as gists on your GitHub account."),
-      h("a.btn.btn-primary.ed-signin-github", { href: LOGIN_URL }, svgIcon(ICONS.github), "Sign in with GitHub"),
+      h("a.btn.btn-primary.ed-signin-github", { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), "Sign in with GitHub"),
       h("p.ed-hint", "Asks only for permission to manage your gists. You stay signed in on this browser until you sign out."),
       h("details.ed-signin-token", h("summary", "Use a personal access token instead"), tokenForm),
       h("div.ed-row", h("button.btn.btn-ghost", { type: "button", onclick: () => dialog.close() }, "Cancel")),

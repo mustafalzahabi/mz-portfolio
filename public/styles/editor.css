@@ -853,6 +853,7 @@
 .ed-signin {
   display: grid;
   gap: 0.9rem;
+  padding: 1.25rem;
 }
 
 .ed-signin-github {
@@ -870,7 +871,7 @@
   margin-bottom: 0.75rem;
 }
 
-.ed-signin-token form {
-  display: grid;
+.ed-dialog .ed-signin-token form {
   gap: 0.75rem;
+  padding: 0;
 }
