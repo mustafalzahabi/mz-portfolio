@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' data:; font-src 'self' https: data:">
+  <title>Privacy — mz-portfolio</title>
+  <meta name="description" content="What mz-portfolio does with your data: it has no server database; your portfolio is stored in your own GitHub or Google Drive.">
+  <link rel="icon" href="/assets/images/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles/style.css?v=5">
+  <style>
+    .privacy { max-width: 46rem; margin: 0 auto; padding: 2.5rem var(--gutter) 4rem; line-height: 1.65; }
+    .privacy h1 { font-size: clamp(2rem, 6vw, 2.6rem); margin-bottom: 0.25rem; }
+    .privacy h2 { font-size: 1.3rem; margin: 2rem 0 0.5rem; }
+    .privacy p, .privacy li { color: var(--color-c); }
+    .privacy ul { padding-left: 1.3rem; display: grid; gap: 0.4rem; }
+    .privacy .muted { color: var(--ink-muted); }
+    .privacy code { padding: 0.1em 0.35em; border-radius: 0.35rem; background: var(--well); font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <main class="privacy" id="main">
+    <p><a href="/">← mz-portfolio</a></p>
+    <h1>Privacy policy</h1>
+    <p class="muted">Last updated: November 20, 2026</p>
+
+    <p>mz-portfolio is a free, open-source website that turns your information into a portfolio. It runs entirely in your browser. <strong>It has no database and does not store your data on its own servers.</strong></p>
+
+    <h2>Where your portfolio is stored</h2>
+    <ul>
+      <li><strong>Signed in with GitHub:</strong> your portfolio is a <code>resume.json</code> gist on your GitHub account, and blog posts are gists you own.</li>
+      <li><strong>Signed in with Google:</strong> your portfolio is a folder named "mz-portfolio" in your Google Drive, holding <code>resume.json</code>, your posts and images you upload.</li>
+      <li>Unpublished drafts are kept in your browser. If you choose "Save draft to your account", the draft goes to a secret gist (GitHub) or to the app's hidden folder in your Drive (Google), which only you can access.</li>
+    </ul>
+    <p>Published portfolios are public: anyone with the link can view them. Don't publish anything you want to keep private.</p>
+
+    <h2>Google user data</h2>
+    <p>When you sign in with Google, mz-portfolio asks for two permissions and nothing else:</p>
+    <ul>
+      <li><code>drive.file</code>: to create, read, update and delete only the files and folder this app creates in your Drive. It cannot see any other file in your Drive.</li>
+      <li><code>drive.appdata</code>: to keep your private draft in the app's hidden Drive folder.</li>
+    </ul>
+    <p>It also reads your name, email address and profile photo from your Google account, only to show who is signed in. The app creates the "mz-portfolio" folder and shares it as "anyone with the link can view", because that is what makes the portfolio public.</p>
+    <p>mz-portfolio's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is used only to provide the features you use on this site. It is never sold, never used for advertising, never transferred to anyone else, and never read by people.</p>
+
+    <h2>Sign-in tokens</h2>
+    <p>Signing in gives your browser an access token. It is kept in your browser's local storage until you sign out or it expires (Google tokens last about an hour), and it is only sent to GitHub's or Google's own APIs. Signing in with GitHub uses a small server function on this site to complete the login; it doesn't keep any record.</p>
+
+    <h2>Analytics and cookies</h2>
+    <p>mz-portfolio has no analytics, no advertising and no tracking cookies. During GitHub sign-in a short-lived cookie protects the login from forgery and is deleted right after.</p>
+
+    <h2>Removing your data</h2>
+    <ul>
+      <li>Sign out from the account menu to remove the token from your browser.</li>
+      <li>Delete the gists from GitHub, or the "mz-portfolio" folder from your Google Drive, to delete your portfolio.</li>
+      <li>Revoke access any time in your <a href="https://myaccount.google.com/permissions">Google account permissions</a> or <a href="https://github.com/settings/applications">GitHub authorized apps</a>.</li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>Questions: open an issue at <a href="https://github.com/mustafalzahabi/mz-portfolio/issues">github.com/mustafalzahabi/mz-portfolio</a>.</p>
+  </main>
+</body>
+</html>
