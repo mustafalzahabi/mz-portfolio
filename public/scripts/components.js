@@ -438,10 +438,10 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
   return bar;
 }
 
-/** Signed in: your avatar menu, in the page's own top row (never floating over content). */
+/** Your avatar menu (or "Sign in"), in the page's own top row (never floating over content). */
 function signedInMenu(ctx) {
   const user = session()?.user;
-  if (!user || ctx.embedded) return null;
+  if (ctx.embedded) return null;
   return accountMenu({ user, items: [{ label: "mz-portfolio home", icon: "globe", href: ctx.homeHref }] });
 }
 

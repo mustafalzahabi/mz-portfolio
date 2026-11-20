@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { h, svgIcon, toast } from "./utils.js";
-import { ICONS } from "./icons.js";
+import { ICONS, logoImg } from "./icons.js";
 import { BASE_PATH } from "./router.js";
 import { signIn, clearToken } from "./github.js";
 import { googleLoginUrl, completeGoogleSignIn, clearGoogle, googleClientId } from "./google.js";
@@ -149,15 +149,8 @@ export function signInOptions(returnPath = location.pathname + location.search) 
  */
 export function accountMenu({ user = session()?.user, items = [], returnPath } = {}) {
   if (!user) {
-    const options = signInOptions(returnPath);
-    if (options.length === 1) {
-      return h("a.btn.btn-ghost.account-signin", { href: options[0].href, dataset: { external: "" } }, svgIcon(ICONS.github), h("span", "Sign in"));
-    }
-    return dropdown({
-      button: h("button.btn.btn-ghost.account-signin", { type: "button" }, svgIcon(ICONS.user), h("span", "Sign in")),
-      label: "Sign in",
-      items: options,
-    });
+    return h("button.btn.btn-ghost.account-signin", { type: "button", onclick: () => openSignIn(returnPath) },
+      svgIcon(ICONS.user), h("span", "Sign in"));
   }
   const google = user.provider === "google";
   const home = myPortfolioPath();
@@ -177,4 +170,24 @@ export function accountMenu({ user = session()?.user, items = [], returnPath } =
       { label: "Sign out", icon: "logout", onclick: signOut },
     ],
   });
+}
+
+/** The sign-in overlay: every provider in one place, opened from any "Sign in" button. */
+export function openSignIn(returnPath = location.pathname + location.search) {
+  const close = () => dialog.close();
+  const dialog = h("dialog.signin-dialog", { "aria-labelledby": "signin-title" },
+    h("div.signin-card",
+      h("button.signin-close", { type: "button", "aria-label": "Close", onclick: close }, "×"),
+      h("div.signin-mark", logoImg(40)),
+      h("h2#signin-title", "Sign in to mz-portfolio"),
+      h("p.muted", "Your portfolio is saved to your own account. Pick where it lives."),
+      h("div.signin-options", signInOptions(returnPath).map((o) =>
+        h("a.btn.btn-ghost.signin-option", { href: o.href, dataset: { external: "" } }, svgIcon(ICONS[o.icon]), o.label))),
+      h("p.signin-note.muted", h("a", { href: BASE_PATH + "privacy" }, "Privacy policy")),
+    ),
+  );
+  dialog.addEventListener("click", (e) => { if (e.target === dialog) close(); });
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
