@@ -73,9 +73,12 @@ Every object has its own **Edit** button. It opens a panel with that object's fi
 
 **Without an account,** `/edit` opens a preview with every section ready to fill in, editable the same way; copy or download the JSON when you're done, or sign in to publish it. Other people's portfolios never show edit controls.
 
-**Signing in.** Click *Sign in*, then *Sign in with GitHub*. GitHub asks you to allow the **gist** scope only. (A personal access token can still be pasted under *Use a personal access token instead*.)
-- The token is kept in this browser's `localStorage` until you click *Sign out*, or until GitHub rejects it (expired or revoked), so reopening the editor keeps you signed in. Sign out on shared computers.
-- It is sent only to `api.github.com`, and never logged or written anywhere else.
+**Signing in.** Click *Sign in*, then choose GitHub or Google. One account is signed in at a time.
+- **GitHub** asks for the **gist** scope only. Your portfolio is a `resume.json` gist at `/your-username`. (A personal access token can still be pasted under *Use a personal access token instead*.)
+- **Google** asks for access to the files this app creates in your Drive (`drive.file`) and its hidden app folder (`drive.appdata`), nothing else. Your portfolio is an *mz-portfolio* folder (shared as "anyone with the link can view") holding `resume.json`, posts and images, at `/<folder-id>`. The draft you save to your account goes to the hidden app folder, never the shared one. Google's sign-in lasts about an hour; after that you're asked to sign in again to save.
+- GitHub and Google accounts are separate for now: a portfolio made with one isn't found when you sign in with the other.
+- The token is kept in this browser's `localStorage` until you click *Sign out*, or until it expires or is rejected, so reopening the editor keeps you signed in. Sign out on shared computers.
+- It is sent only to `api.github.com` (GitHub) or `www.googleapis.com` (Google), and never logged or written anywhere else.
 
 **Setting up "Sign in with GitHub"** (once per deployment). GitHub needs a secret to finish a login, and its token endpoint can't be called from a page. So one small, stateless Cloudflare Pages Function in `functions/api/auth/` does that single step; there's no database and nothing is stored.
 1. On GitHub, open *Settings → Developer settings → OAuth Apps → New OAuth App*. Set *Homepage URL* to your site and *Authorization callback URL* to `https://<your-domain>/api/auth/callback`.
@@ -179,9 +182,18 @@ Browsers can't download Drive files directly, so Drive portfolios use the Drive 
 2. Restrict the key:
    - **HTTP referrers:** your domain only.
    - **API restrictions:** Drive API only.
-3. Put the key in `public/index.html`: `<meta name="mz-google-api-key" content="YOUR_KEY">`.
+3. Set it as the `GOOGLE_API_KEY` variable in Cloudflare Pages (see below).
 
 Users then share their `resume.json` file, or a folder containing it, as **Anyone with the link** and open `/<file-or-folder-id>`.
+
+**"Sign in with Google"** (to create and edit Drive portfolios on the site). Google's browser sign-in needs no secret and no server code, only a client ID:
+1. In the same Google Cloud project, configure the **OAuth consent screen** and add the scopes `.../auth/drive.file` and `.../auth/drive.appdata` (both non-sensitive).
+2. Create an **OAuth client ID** of type *Web application*. Under *Authorized JavaScript origins* and *Authorized redirect URIs*, add each site root you use, e.g. `https://your-domain` and `https://your-domain/` (production, staging, and `http://localhost:8000` for development).
+3. Set it as the `GOOGLE_CLIENT_ID` variable in Cloudflare Pages.
+
+**Where the two values live.** Neither is a secret (both end up in the page), but they aren't committed: `functions/_middleware.js` fills them into the page's `<meta name="mz-google-api-key">` and `<meta name="mz-google-client-id">` from the Pages variables when it's served (`public/_routes.json` keeps static files from running it). Set them for both environments, e.g. `npx wrangler pages secret put GOOGLE_API_KEY --project-name mz-portfolio` (add `--env preview` for staging), or in *Settings → Variables and secrets*. Locally, put `GOOGLE_API_KEY=…` and `GOOGLE_CLIENT_ID=…` in a `.dev.vars` file (git-ignored); `node tools/dev-server.mjs` and `wrangler pages dev` both read it.
+
+Without the client ID, only GitHub is offered. The API key above is needed too: visitors read Drive portfolios with it.
 
 ## GitHub rate limits
 
