@@ -113,6 +113,8 @@ export function dropdown({ button, label, items, head = null, className = "" }) 
   function open() {
     menu.hidden = false;
     button.setAttribute("aria-expanded", "true");
+    fitInViewport(menu, button);
+    if (menu.style.position === "fixed") addEventListener("scroll", close, { once: true, passive: true });
     document.addEventListener("pointerdown", onDoc);
     menu.addEventListener("keydown", onKey);
     list()[0]?.focus();
@@ -133,6 +135,20 @@ export function dropdown({ button, label, items, head = null, className = "" }) 
   });
   wrap.append(button, menu);
   return wrap;
+}
+
+/** Shifts an open menu sideways so it never runs past the screen edge. */
+function fitInViewport(menu, button) {
+  menu.style.cssText = "";
+  const vw = document.documentElement.clientWidth;
+  const edge = 8;
+  const b = button.getBoundingClientRect();
+  const w = menu.offsetWidth;
+  const r = menu.getBoundingClientRect();
+  if (r.left >= edge && r.right <= vw - edge) return; // fits where it is
+  // Pinned to the screen instead, so it never sticks out or adds a sideways scroll
+  const left = Math.min(Math.max(edge, b.right - w), vw - w - edge);
+  Object.assign(menu.style, { position: "fixed", top: `${Math.round(b.bottom + 6)}px`, left: `${Math.round(left)}px`, right: "auto" });
 }
 
 /** The sign-in choices: GitHub always, Google when the site has a client ID. */

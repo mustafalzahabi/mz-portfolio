@@ -37,7 +37,7 @@
   position: absolute;
   top: calc(0.75rem + env(safe-area-inset-top));
   right: calc(0.75rem + env(safe-area-inset-right));
-  z-index: 3;
+  z-index: 55; /* above the photo, tabs and section nav, so its menu isn't covered */
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -483,13 +483,6 @@
 
 .profile-more .account-menu {
   min-width: 13rem;
-}
-
-@media (max-width: 639px) {
-  .profile-more .account-menu {
-    right: 50%;
-    transform: translateX(50%);
-  }
 }
 
 button.profile-link {
