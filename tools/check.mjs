@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 // ============================================================================
 // STATIC CHECKS — zero dependencies. `node tools/check.mjs` or via node --test.
 // - every relative import in public/scripts resolves
@@ -8,7 +9,7 @@
 // ============================================================================
 
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join, dirname, relative, resolve, extname } from "node:path";
+import { join, dirname, relative, resolve, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -110,8 +111,19 @@ export function checkSwCache() {
   return problems;
 }
 
+/** Every script parses (a module that fails to parse blanks the whole page). */
+export function checkSyntax() {
+  const problems = [];
+  for (const file of walk(join(PUBLIC, "scripts")).filter((f) => extname(f) === ".js")) {
+    const r = spawnSync(process.execPath, ["--check", "--input-type=module"], { input: readFileSync(file, "utf8"), encoding: "utf8" });
+    const where = relative(PUBLIC, file).split(sep).join("/");
+    if (r.status) problems.push(`${where}: ${(r.stderr.match(/SyntaxError.*/) || [r.stderr.trim()])[0]}`);
+  }
+  return problems;
+}
+
 export function runAll() {
-  return { imports: checkImports(), html: checkHtml(), colors: checkColors(), cssImports: checkCssImports(), swCache: checkSwCache() };
+  return { syntax: checkSyntax(), imports: checkImports(), html: checkHtml(), colors: checkColors(), cssImports: checkCssImports(), swCache: checkSwCache() };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
