@@ -5,7 +5,7 @@
  */
 
 @import url("global.css?v=5");
-@import url("header.css?v=5");
+@import url("header.css?v=6");
 @import url("navbar.css?v=5");
 @import url("sections.css?v=5");
 @import url("projects.css?v=5");
@@ -15,9 +15,9 @@
 @import url("home.css?v=5");
 @import url("status.css?v=5");
 @import url("animations.css?v=5");
-@import url("resume-overlay.css?v=5");
+@import url("resume-overlay.css?v=6");
 @import url("editor.css?v=5");
-@import url("account.css?v=6");
+@import url("account.css?v=7");
 @import url("edit.css?v=5");
 @import url("ui.css?v=5");
 @import url("landing.css?v=5");
