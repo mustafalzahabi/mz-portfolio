@@ -93,10 +93,14 @@ export function dissolveIn(host, { speed = 1 } = {}) {
       wisp.style.left = `${r.left - base.left}px`;
       wisp.style.top = `${r.top - base.top + Math.max(0, (r.height - 16) / 2)}px`;
       wisp.style.fontSize = `${Math.max(10, Math.min(13, r.height * 0.5))}px`;
-      wisp.style.maxWidth = `${Math.max(r.width + 80, 160)}px`;
+      const drift = (i % 2 ? -1 : 1) * (4 + (i % 5) * 2);
+      // Room to the screen's right edge, after the drift and the 1.25 scale
+      // (grown from the left), so a wisp never adds a sideways scroll
+      const room = (document.documentElement.clientWidth - 8 - Math.max(r.left, 0) - Math.abs(drift)) / 1.25;
+      wisp.style.maxWidth = `${Math.max(0, Math.min(Math.max(r.width + 80, 160), room))}px`;
+      wisp.style.transformOrigin = "left center";
       layer.appendChild(wisp);
 
-      const drift = (i % 2 ? -1 : 1) * (4 + (i % 5) * 2);
       animations.push(
         wisp.animate(
           [
