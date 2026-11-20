@@ -124,7 +124,9 @@
 
 .dz-code {
   position: absolute;
-  color: var(--color-a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-c);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 600;
   line-height: 1;
@@ -132,6 +134,14 @@
   opacity: 0;
   will-change: transform, opacity, filter;
 }
+
+/* wisps sit on the page itself: full-strength palette colors */
+.dz-code .tk-k { color: var(--color-v); }
+.dz-code .tk-f { color: var(--color-a); }
+.dz-code .tk-s { color: var(--color-o); }
+.dz-code .tk-n { color: var(--color-r); }
+.dz-code .tk-p { color: var(--ink-muted); }
+.dz-code .tk-i { color: var(--color-c); }
 
 /* ============================================================================
    CODE REVEAL

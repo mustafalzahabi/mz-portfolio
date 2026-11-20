@@ -1,9 +1,11 @@
 // ============================================================================
 // DISSOLVE — every small element (a heading, a line of text, a link, an
-// icon, an image) appears first as a wisp of its own code, floating where it
-// will be, which then dissolves into the air as the real element condenses in.
+// icon, an image) appears first as a wisp of the highlighted JavaScript that
+// builds it, floating where it will be, which then dissolves into the air as the real element condenses in.
 // Fast, no panel, no background; elements go one after another.
 // ============================================================================
+
+import { tokenizeJs } from "./code-reveal.js";
 
 const UNIT_TAGS = new Set(["IMG", "SVG", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "VIDEO", "IFRAME", "CANVAS", "HR", "PICTURE"]);
 const INLINE = new Set(["SPAN", "STRONG", "EM", "B", "I", "A", "CODE", "SMALL", "TIME", "ABBR", "MARK", "BR", "SUP", "SUB"]);
@@ -31,15 +33,31 @@ export function collectUnits(root, max = MAX_UNITS) {
   return units;
 }
 
-/** A short code fragment for an element: <h2.title>, <img/>, "Lorem…". */
-export function snippetFor(el) {
+const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+const str = (t) => JSON.stringify(clip(t, 26));
+
+/** The line of JavaScript that builds an element, e.g. h("h1.profile-name", "Ada"). */
+export function codeFor(el) {
   const tag = el.tagName.toLowerCase();
-  const cls = [...el.classList].find((c) => !c.startsWith("anim") && !c.startsWith("dz")) || "";
-  const name = cls ? `${tag}.${cls}` : tag;
-  if (["img", "svg", "input", "hr", "iframe", "video", "canvas"].includes(tag)) return `<${name}/>`;
+  const cls = [...el.classList].find((c) => !/^(anim|dz|is-|has-)/.test(c));
+  const sel = cls ? `${tag}.${cls}` : tag;
   const text = el.textContent.trim().replace(/\s+/g, " ");
-  if (text && text.length <= 14 && Math.random() < 0.35) return `"${text}"`;
-  return `<${name}>`;
+  if (tag === "svg") return `svgIcon(ICONS.${el.closest("[data-icon]")?.dataset.icon || "icon"})`;
+  if (tag === "img") return `h("${sel}", { src: photo, alt: ${str(el.alt || "")} })`;
+  if (tag === "a") return `h("${sel}", { href: ${str((el.getAttribute("href") || "").replace(/^https?:\/\/(www\.)?/, ""))} }${text ? `, ${str(text)}` : ""})`;
+  if (tag === "button") return `h("${sel}", { onclick }${text ? `, ${str(text)}` : ""})`;
+  if (/^h[1-6]$/.test(tag) || tag === "p" || tag === "li" || tag === "span" || tag === "strong" || tag === "time") return text ? `h("${sel}", ${str(text)})` : `h("${sel}")`;
+  return `h("${sel}"${text ? `, ${str(text)}` : ""})`;
+}
+
+/** Highlighted spans for a line of code. */
+function paint(target, code) {
+  for (const [cls, t] of tokenizeJs(code)) {
+    const span = document.createElement("span");
+    if (cls) span.className = `tk-${cls}`;
+    span.textContent = t;
+    target.appendChild(span);
+  }
 }
 
 export function finishAllDissolves() {
@@ -62,7 +80,7 @@ export function dissolveIn(host, { speed = 1 } = {}) {
     host.appendChild(layer);
 
     const base = host.getBoundingClientRect();
-    const step = Math.min(16, 520 / units.length) / speed; // whole cascade ≤ ~0.5s
+    const step = Math.min(28, 950 / units.length) / speed; // whole cascade ≤ ~1s
     const animations = [];
     const ease = "cubic-bezier(0.2, 0.7, 0.2, 1)";
 
@@ -71,10 +89,11 @@ export function dissolveIn(host, { speed = 1 } = {}) {
       const delay = i * step;
       const wisp = document.createElement("span");
       wisp.className = "dz-code";
-      wisp.textContent = snippetFor(el);
+      paint(wisp, codeFor(el));
       wisp.style.left = `${r.left - base.left}px`;
       wisp.style.top = `${r.top - base.top + Math.max(0, (r.height - 16) / 2)}px`;
-      wisp.style.fontSize = `${Math.max(10, Math.min(14, r.height * 0.55))}px`;
+      wisp.style.fontSize = `${Math.max(10, Math.min(13, r.height * 0.5))}px`;
+      wisp.style.maxWidth = `${Math.max(r.width + 80, 160)}px`;
       layer.appendChild(wisp);
 
       const drift = (i % 2 ? -1 : 1) * (4 + (i % 5) * 2);
@@ -86,14 +105,14 @@ export function dissolveIn(host, { speed = 1 } = {}) {
             { opacity: 0.9, filter: "blur(0)", transform: "translateY(0)", offset: 0.55 },
             { opacity: 0, filter: "blur(6px)", transform: `translate(${drift}px, -10px) scale(1.25)`, letterSpacing: "0.25em" },
           ],
-          { duration: 420 / speed, delay, easing: "ease-out", fill: "both" },
+          { duration: 720 / speed, delay, easing: "ease-out", fill: "both" },
         ),
         el.animate(
           [
             { opacity: 0, filter: "blur(5px)" },
             { opacity: 1, filter: "blur(0)" },
           ],
-          { duration: 300 / speed, delay: delay + 190 / speed, easing: ease, fill: "backwards" },
+          { duration: 420 / speed, delay: delay + 360 / speed, easing: ease, fill: "backwards" },
         ),
       );
     });

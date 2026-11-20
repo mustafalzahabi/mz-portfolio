@@ -62,15 +62,15 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
               source,
               lang: useHtml ? "html" : "js",
               title: useHtml ? `<${el.tagName.toLowerCase()} id="${el.id}">` : `${builder.name}()`,
-              speed: cfg.code.speed * (isMobile ? 1.6 : 1),
+              speed: cfg.code.speed * cfg.speed * (isMobile ? 1.6 : 1),
               maxSeconds: cfg.code.maxPerSection * (isMobile ? 0.7 : 1),
             });
           });
         } else if (intro === "dissolve") {
           // Each visible section starts shortly after the one before
           queue = queue.then(() => {
-            dissolveIn(el, { speed: isMobile ? 1.25 : 1 });
-            return new Promise((r) => setTimeout(r, 120));
+            dissolveIn(el, { speed: cfg.speed * (isMobile ? 1.2 : 1) });
+            return new Promise((r) => setTimeout(r, 180 / cfg.speed));
           });
         } else if (intro === "typewriter") {
           typeHeading(el);

@@ -130,6 +130,7 @@ export const CONFIG_SCHEMA = {
     _desc: "Animations. Always disabled for visitors who ask for reduced motion.",
     intro: oneOf(["none", "fade", "slide", "stagger", "typewriter", "blueprint", "code", "dissolve"], "fade", "How sections appear. \"dissolve\": each element condenses out of its own code, one by one. \"code\" types out the code that builds each section, then shows it."),
     duration: num("Animation length in seconds.", 0.5, 0.1, 3),
+    speed: num("Speed of the \"dissolve\" and \"code\" intros. 2 = twice as fast, 0.5 = half speed.", 1, 0.25, 4),
     easing: oneOf(["smooth", "linear", "spring"], "smooth", "Animation curve."),
     hover: {
       _desc: "Card hover effects (mouse/trackpad only).",
