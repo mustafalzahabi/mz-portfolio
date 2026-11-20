@@ -9,6 +9,9 @@ import { prefersReducedMotion } from "../utils.js";
 import { revealWithCode, prettyHtml, finishAllReveals } from "./code-reveal.js";
 import { dissolveIn, finishAllDissolves } from "./dissolve.js";
 
+/** The dissolve intro at speed 1 runs at half its first tuning, which read as too quick. */
+const DISSOLVE_PACE = 0.5;
+
 let observer = null;
 let skipBound = false;
 
@@ -69,8 +72,10 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
         } else if (intro === "dissolve") {
           // Each visible section starts shortly after the one before
           queue = queue.then(() => {
-            dissolveIn(el, { speed: cfg.speed * (isMobile ? 1.2 : 1) });
-            return new Promise((r) => setTimeout(r, 180 / cfg.speed));
+            // speed 1 plays at half the original pace (DISSOLVE_PACE)
+            const pace = cfg.speed * DISSOLVE_PACE;
+            dissolveIn(el, { speed: pace * (isMobile ? 1.2 : 1) });
+            return new Promise((r) => setTimeout(r, 180 / pace));
           });
         } else if (intro === "typewriter") {
           typeHeading(el);
