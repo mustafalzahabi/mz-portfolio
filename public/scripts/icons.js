@@ -83,6 +83,8 @@ export const ICONS = {
   tablet: svg('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M12 18h.01"/>'),
   monitor: svg('<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>'),
   keyboard: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M8 17h8"/>'),
+  blog: svg('<path d="M4 4h16v12H8l-4 4z"/><path d="M8 8h8M8 12h5"/>'),
+  folder: svg('<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
 };
 
 const NETWORK_ICON = {

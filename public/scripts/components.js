@@ -6,13 +6,14 @@
 // ctx = { base, locale, present, photo, openResume() }  (base = "/<id>")
 // ============================================================================
 
+import { dropdown, loginUrl } from "./account.js";
+import { cachedUser } from "./github.js";
 import { h, svgIcon, isSamePage, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
 import { fetchReadme, extractReadmeImages, extractReadmeSummary } from "./api.js";
-import { buildResumePreview } from "./resume/index.js";
 import { paintLanguageTag } from "./languages.js";
 import { tokenizeJs, tokenizeHtml } from "./animations/code-reveal.js";
 
@@ -62,7 +63,18 @@ function entryCard({ title, subtitle, subtitleUrl, when, location, summary, high
   card.appendChild(head);
 
   if (summary) card.appendChild(h("p.entry-summary", summary));
-  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x) => h("li", x))));
+  if (highlights?.length) {
+    const list = h("ul.entry-highlights", highlights.map((x, i) => h("li", { hidden: i >= 3 ? true : null }, x)));
+    card.appendChild(list);
+    if (highlights.length > 3) {
+      card.appendChild(h("button.link-btn.entry-more", { type: "button", "aria-expanded": "false", onclick: (e) => {
+        const open = e.currentTarget.getAttribute("aria-expanded") !== "true";
+        list.querySelectorAll("li").forEach((li, i) => (li.hidden = !open && i >= 3));
+        e.currentTarget.setAttribute("aria-expanded", String(open));
+        e.currentTarget.textContent = open ? "Show less" : `Show ${highlights.length - 3} more`;
+      } }, `Show ${highlights.length - 3} more`));
+    }
+  }
   if (extra) card.appendChild(extra);
   const tl = tagList(tags);
   if (tl) card.appendChild(tl);
@@ -121,27 +133,11 @@ export function buildHeader(vm, cfg, ctx) {
 
   // Actions
   const actions = h("div.profile-actions");
-  if (cfg.text.cta && vm.hasResume) {
-    actions.appendChild(h("button.btn.btn-primary", { type: "button", onclick: () => ctx.openResume() }, svgIcon(ICONS.doc), cfg.text.cta));
+  if (cfg.header.resume && vm.hasResume) {
+    actions.appendChild(h("button.btn.btn-primary", { type: "button", onclick: () => ctx.openResume() }, svgIcon(ICONS.doc), "Resume"));
   }
-  if (b.email) {
-    actions.appendChild(
-      h("button.btn.btn-ghost", {
-        type: "button",
-        "aria-label": `Copy email address ${b.email}`,
-        onclick: async () => toast((await copyText(b.email)) ? "Email address copied" : "Couldn't copy", "info"),
-      }, svgIcon(ICONS.copy), h("span.btn-label", "Copy email")),
-    );
-  }
-  if (cfg.header.vcard) {
-    actions.appendChild(
-      h("button.btn.btn-ghost", { type: "button", onclick: () => downloadVCard(vm) }, svgIcon(ICONS.contact), h("span.btn-label", "Save contact")),
-    );
-  }
-  if (cfg.header.share) {
-    actions.appendChild(h("button.btn.btn-ghost", { type: "button", onclick: () => sharePage(b) }, svgIcon(ICONS.share), h("span.btn-label", "Share")));
-  }
-  // Profile links (header.links) as round icon buttons — the banner stays clean
+  // Profile links (header.links) as round icon buttons, then a ⋯ menu for
+  // the less common actions, so the row stays short on every screen
   const links = h("nav.profile-links", { "aria-label": "Profiles" });
   for (const key of cfg.header.links) {
     if (key === "email" && b.email) {
@@ -150,6 +146,19 @@ export function buildHeader(vm, cfg, ctx) {
     }
     const p = findProfile(b, key);
     if (p) links.appendChild(h("a.profile-link", { href: p.url, "aria-label": p.network, title: p.network }, svgIcon(networkIcon(p.network))));
+  }
+  const extra = [
+    b.email && { label: "Copy email address", icon: "copy", onclick: async () => toast((await copyText(b.email)) ? "Email address copied" : "Couldn't copy", "info") },
+    cfg.header.vcard && { label: "Save contact", icon: "contact", onclick: () => downloadVCard(vm) },
+    cfg.header.share && { label: "Share", icon: "share", onclick: () => sharePage(b) },
+  ].filter(Boolean);
+  if (extra.length) {
+    links.appendChild(dropdown({
+      button: h("button.profile-link", { type: "button", title: "More" }, svgIcon(ICONS.more)),
+      label: "More actions",
+      className: ".profile-more",
+      items: extra,
+    }));
   }
   if (links.children.length) actions.appendChild(links);
   if (actions.children.length) details.appendChild(actions);
@@ -277,38 +286,17 @@ export function buildSectionNav(entries) {
 // ABOUT
 // ============================================================================
 
-export function buildAbout(vm, cfg, ctx) {
+export function buildAbout(vm, cfg) {
   const bio = cfg.text.bio || vm.basics.summary;
-  const philosophy = cfg.text.philosophy || vm.resume.meta?.philosophy || vm.resume.basics?.philosophy || "";
-  if (!bio && !philosophy && !vm.hasResume) return null;
+  if (!bio) return null;
 
+  // One readable column; the resume opens from the header button
   const section = createSection("about", "About", cfg);
-  const grid = h("div.about-grid");
   const text = h("div.about-text");
-  if (bio) {
-    const prose = h("div.prose");
-    prose.innerHTML = markdownToHtml(bio);
-    text.appendChild(prose);
-  }
-  if (philosophy) {
-    text.appendChild(h("h3.about-subtitle", "Philosophy"));
-    const p = h("div.prose");
-    p.innerHTML = markdownToHtml(philosophy);
-    text.appendChild(p);
-  }
-  grid.appendChild(text);
-
-  if (vm.hasResume) {
-    grid.appendChild(
-      buildResumePreview(vm.resume, {
-        theme: cfg.resume.theme,
-        allowDownload: cfg.resume.download,
-        allowPrint: cfg.resume.print,
-        onOpen: ctx.openResume,
-      }),
-    );
-  }
-  section.appendChild(grid);
+  const prose = h("div.prose.about-lead");
+  prose.innerHTML = markdownToHtml(bio);
+  text.appendChild(prose);
+  section.appendChild(text);
   return section;
 }
 
@@ -388,7 +376,7 @@ export function buildProjects(vm, cfg, ctx) {
   if (!vm.projects.length) return null;
   const pc = cfg.projects;
   const section = createSection("projects", "Projects", cfg);
-  const grid = h("div.projects", { dataset: { layout: pc.layout, image: pc.imagePosition } });
+  const grid = h("div.projects", { dataset: { layout: pc.layout, image: pc.imagePosition, count: String(Math.min(vm.projects.length, 3)) } });
 
   for (const [i, p] of vm.projects.entries()) {
     const card = h("a.card.project-card", { href: `${ctx.base}/project/${encodeURIComponent(p.slug)}`, "aria-label": `${p.name} — details` });
@@ -471,8 +459,6 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   // ---- Hero
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
-  const eyebrow = [project.type, project.entity].filter(Boolean).join(" · ");
-  if (eyebrow) intro.appendChild(h("p.eyebrow", eyebrow));
   intro.appendChild(h("h1.project-hero-title", project.name));
   if (project.description) intro.appendChild(h("p.project-hero-lead", project.description));
   const actions = h("div.project-hero-actions");
@@ -480,6 +466,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   if (project.github) actions.appendChild(h("a.btn.btn-ghost", { href: project.github }, svgIcon(ICONS.github), "Source code"));
   if (actions.children.length) intro.appendChild(actions);
   const chips = [
+    (project.type || project.entity) && [ICONS.folder, [project.type, project.entity].filter(Boolean).join(" · ")],
     project.roles.length && [ICONS.contact, project.roles.join(", ")],
     when && [ICONS.clock, when],
     project.stars && [ICONS.star, plural(project.stars, "star")],
@@ -753,8 +740,10 @@ export function buildFooter(vm, cfg, ctx) {
     footer.appendChild(
       h("p.muted.footer-credit",
         h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
-        h("span", " — make yours from a resume.json. "),
-        h("a", { href: `${ctx.homeHref}edit` }, "Edit")),
+        h("span", " · "),
+        h("a", { href: ctx.homeHref }, "Make your own"),
+        cachedUser() ? null : h("span", " · "),
+        cachedUser() ? null : h("a", { href: loginUrl(location.pathname), dataset: { external: "" } }, "Sign in")),
     );
   }
   return footer;

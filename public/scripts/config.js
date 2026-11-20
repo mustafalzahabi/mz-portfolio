@@ -73,9 +73,7 @@ export const CONFIG_SCHEMA = {
   text: {
     _desc: "Text overrides.",
     tagline: str("Line under your name. Defaults to basics.label."),
-    cta: str("Header button label. Opens your resume. Empty hides it.", "View resume"),
     bio: str("About text. Defaults to basics.summary."),
-    philosophy: str("Optional second About block."),
     contact_message: str("Text above the contact links."),
     locale: str("Locale for dates, e.g. en-GB, fr-FR, ar-EG.", "en-US"),
     present: str("Label for ongoing dates.", "Present"),
@@ -95,7 +93,8 @@ export const CONFIG_SCHEMA = {
   },
   header: {
     _desc: "Header details and actions.",
-    links: list("Profile links shown as round buttons next to the main button, in order. Any basics.profiles network name works.", ["email", "github", "linkedin"]),
+    resume: bool("Show the Resume button (opens the resume viewer).", true),
+    links: list("Profile links shown as round buttons next to the Resume button, in order. Any basics.profiles network name works.", ["email", "github", "linkedin"]),
     showLocation: bool("Show basics.location.", true),
     showPhone: bool("Show basics.phone.", false),
     share: bool("Show a Share button.", true),
@@ -129,7 +128,7 @@ export const CONFIG_SCHEMA = {
   },
   animation: {
     _desc: "Animations. Always disabled for visitors who ask for reduced motion.",
-    intro: oneOf(["none", "fade", "slide", "stagger", "typewriter", "blueprint", "code"], "fade", "How sections appear. \"code\" types out the code that builds each section, then shows it."),
+    intro: oneOf(["none", "fade", "slide", "stagger", "typewriter", "blueprint", "code", "dissolve"], "fade", "How sections appear. \"dissolve\": each element condenses out of its own code, one by one. \"code\" types out the code that builds each section, then shows it."),
     duration: num("Animation length in seconds.", 0.5, 0.1, 3),
     easing: oneOf(["smooth", "linear", "spring"], "smooth", "Animation curve."),
     hover: {
@@ -252,6 +251,14 @@ export function migrateLegacy(raw) {
     delete a.transitionDuration;
     delete a.shadowOnHover;
     delete a.glowOnHover;
+  }
+  // text.cta (button label) → header.resume; text.philosophy was removed
+  if (cfg.text && typeof cfg.text === "object") {
+    if ("cta" in cfg.text) {
+      if (cfg.text.cta === "" || cfg.text.cta === false) cfg.header = { ...(cfg.header || {}), resume: false };
+      delete cfg.text.cta;
+    }
+    delete cfg.text.philosophy;
   }
   // projects.imagePosition was meaningful only for some layouts — keep as is
   return cfg;

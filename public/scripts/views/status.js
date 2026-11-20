@@ -100,14 +100,14 @@ export function showError(message, { reason } = {}) {
 }
 
 export function showInvalidResume(error, source) {
-  document.title = "Invalid resume.json";
+  document.title = "Portfolio data has an error";
   const extra = error.line
     ? h("p.status-text", "Open the file and look around ", h("strong", `line ${error.line}`), ". A missing comma or an extra trailing comma is the usual cause.")
     : null;
   const actions = [homeBtn()];
   if (source?.resumeUrl) actions.unshift(h("a.btn.btn-primary", { href: source.resumeUrl }, "Open the file"));
-  actions.unshift(h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Check it in Preview"));
-  mount(statusPage({ icon: "alert", tone: "error", title: "resume.json has an error", body: [error.message], extra, actions }));
+  actions.unshift(h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Check it"));
+  mount(statusPage({ icon: "alert", tone: "error", title: `${getResumeFilename()} has an error`, body: [error.message], extra, actions }));
 }
 
 export function showEmpty(id) {
@@ -120,9 +120,9 @@ export function showEmpty(id) {
       title: "No portfolio data yet",
       body: [
         `“${id}” exists, but has no public ${file} gist and no public repositories.`,
-        h("p.status-text", "Create a public gist named ", h("code", file), " using the ", h("a", { href: "https://jsonresume.org/schema/" }, "JSON Resume schema"), ", then reload."),
+        h("p.status-text", "If this is you, sign in and build it on the page. Publishing creates the ", h("code", file), " gist for you."),
       ],
-      actions: [h("a.btn.btn-primary", { href: "https://gist.github.com/" }, "Create a gist"), h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Try Preview"), homeBtn()],
+      actions: [h("a.btn.btn-primary", { href: `${BASE_PATH}edit` }, "Create your portfolio"), h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Try it"), homeBtn()],
     }),
   );
 }

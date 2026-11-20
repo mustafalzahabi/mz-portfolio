@@ -9,15 +9,191 @@
   flex-direction: column;
 }
 
-.landing-top {
+/* ---------- site header (home, Try it, docs) ---------- */
+
+.site-top {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: calc(0.6rem + env(safe-area-inset-top)) var(--gutter) 0.6rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--line-soft) 60%, transparent);
+  background: color-mix(in oklab, var(--color-b) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+.site-nav {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+}
+
+.site-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.site-link:hover {
+  color: var(--color-c);
+}
+
+.site-link[aria-current="page"] {
+  background: var(--well);
+  color: var(--color-c);
+}
+
+.site-tools {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+/* phones: logo only, links stay visible */
+@media (max-width: 480px) {
+  .site-top .brand-name {
+    display: none;
+  }
+
+  .site-link {
+    padding: 0 0.55rem;
+  }
+
+  .site-tools .account-signin span:not(.icon) {
+    display: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  .site-top {
+    padding-inline: max(var(--gutter), calc((100vw - 76rem) / 2 + var(--gutter)));
+  }
+}
+
+/* ---------- account corner on portfolios (signed in only) ---------- */
+
+.account-corner {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  right: calc(0.75rem + env(safe-area-inset-right));
+  z-index: 55;
+}
+
+.account-corner .account-button {
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-b) 85%, transparent), var(--shadow);
+}
+
+.is-editing .account-corner {
+  display: none;
+}
+
+/* ---------- Try it (/preview) ---------- */
+
+.try-main {
+  max-width: 52rem;
+  gap: 2rem;
+}
+
+.try-head {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: clamp(0.5rem, 4vw, 2.5rem);
+}
+
+.try-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 700px) {
+  .try-options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.try-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: 1rem;
-  max-width: var(--content-width);
+  padding: 1.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 1.1rem;
+  background: var(--color-b);
+  color: var(--color-c);
+  text-decoration: none;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.try-option:first-child {
+  border-color: color-mix(in oklab, var(--color-a) 45%, var(--line-soft));
+  background: color-mix(in oklab, var(--color-a) 6%, var(--color-b));
+}
+
+.try-option:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.try-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 0.85rem;
+  background: color-mix(in oklab, var(--color-a) 14%, var(--color-b));
+  color: var(--color-a);
+}
+
+.try-text {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.try-text strong {
+  font-size: 1.05rem;
+}
+
+.try-text span {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.try-import {
+  display: grid;
+  gap: 0.6rem;
+  padding: clamp(1.1rem, 4vw, 1.75rem);
+  border: 1px solid var(--line-soft);
+  border-radius: 1.25rem;
+}
+
+.try-import h2 {
+  font-size: 1.2rem;
+}
+
+.preview-paste summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-a);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.preview-paste .preview-text {
   width: 100%;
-  margin: 0 auto;
-  padding: calc(0.75rem + env(safe-area-inset-top)) var(--gutter) 0.75rem;
 }
 
 .brand {
@@ -36,25 +212,8 @@
   height: 2rem;
 }
 
-.landing-links {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
 
-.landing-links > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 0.6rem;
-  color: var(--ink-muted);
-  font-weight: 600;
-  text-decoration: none;
-}
 
-.landing-links > a[aria-current="page"] {
-  color: var(--color-a);
-}
 
 .landing-main,
 .docs-main {
@@ -79,13 +238,6 @@
   padding-top: clamp(1rem, 6vw, 4rem);
 }
 
-.eyebrow {
-  color: var(--color-a);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 
 .landing-title {
   color: var(--color-p);

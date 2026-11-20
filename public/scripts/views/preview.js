@@ -1,15 +1,16 @@
 // ============================================================================
-// PREVIEW — drop, pick or paste a resume.json and see the portfolio. Nothing
-// leaves the browser; the JSON is kept in sessionStorage for this tab only.
+// TRY IT (/preview) — edit without an account, see an example, or import a
+// JSON Resume. Nothing leaves the browser; the JSON stays in sessionStorage.
 // ============================================================================
 
-import { h, svgIcon } from "../utils.js";
-import { ICONS, logoImg } from "../icons.js";
+import { h, svgIcon, plural } from "../utils.js";
+import { ICONS } from "../icons.js";
+import { cachedUser } from "../github.js";
+import { siteHeader } from "./site-header.js";
 import { BASE_PATH } from "../router.js";
 import { parseResumeJson } from "../data.js";
 import { normalizeConfig } from "../config.js";
 import { validateResume } from "../merge.js";
-import { templateResume } from "../template.js";
 
 const STORAGE_KEY = "mz-preview-json";
 
@@ -37,37 +38,41 @@ export function analyzeResume(text) {
 }
 
 /**
- * Renders the editor. onShow(resume) renders the portfolio for the JSON.
+ * The "Try it" page: start editing without an account, see an example, or
+ * import a JSON Resume. onShow(resume, { edit }) opens the previewed portfolio.
  */
 export function renderPreviewEditor(onShow) {
-  document.title = "Preview — mz-portfolio";
+  document.title = "Try it — mz-portfolio";
+  const user = cachedUser();
   const textarea = h("textarea.input.preview-text", {
     id: "preview-json",
     spellcheck: "false",
     autocapitalize: "off",
-    rows: "14",
+    rows: "12",
     placeholder: '{\n  "basics": { "name": "Your Name" }\n}',
   });
   textarea.value = getPreviewJson() || "";
   const report = h("div.preview-report", { "aria-live": "polite" });
-  const showBtn = h("button.btn.btn-primary", { type: "submit" }, svgIcon(ICONS.eye), "Show portfolio");
+  const editBtn = h("button.btn.btn-primary", { type: "submit", value: "edit" }, svgIcon(ICONS.pencil), "Edit it");
+  const viewBtn = h("button.btn.btn-ghost", { type: "submit", value: "view" }, svgIcon(ICONS.eye), "View it");
 
   function check() {
     report.replaceChildren();
+    delete report.dataset.tone;
     const text = textarea.value.trim();
     if (!text) {
-      showBtn.disabled = true;
+      editBtn.disabled = viewBtn.disabled = true;
       return null;
     }
     try {
       const result = analyzeResume(text);
-      showBtn.disabled = false;
+      editBtn.disabled = viewBtn.disabled = false;
       report.dataset.tone = result.warnings.length ? "warn" : "ok";
-      report.appendChild(h("p", svgIcon(result.warnings.length ? ICONS.alert : ICONS.check), result.warnings.length ? `Valid JSON with ${result.warnings.length} suggestion(s):` : "Looks good."));
+      report.appendChild(h("p", svgIcon(result.warnings.length ? ICONS.alert : ICONS.check), result.warnings.length ? `Ready, with ${plural(result.warnings.length, "suggestion")}:` : "Ready."));
       if (result.warnings.length) report.appendChild(h("ul", result.warnings.slice(0, 30).map((w) => h("li", w))));
       return result;
     } catch (e) {
-      showBtn.disabled = true;
+      editBtn.disabled = viewBtn.disabled = true;
       report.dataset.tone = "error";
       report.appendChild(h("p", svgIcon(ICONS.alert), e.message));
       return null;
@@ -80,8 +85,10 @@ export function renderPreviewEditor(onShow) {
     timer = setTimeout(check, 250);
   });
 
+  const pasteBox = h("details.preview-paste", h("summary", "Paste JSON instead"), textarea);
   const loadText = (text) => {
     textarea.value = text;
+    pasteBox.open = true;
     check();
   };
 
@@ -93,7 +100,7 @@ export function renderPreviewEditor(onShow) {
 
   const drop = h("label.dropzone", { for: "preview-file" },
     svgIcon(ICONS.upload),
-    h("span", h("strong", "Drop resume.json here"), " or choose a file"),
+    h("span", h("strong", "Drop a JSON Resume file"), " or choose one"),
   );
   ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
   ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("is-over")));
@@ -109,31 +116,39 @@ export function renderPreviewEditor(onShow) {
       const result = check();
       if (!result) return;
       savePreviewJson(textarea.value);
-      onShow(result.resume);
+      onShow(result.resume, { edit: e.submitter?.value !== "view" });
     },
   },
     drop,
     fileInput,
-    h("label.preview-label", { for: "preview-json" }, "Or paste JSON"),
-    textarea,
+    pasteBox,
     report,
-    h("div.preview-actions",
-      showBtn,
-      h("button.btn.btn-ghost", { type: "button", onclick: () => loadText(JSON.stringify(templateResume(), null, 2)) }, "Load template"),
-      h("a.btn.btn-ghost", { href: `${BASE_PATH}docs` }, "Config docs"),
-    ),
+    h("div.preview-actions", editBtn, viewBtn),
   );
+  if (textarea.value) pasteBox.open = true;
+
+  const option = (icon, title, text, action) =>
+    h("a.try-option", { href: action }, h("span.try-icon", svgIcon(ICONS[icon])), h("span.try-text", h("strong", title), h("span", text)), svgIcon(ICONS.arrowRight));
 
   document.getElementById("app").replaceChildren(
-    h("div.docs",
-      h("header.landing-top",
-        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
-        h("nav.landing-links", { "aria-label": "Site" }, h("a", { href: `${BASE_PATH}preview`, "aria-current": "page" }, "Preview"), h("a", { href: `${BASE_PATH}docs` }, "Docs"), h("a", { href: `${BASE_PATH}edit` }, "Edit")),
-      ),
-      h("main.docs-main", { id: "main", tabindex: "-1" },
-        h("h1.landing-title", "Preview"),
-        h("p.landing-lead", "Check a resume.json before you publish it. It stays in this browser tab — nothing is uploaded."),
-        form,
+    h("div.docs.try",
+      siteHeader("preview"),
+      h("main.docs-main.try-main", { id: "main", tabindex: "-1" },
+        h("div.try-head",
+          h("h1.landing-title", "Try it"),
+          h("p.landing-lead", "Build a portfolio right here, no account needed. Everything stays in this browser until you sign in and publish."),
+        ),
+        h("div.try-options",
+          user
+            ? option("pencil", "Edit my portfolio", `Signed in as @${user.login}. Opens your live portfolio in edit mode.`, `${BASE_PATH}edit`)
+            : option("pencil", "Start editing", "A blank portfolio with placeholders. Tap Edit on anything to change it.", `${BASE_PATH}edit`),
+          option("eye", "See an example", "A filled-in portfolio, to see what you'll get.", `${BASE_PATH}preview/view?demo`),
+        ),
+        h("section.try-import", { "aria-labelledby": "import-title" },
+          h("h2", { id: "import-title" }, "Import a JSON Resume"),
+          h("p.muted", "Have a resume.json from another tool? Bring it in, then edit or just look. Nothing is uploaded."),
+          form,
+        ),
       ),
     ),
   );

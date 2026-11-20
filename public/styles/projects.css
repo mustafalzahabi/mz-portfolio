@@ -185,3 +185,25 @@
     width: 14rem;
   }
 }
+
+/* ---------- the grid adapts to how many projects there are ---------- */
+
+@media (min-width: 700px) {
+  .projects[data-layout="grid"][data-count="1"] {
+    grid-template-columns: 1fr;
+  }
+
+  .projects[data-layout="grid"][data-count="1"] .project-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+
+  .projects[data-layout="grid"][data-count="1"] .project-media {
+    aspect-ratio: auto;
+    min-height: 100%;
+  }
+
+  .projects[data-layout="grid"][data-count="2"] {
+    grid-template-columns: 1fr 1fr;
+  }
+}

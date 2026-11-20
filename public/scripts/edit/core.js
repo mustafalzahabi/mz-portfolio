@@ -476,7 +476,7 @@ function setCfg(path, value) {
 }
 
 const isLeaf = (n) => n && typeof n === "object" && "type" in n && "desc" in n;
-const LONG_TEXT = new Set(["bio", "philosophy", "contact_message", "text"]);
+const LONG_TEXT = new Set(["bio", "contact_message", "text"]);
 
 function cfgInput(path, node, current) {
   const key = path[path.length - 1];
@@ -595,8 +595,9 @@ async function uploadImage(kind, file) {
   }
   const dataUrl = await imageToDataUrl(file, kind === "photo"
     ? { maxWidth: 480, maxHeight: 480, square: true }
+    : String(kind).startsWith("project") ? { maxWidth: 1600, maxHeight: 1000 }
     : { maxWidth: 1800, maxHeight: 900 });
-  const filename = IMAGE_FILES[kind];
+  const filename = IMAGE_FILES[kind] || `portfolio-${String(kind).replace(/[^\w-]/g, "-")}.txt`;
   const saved = await updateGist(ed.source.id, { files: { [filename]: { content: dataUrl } } });
   ed.source.updatedAt = saved.updated_at;
   const raw = saved.files?.[filename]?.raw_url;
@@ -1424,7 +1425,10 @@ async function save() {
 
 function renderPanel({ keepFocus = false } = {}) {
   const slot = ed.root?.querySelector("#ed-panel");
-  if (!slot) return;
+  if (!slot) {
+    ed.sheetRender?.(); // a panel built from its own forms (edit/mode.js)
+    return;
+  }
   const focusedPath = keepFocus ? document.activeElement?.dataset?.path : null;
   const y = slot.scrollTop;
   const winY = scrollY;
@@ -1450,3 +1454,14 @@ export {
   photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
   fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL,
 };
+
+/** Inputs for some settings of one config group, e.g. cfgFields("footer") or cfgFields("text", ["bio"]). */
+export function cfgFields(groupName, keys = null) {
+  const { config } = normalizeConfig(ed.resume.meta || {});
+  const node = CONFIG_SCHEMA[groupName];
+  return Object.entries(node)
+    .filter(([k, child]) => !k.startsWith("_") && isLeaf(child) && (!keys || keys.includes(k)))
+    .map(([k, child]) => cfgInput([groupName, k], child, getPath(config, [groupName, k])));
+}
+
+export { boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };

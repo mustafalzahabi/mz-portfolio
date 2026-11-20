@@ -1,52 +1,62 @@
 /* ============================================================================
-   EDIT MODE — editing a portfolio in place (scripts/edit/mode.js)
+   EDIT MODE — Edit buttons on every object, panels (sheet), toolbar, bar.
+   Mobile first: bottom sheet + one-row bar; desktop: side panel.
    ============================================================================ */
 
-/* ---------- Edit button (owner / preview) ---------- */
+/* ---------- "Edit portfolio" (owner / preview) ---------- */
 
 .ed-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right));
   bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 60;
-  min-height: 48px;
-  padding: 0 1.2rem;
+  min-height: 52px;
+  padding: 0 1.25rem;
   border-radius: 999px;
   box-shadow: var(--shadow-lg);
 }
 
-/* ---------- top toolbar ---------- */
+/* ---------- top pill ---------- */
 
 .ed-toolbar {
   position: fixed;
-  top: calc(0.75rem + env(safe-area-inset-top));
+  top: calc(0.6rem + env(safe-area-inset-top));
   left: 50%;
   z-index: 70;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.35rem 0.35rem 0.9rem;
+  gap: 0.25rem;
+  padding: 0.3rem 0.3rem 0.3rem 0.85rem;
   border: 1px solid var(--line-soft);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--color-b) 90%, transparent);
+  background: color-mix(in oklab, var(--color-b) 92%, transparent);
   box-shadow: var(--shadow-lg);
   transform: translateX(-50%);
   backdrop-filter: blur(12px);
+  white-space: nowrap;
 }
 
 .ed-toolbar-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-right: 0.3rem;
-  color: var(--color-a);
+  gap: 0.45rem;
+  margin-right: 0.25rem;
+  color: var(--color-c);
   font-size: 0.85rem;
   font-weight: 700;
 }
 
+.ed-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-o);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-o) 25%, transparent);
+}
+
 .ed-toolbar .btn {
   min-height: 38px;
-  padding: 0 0.85rem;
+  padding: 0 0.8rem;
   border-radius: 999px;
 }
 
@@ -59,13 +69,12 @@
   left: 0;
   z-index: 70;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.6rem var(--gutter) calc(0.6rem + env(safe-area-inset-bottom));
+  padding: 0.5rem var(--gutter) calc(0.5rem + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line-soft);
-  background: color-mix(in oklab, var(--color-b) 94%, transparent);
+  background: color-mix(in oklab, var(--color-b) 95%, transparent);
   box-shadow: 0 -8px 24px -16px color-mix(in oklab, var(--color-c) 30%, transparent);
   backdrop-filter: blur(12px);
 }
@@ -73,256 +82,370 @@
 .ed-bar-group {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ed-bar .ed-status {
+  overflow: hidden;
+  max-width: 11rem;
+  text-overflow: ellipsis;
+}
+
+.ed-bar .ed-more .account-menu {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
+}
+
+.ed-publish {
+  min-height: 44px;
+  white-space: nowrap;
 }
 
 body.is-editing {
-  padding-bottom: 5rem; /* room for the bar */
+  padding-bottom: 4.75rem; /* room for the bar */
 }
 
-/* ---------- typing in place ---------- */
+/* ---------- Edit buttons on objects ---------- */
 
-.is-editing [data-edit-path] {
-  border-radius: 0.35rem;
-  outline: 1.5px dashed transparent;
-  outline-offset: 3px;
-  cursor: text;
-  transition: outline-color 0.15s, background 0.15s;
-}
-
-.is-editing [data-edit-path]:hover {
-  outline-color: color-mix(in oklab, var(--color-a) 55%, transparent);
-}
-
-.is-editing [data-edit-path]:focus {
-  outline: 2px solid var(--color-a);
-  background: color-mix(in oklab, var(--color-a) 6%, transparent);
-}
-
-.is-editing [data-edit-path]:empty::before {
-  content: attr(data-placeholder);
-  color: var(--ink-soft);
-}
-
-.is-editing [data-edit-path][aria-multiline="true"]:focus {
-  white-space: pre-wrap;
-}
-
-.ed-ghost-field {
-  color: var(--ink-soft) !important;
-  cursor: pointer;
-}
-
-.ed-readonly {
-  opacity: 0.75;
-}
-
-/* ---------- photo / banner pencil ---------- */
-
-.ed-photo-host {
+.ed-host {
   position: relative;
 }
 
-.ed-pencil {
+.ed-edit {
   position: absolute;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  width: 40px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 40px;
   height: 40px;
+  padding: 0 0.6rem;
   border: 2px solid var(--color-b);
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--color-c);
   color: var(--color-b);
   box-shadow: var(--shadow);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s;
+  transition: transform 0.15s, background 0.15s;
 }
 
-.ed-pencil:hover {
-  transform: scale(1.08);
+.ed-edit:hover {
+  transform: scale(1.05);
 }
 
-/* left/top are set from the photo's position (edit/mode.js) */
-
-.is-editing .preview-bar {
-  display: none;
+.ed-edit:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
 }
 
-.ed-pencil.is-banner {
-  top: calc(0.75rem + env(safe-area-inset-top));
+.ed-edit.is-item {
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.ed-edit.is-header {
+  top: 0.75rem;
+  right: var(--gutter);
+}
+
+.ed-edit.is-banner {
+  top: calc(0.75rem + env(safe-area-inset-top) + 3.25rem); /* under the edit pill */
   left: 1rem;
-  width: auto;
-  padding: 0 0.9rem;
-  border-radius: 999px;
 }
 
-/* ---------- item toolbar ---------- */
-
-.ed-item-host {
-  position: relative;
-}
-
-.ed-item-tools {
-  position: absolute;
+.ed-edit.is-inline {
   top: 0.5rem;
   right: 0.5rem;
-  z-index: 4;
-  display: flex;
-  gap: 0.1rem;
-  padding: 0.2rem;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  background: var(--color-b);
-  box-shadow: var(--shadow);
-  opacity: 0;
-  transition: opacity 0.15s;
 }
 
-.ed-item-host:hover > .ed-item-tools,
-.ed-item-host:focus-within > .ed-item-tools {
-  opacity: 1;
-}
+/* Cards show their button on hover/focus on desktop; always on touch screens */
+@media (hover: hover) {
+  .ed-edit.is-item {
+    opacity: 0;
+  }
 
-@media (hover: none) {
-  .ed-item-tools {
+  .ed-host:hover > .ed-edit.is-item,
+  .ed-host:focus-within > .ed-edit.is-item,
+  .ed-edit.is-item:focus-visible {
     opacity: 1;
+  }
+
+  .is-editing .ed-host:has(> .ed-edit.is-item):hover {
+    outline: 2px dashed color-mix(in oklab, var(--color-a) 55%, transparent);
+    outline-offset: 4px;
   }
 }
 
-.ed-item-tools .ed-icon-btn {
-  width: 32px;
-  height: 32px;
-  min-height: 0;
+.is-editing .project-card {
+  cursor: pointer;
 }
 
-.ed-add {
-  margin-top: 1rem;
-  border-style: dashed;
+/* ---------- section bar ---------- */
+
+.ed-section {
+  position: relative;
 }
 
-.ed-missing {
-  padding: 1.5rem;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--radius);
-}
-
-.ed-missing-list {
+.ed-section-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.3rem;
+  margin: -0.5rem 0 1.1rem;
+  padding: 0.35rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  width: fit-content;
 }
 
-.ed-blog-actions {
+.ed-small {
+  min-height: 36px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+
+.ed-section-bar .ed-icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.ed-page-actions {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 1rem;
 }
 
-/* ---------- Customize drawer ---------- */
+.ed-more-sections {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
 
-.ed-drawer {
+.ed-more-sections h2 {
+  margin-bottom: 0.6rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ed-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ed-danger {
+  color: var(--color-f);
+}
+
+/* ---------- the panel (sheet) ---------- */
+
+.sheet {
   position: fixed;
-  top: 0;
   right: 0;
   bottom: 0;
-  z-index: 80;
+  left: 0;
+  z-index: 90;
   display: flex;
   flex-direction: column;
-  width: min(30rem, 100vw);
-  border-left: 1px solid var(--line-soft);
+  max-height: 88dvh;
+  border-top-left-radius: 1.25rem;
+  border-top-right-radius: 1.25rem;
   background: var(--color-b);
-  box-shadow: -20px 0 50px -20px color-mix(in oklab, var(--color-c) 35%, transparent);
-  animation: ed-slide 0.2s ease-out;
+  box-shadow: 0 -20px 60px -20px color-mix(in oklab, var(--color-c) 45%, transparent);
+  animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.15s;
 }
 
-.ed-drawer[hidden] {
-  display: none;
-}
-
-@keyframes ed-slide {
+@keyframes sheet-up {
   from {
-    transform: translateX(20px);
+    transform: translateY(40px);
     opacity: 0;
   }
 }
 
-.ed-drawer-head {
+.sheet-handle {
+  flex: none;
+  width: 2.75rem;
+  height: 5px;
+  margin: 0.6rem auto 0.2rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
+  padding: 0.4rem 1.1rem 0.75rem;
+  border-bottom: 1px solid var(--line-soft);
 }
 
-.ed-drawer .ed-tabs {
-  flex: none;
+.sheet-titles {
+  display: grid;
+  line-height: 1.25;
 }
 
-.ed-drawer .ed-scroll {
+.sheet-title {
+  font-size: 1.1rem;
+}
+
+.sheet-subtitle {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--well);
+  color: var(--color-c);
+  cursor: pointer;
+}
+
+.sheet-body {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
   flex: 1;
+  min-height: 0;
+  padding: 1rem 1.1rem 1.25rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-@media (min-width: 1100px) {
-  body.ed-drawer-open {
-    padding-right: 30rem; /* the page stays visible beside the drawer */
+/* Panels that host a tabbed editor panel */
+.sheet-body:has(> #ed-panel) {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.sheet-body > .ed-tabs {
+  flex: none;
+}
+
+.sheet-body > #ed-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-b);
+}
+
+.sheet-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem calc(0.7rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+}
+
+/* While a sheet is open on phones, the bar hides behind it */
+body.has-sheet .ed-bar {
+  visibility: hidden;
+}
+
+@media (min-width: 900px) {
+  .sheet {
+    top: 0;
+    left: auto;
+    width: 26rem;
+    max-height: none;
+    border-radius: 0;
+    border-left: 1px solid var(--line-soft);
+    box-shadow: -20px 0 50px -20px color-mix(in oklab, var(--color-c) 35%, transparent);
+    animation-name: sheet-in;
   }
 
-  body.ed-drawer-open .ed-toolbar {
-    left: calc(50% - 15rem);
+  .sheet.is-wide {
+    width: 32rem;
   }
 
-  body.ed-drawer-open .ed-bar {
-    right: 30rem;
+  @keyframes sheet-in {
+    from {
+      transform: translateX(30px);
+      opacity: 0;
+    }
+  }
+
+  .sheet-handle {
+    display: none;
+  }
+
+  .sheet-head {
+    padding-top: calc(0.9rem + env(safe-area-inset-top));
+  }
+
+  /* The page stays visible beside the panel */
+  body.has-sheet {
+    padding-right: 26rem;
+  }
+
+  body.has-sheet:has(.sheet.is-wide) {
+    padding-right: 32rem;
+  }
+
+  body.has-sheet .ed-bar {
+    visibility: visible;
+    right: 26rem;
+  }
+
+  body.has-sheet:has(.sheet.is-wide) .ed-bar {
+    right: 32rem;
+  }
+
+  body.has-sheet .ed-toolbar {
+    left: calc(50% - 13rem);
   }
 }
 
-/* ---------- popover (photo / banner) ---------- */
-
-.ed-popover {
-  width: min(36rem, calc(100vw - 2rem));
-}
-
-.ed-popover-body {
-  display: grid;
-  gap: 1rem;
-  padding: 0.5rem 1.25rem 1.25rem;
-}
-
-.ed-popover-body .ed-drawer-head {
-  padding-inline: 0;
-}
-
-.ed-popover-body > .ed-row {
-  justify-content: flex-end;
-}
-
-/* ---------- phones ---------- */
+/* ---------- small screens ---------- */
 
 @media (max-width: 599px) {
   .ed-toolbar-label {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .ed-toolbar .ed-btn-text {
     display: none;
   }
 
   .ed-bar .ed-status {
-    max-width: 9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: 7.5rem;
   }
 
-  .ed-save-draft {
+  .ed-edit.is-header span:not(.icon) {
     display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ed-drawer {
+  .sheet {
     animation: none;
   }
 }
 
-.ed-popover .ed-picker > .ed-label {
+.is-editing .preview-bar {
   display: none;
 }

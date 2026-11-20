@@ -504,3 +504,42 @@
     animation: none;
   }
 }
+
+/* ---------- the page: centered paper, scaled to fit small screens ---------- */
+
+.resume-overlay-frame-wrap {
+  overflow: auto;
+  background: color-mix(in oklab, var(--well) 70%, var(--color-b));
+}
+
+.resume-overlay-paper {
+  position: relative;
+  margin: 1rem auto 2rem;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-b); /* themes paint their own page inside the frame */
+  box-shadow:
+    0 1px 3px color-mix(in oklab, var(--color-c) 14%, transparent),
+    0 20px 50px -20px color-mix(in oklab, var(--color-c) 40%, transparent);
+}
+
+.resume-overlay-paper .resume-overlay-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 816px;
+  inline-size: 816px;
+  block-size: auto;
+  transform-origin: 0 0;
+}
+
+.resume-overlay-theme {
+  width: auto;
+  min-width: 11rem;
+}
+
+@media (min-width: 700px) {
+  .resume-overlay-paper {
+    margin-top: 2rem;
+  }
+}

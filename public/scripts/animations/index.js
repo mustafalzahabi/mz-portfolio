@@ -1,12 +1,13 @@
 // ============================================================================
 // INTRO ANIMATIONS
-// intro: none | fade | slide | stagger | typewriter | blueprint | code
+// intro: none | fade | slide | stagger | typewriter | blueprint | code | dissolve
 // Each section animates the first time it scrolls into view. Click, Esc or
 // any key skips; prefers-reduced-motion disables everything.
 // ============================================================================
 
 import { prefersReducedMotion } from "../utils.js";
 import { revealWithCode, prettyHtml, finishAllReveals } from "./code-reveal.js";
+import { dissolveIn, finishAllDissolves } from "./dissolve.js";
 
 let observer = null;
 let skipBound = false;
@@ -15,6 +16,7 @@ export function teardownAnimations() {
   observer?.disconnect();
   observer = null;
   finishAllReveals();
+  finishAllDissolves();
 }
 
 /**
@@ -64,6 +66,12 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
               maxSeconds: cfg.code.maxPerSection * (isMobile ? 0.7 : 1),
             });
           });
+        } else if (intro === "dissolve") {
+          // Each visible section starts shortly after the one before
+          queue = queue.then(() => {
+            dissolveIn(el, { speed: isMobile ? 1.25 : 1 });
+            return new Promise((r) => setTimeout(r, 120));
+          });
         } else if (intro === "typewriter") {
           typeHeading(el);
           el.classList.add("is-in");
@@ -98,6 +106,9 @@ function bindSkip() {
   if (skipBound) return;
   skipBound = true;
   addEventListener("keydown", (e) => {
-    if (e.key === "Escape") finishAllReveals();
+    if (e.key === "Escape") {
+      finishAllReveals();
+      finishAllDissolves();
+    }
   });
 }

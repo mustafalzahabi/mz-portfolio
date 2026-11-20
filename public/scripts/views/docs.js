@@ -3,9 +3,10 @@
 // ============================================================================
 
 import { h, svgIcon, copyText, toast } from "../utils.js";
-import { ICONS, logoImg } from "../icons.js";
+import { ICONS } from "../icons.js";
 import { CONFIG_SCHEMA } from "../config.js";
 import { BASE_PATH } from "../router.js";
+import { siteHeader } from "./site-header.js";
 
 function isLeaf(node) {
   return node && typeof node === "object" && "type" in node && "desc" in node;
@@ -83,13 +84,10 @@ export function renderDocs() {
 
   document.getElementById("app").replaceChildren(
     h("div.docs",
-      h("header.landing-top",
-        h("a.brand", { href: BASE_PATH, "aria-label": "mz-portfolio home" }, logoImg(32), h("span", "mz-portfolio")),
-        h("nav.landing-links", { "aria-label": "Site" }, h("a", { href: `${BASE_PATH}preview` }, "Preview"), h("a", { href: `${BASE_PATH}docs`, "aria-current": "page" }, "Docs"), h("a", { href: `${BASE_PATH}edit` }, "Edit")),
-      ),
+      siteHeader("docs"),
       h("main.docs-main", { id: "main", tabindex: "-1" },
         h("h1.landing-title", "Configuration"),
-        h("p.landing-lead", "Everything is set inside your own resume.json, in ", h("code", "meta[\"mz-portfolio-config\"]"), ". The resume viewer's theme uses the JSON Resume standard ", h("code", "meta.theme"), ". All options are optional."),
+        h("p.landing-lead", "Every option here can be changed from Customize while editing your portfolio. For reference, they're saved with your portfolio data under ", h("code", "meta[\"mz-portfolio-config\"]"), ", and the resume theme under ", h("code", "meta.theme"), ". All options are optional."),
         h("nav.docs-toc", { "aria-label": "Option groups" }, Object.keys(CONFIG_SCHEMA).map((k) => h("a.chip", { href: `#cfg-${k}` }, k))),
         h("section.docs-group",
           h("h2.docs-h2", "Example"),
@@ -98,7 +96,7 @@ export function renderDocs() {
             h("button.btn.btn-ghost.copy-btn", { type: "button", onclick: async () => toast((await copyText(EXAMPLE)) ? "Copied" : "Couldn't copy") }, svgIcon(ICONS.copy), "Copy"),
           ),
           h("p", "Resume themes rendered natively: even, elegant, flat, kendall, stackoverflow, macchiato, onepage, professional. Other theme names are fetched from the JSON Resume registry, falling back to even."),
-          h("p", "Links: ", h("code", `${location.host}${BASE_PATH}username`), " (GitHub) or a Drive file/folder ID. ", h("code", "?gistname=cv"), " loads cv.json instead of resume.json."),
+          h("p", "Links: ", h("code", `${location.host}${BASE_PATH}username`), " (GitHub) or a Drive file/folder ID. Portfolios are stored as a resume.json gist, compatible with JSON Resume tools; ", h("code", "?gistname=cv"), " loads cv.json instead."),
         ),
         groups,
       ),

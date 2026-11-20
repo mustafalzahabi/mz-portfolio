@@ -1,7 +1,7 @@
 {
   "name": "mz-portfolio",
   "short_name": "Portfolio",
-  "description": "Turn a JSON Resume into a responsive portfolio.",
+  "description": "A mobile-first portfolio with projects, a blog and a printable resume.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

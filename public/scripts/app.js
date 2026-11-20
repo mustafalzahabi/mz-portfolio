@@ -2,7 +2,7 @@
 // APP — routing, loading, and assembling the portfolio
 // ============================================================================
 
-import { resolveImage } from "./images.js";
+import { resolveImage, isGistImage } from "./images.js";
 import { templateResume } from "./template.js";
 import { completeSignIn } from "./account.js";
 import { h, svgIcon, safeUrl } from "./utils.js";
@@ -32,7 +32,8 @@ import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
 import { renderDocs } from "./views/docs.js";
-import { setupEditing, afterRender, routeEdit } from "./edit/mode.js";
+import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme } from "./edit/mode.js";
+import { accountCorner } from "./views/site-header.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -106,11 +107,12 @@ async function route() {
   debug("route", path, location.hash);
 
   if (path.view !== "portfolio") {
+    leaveEditing();
     closeResume();
     resetPortfolio();
     if (path.view === "docs") renderDocs();
     else if (path.view === "edit") return routeEdit(navigate);
-    else if (path.view === "preview") renderPreviewEditor(() => navigate(`${BASE_PATH}preview/view`));
+    else if (path.view === "preview") renderPreviewEditor((_, { edit }) => navigate(`${BASE_PATH}preview/view${edit ? "?edit" : ""}`));
     else renderLanding();
     focusMain();
     return;
@@ -173,6 +175,7 @@ async function rerenderPortfolio(resume) {
   if (!state.data || !state.vm) return;
   const y = scrollY;
   const sub = parsePath().sub;
+  const focused = document.activeElement; // e.g. a field in an edit panel: keep typing
   teardownAnimations();
   resetStyleConfig();
   if (!(await showPortfolio({ ...state.data, resume }, state.key, state.base))) return;
@@ -180,12 +183,14 @@ async function rerenderPortfolio(resume) {
   renderSub(sub);
   scrollTo(0, y);
   afterRender();
+  if (focused?.isConnected && focused !== document.activeElement) focused.focus({ preventScroll: true });
 }
 
 // Clears everything one portfolio applied (its colors, fonts, radius, motion,
 // theme default) so the next page never inherits another owner's look.
 function resetPortfolio() {
   state.loadId++;
+  document.body.classList.remove("is-sparse");
   teardownAnimations();
   document.querySelector(".offline-banner")?.remove();
   resetStyleConfig();
@@ -228,6 +233,8 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   state.config = config;
   // Uploaded images live in the gist as text files; resolve them to data: URLs
   [state.photo, state.banner] = await Promise.all([resolveImage(pickPhoto(vm, config)), resolveImage(config.banner.image)]);
+  // Uploaded project covers are gist text files too
+  await Promise.all(vm.projects.filter((p) => isGistImage(p.image)).map(async (p) => (p.image = await resolveImage(p.image))));
   state.shell = null;
   state.page = null;
   state.introPlayed = false;
@@ -274,6 +281,7 @@ function ensureShell(kind, active) {
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
       vm.source.type === "preview" && !EMBEDDED ? buildPreviewBar() : null,
+      EMBEDDED || vm.source.type === "preview" ? null : accountCorner(),
       ...top,
       h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
       buildFooter(vm, config, c),
@@ -286,7 +294,7 @@ function ensureShell(kind, active) {
 function buildPreviewBar() {
   return h("div.preview-bar", { role: "status" },
     h("span", svgIcon(ICONS.eye), "Preview — only you can see this"),
-    h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Edit JSON"),
+    h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Start over"),
   );
 }
 
@@ -354,7 +362,7 @@ function showView(page, node, title) {
   state.page = page;
   if (title) document.title = title;
   scrollTo({ top: 0 });
-  focusMain();
+  if (!document.querySelector(".sheet")) focusMain(); // never steal focus from an edit panel
 }
 
 function renderProfile(view) {
@@ -374,9 +382,20 @@ function renderProfile(view) {
     sections.push({ key, label: config.text.sections[key] || entry.label, el });
   }
 
-  const content = h("div.sections", sections.map((s) => s.el));
-  if (!sections.length) content.appendChild(h("p.empty", "This portfolio has no sections to show yet."));
-  const nav = config.navbar.enabled ? buildSectionNav(sections.map(({ key, label }) => ({ key, label }))) : null;
+  // Short, related sections sit side by side on wide screens
+  const SMALL = new Set(["languages", "interests", "awards", "certificates", "publications", "references", "volunteer"]);
+  const isSmall = (s) => SMALL.has(s.key) && s.el.querySelectorAll(".card, .chip-card").length <= 3;
+  const blocks = [];
+  for (let i = 0; i < sections.length; i++) {
+    if (isSmall(sections[i]) && sections[i + 1] && isSmall(sections[i + 1])) {
+      blocks.push(h("div.section-pair", sections[i].el, sections[i + 1].el));
+      i++;
+    } else blocks.push(sections[i].el);
+  }
+  const content = h("div.sections", blocks);
+  // Little content: the header becomes a centered hero instead of a sparse page
+  document.body.classList.toggle("is-sparse", sections.length <= 1);
+  const nav = config.navbar.enabled && sections.length >= 4 ? buildSectionNav(sections.map(({ key, label }) => ({ key, label }))) : null;
   view.replaceChildren(...[nav, content].filter(Boolean));
 
   if (!state.introPlayed) {
@@ -410,6 +429,7 @@ function openResume() {
     theme: config.resume.theme,
     allowDownload: config.resume.download,
     allowPrint: config.resume.print,
+    onThemeChange: setResumeTheme,
     onClose: () => {
       state.resumeOverlay = null;
       if (parsePath().sub?.name === "resume") {

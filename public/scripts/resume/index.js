@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { normalizeThemeName } from "./helpers.js";
+import { selectMenu } from "../ui.js";
 
 // ============================================================================
 // THEMES
@@ -152,26 +153,21 @@ export function openResumeOverlay(resume, opts = {}) {
   const actions = document.createElement("div");
   actions.className = "resume-overlay-actions";
 
-  // ==== Theme picker ====
-  const selectWrap = document.createElement("label");
-  selectWrap.className = "resume-overlay-select";
-  const selectLabel = document.createElement("span");
-  selectLabel.className = "resume-visually-hidden";
-  selectLabel.textContent = "Resume theme";
-  const select = document.createElement("select");
-  select.className = "resume-overlay-select-input";
+  // ==== Theme picker (our own dropdown, same look in every browser) ====
   const themes = CURATED_NAMES.has(requestedTheme)
     ? CURATED_THEMES
     : [...CURATED_THEMES, { name: requestedTheme, label: `${requestedTheme} (registry)` }];
-  for (const theme of themes) {
-    const option = document.createElement("option");
-    option.value = theme.name;
-    option.textContent = theme.label;
-    select.appendChild(option);
-  }
-  select.value = requestedTheme;
-  selectWrap.append(iconSpan("palette", "resume-overlay-select-icon"), selectLabel, select);
-  actions.appendChild(selectWrap);
+  const select = selectMenu({
+    options: themes.map((t) => ({ value: t.name, label: t.label })),
+    value: requestedTheme,
+    onChange: (name) => {
+      load(name);
+      opts.onThemeChange?.(name); // edit mode: the choice is saved to the portfolio
+    },
+  });
+  select.classList.add("resume-overlay-theme");
+  select.control.setAttribute("aria-label", "Resume theme");
+  actions.appendChild(select);
 
   const printBtn = allowPrint ? toolbarButton("print", "Print / PDF", "Print or save as PDF") : null;
   const downloadBtn = allowDownload ? toolbarButton("download", "resume.json", "Download resume.json") : null;
@@ -188,10 +184,34 @@ export function openResumeOverlay(resume, opts = {}) {
 
   const frameWrap = document.createElement("div");
   frameWrap.className = "resume-overlay-frame-wrap";
+  const paper = document.createElement("div");
+  paper.className = "resume-overlay-paper";
   const frame = document.createElement("iframe");
   frame.className = "resume-overlay-frame";
   frame.title = "Resume document";
-  frameWrap.appendChild(frame);
+  paper.appendChild(frame);
+  frameWrap.appendChild(paper);
+
+  // The page is laid out at paper width (816px ≈ US Letter / A4 at 96dpi) and
+  // scaled down to fit narrower screens, so phones see the whole page.
+  const PAGE_WIDTH = 816;
+  function fitPaper() {
+    const available = frameWrap.clientWidth - (frameWrap.clientWidth < 700 ? 16 : 64);
+    const scale = Math.min(1, available / PAGE_WIDTH);
+    let height = 1056;
+    try {
+      height = Math.max(height, frame.contentDocument?.documentElement?.scrollHeight || 0);
+    } catch {
+      /* opaque-origin (registry) theme: keep the default page height */
+    }
+    frame.style.height = `${height}px`;
+    frame.style.transform = `scale(${scale})`;
+    paper.style.width = `${PAGE_WIDTH * scale}px`;
+    paper.style.height = `${height * scale}px`;
+  }
+  frame.addEventListener("load", () => setTimeout(fitPaper, 50));
+  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(fitPaper) : null;
+  resizeObserver?.observe(frameWrap);
 
   dialog.append(toolbar, status, frameWrap);
   overlay.append(backdrop, dialog);
@@ -238,7 +258,6 @@ export function openResumeOverlay(resume, opts = {}) {
     }
   }
 
-  select.addEventListener("change", () => load(select.value));
 
   printBtn?.addEventListener("click", () => {
     if (!canPrint) return;
@@ -296,6 +315,7 @@ export function openResumeOverlay(resume, opts = {}) {
     if (closed) return;
     closed = true;
     renderToken++;
+    resizeObserver?.disconnect();
     document.removeEventListener("keydown", onKeydown);
     document.body.style.overflow = previousOverflow;
     overlay.classList.remove("is-open");

@@ -5,7 +5,7 @@
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v17";
+const CACHE_NAME = "mz-portfolio-v19";
 const SHELL = "/index.html";
 // Everything the app loads, so a first visit works offline. tools/check.mjs
 // keeps this list in sync with the files on disk.
@@ -35,6 +35,7 @@ const urlsToCache = [
   "/styles/ui.css",
   "/scripts/account.js",
   "/scripts/animations/code-reveal.js",
+  "/scripts/animations/dissolve.js",
   "/scripts/animations/index.js",
   "/scripts/api.js",
   "/scripts/app.js",
@@ -43,6 +44,7 @@ const urlsToCache = [
   "/scripts/data.js",
   "/scripts/edit/core.js",
   "/scripts/edit/mode.js",
+  "/scripts/edit/sheet.js",
   "/scripts/editor-core.js",
   "/scripts/github.js",
   "/scripts/icons.js",
@@ -70,6 +72,7 @@ const urlsToCache = [
   "/scripts/views/docs.js",
   "/scripts/views/landing.js",
   "/scripts/views/preview.js",
+  "/scripts/views/site-header.js",
   "/scripts/views/status.js",
 ];
 const RUNTIME_HOSTS = ["raw.githubusercontent.com", "gist.githubusercontent.com", "avatars.githubusercontent.com"];
@@ -88,6 +91,18 @@ self.addEventListener("activate", (event) => {
       .then(() => self.clients.claim()),
   );
 });
+
+/** Our own files: always try the network first, so a new deploy shows at once; cache = offline fallback. */
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const res = await fetch(request);
+    if (res.ok) cache.put(request, res.clone());
+    return res;
+  } catch {
+    return (await cache.match(request)) || (await cache.match(request, { ignoreSearch: true })) || Response.error();
+  }
+}
 
 async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -121,7 +136,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.origin === self.location.origin || RUNTIME_HOSTS.includes(url.hostname)) {
-    event.respondWith(staleWhileRevalidate(request));
-  }
+  if (url.origin === self.location.origin) event.respondWith(networkFirst(request));
+  else if (RUNTIME_HOSTS.includes(url.hostname)) event.respondWith(staleWhileRevalidate(request));
 });

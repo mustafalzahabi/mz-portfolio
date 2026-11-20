@@ -315,10 +315,10 @@
   color: var(--color-p);
 }
 
-/* Toggles outside the banner (landing page) */
-.landing-links .theme-switch-track,
-.landing-links .theme-toggle--icon,
-.landing-links .theme-toggle--slider {
+/* Toggles outside the banner (site header) */
+.site-tools .theme-switch-track,
+.site-tools .theme-toggle--icon,
+.site-tools .theme-toggle--slider {
   background: var(--well);
 }
 
@@ -432,4 +432,26 @@
 .profile-link:focus-visible {
   outline: 2px solid var(--color-a);
   outline-offset: 2px;
+}
+
+/* ---------- ⋯ menu among the profile links ---------- */
+
+.profile-more .profile-link {
+  cursor: pointer;
+}
+
+.profile-more .account-menu {
+  min-width: 13rem;
+}
+
+@media (max-width: 639px) {
+  .profile-more .account-menu {
+    right: 50%;
+    transform: translateX(50%);
+  }
+}
+
+button.profile-link {
+  padding: 0;
+  font: inherit;
 }

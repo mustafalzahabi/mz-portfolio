@@ -61,62 +61,6 @@
   }
 }
 
-/* ---------- header ---------- */
-
-.lp-top {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: calc(0.75rem + env(safe-area-inset-top)) var(--gutter) 0.75rem;
-}
-
-.lp-top::before {
-  content: "";
-  position: absolute;
-  inset: 0 calc(50% - 50vw);
-  z-index: -1;
-  border-bottom: 1px solid color-mix(in oklab, var(--line-soft) 60%, transparent);
-  background: color-mix(in oklab, var(--color-b) 70%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
-}
-
-.lp-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-}
-
-.lp-nav > a {
-  display: none;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 0.7rem;
-  border-radius: 999px;
-  color: var(--ink-muted);
-  font-weight: 600;
-  text-decoration: none;
-  transition: color 0.15s, background 0.15s;
-}
-
-.lp-nav > a:hover {
-  background: color-mix(in oklab, var(--well) 60%, transparent);
-  color: var(--color-c);
-}
-
-@media (min-width: 640px) {
-  .lp-nav > a {
-    display: inline-flex;
-  }
-}
-
 /* ---------- layout ---------- */
 
 .lp-main {
@@ -155,28 +99,6 @@
     opacity: 0;
     transform: translateY(18px);
   }
-}
-
-.lp-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem 0.35rem 0.65rem;
-  border: 1px solid color-mix(in oklab, var(--color-a) 30%, var(--line-soft));
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-b) 70%, transparent);
-  color: var(--ink-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  backdrop-filter: blur(8px);
-}
-
-.lp-badge-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--color-o);
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-o) 25%, transparent);
 }
 
 .lp-title {
@@ -399,58 +321,6 @@
   pointer-events: none;
 }
 
-.lp-mock-chip {
-  position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.85rem;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-b) 88%, transparent);
-  box-shadow: var(--shadow-lg);
-  color: var(--color-c);
-  font-size: 0.82rem;
-  font-weight: 700;
-  backdrop-filter: blur(8px);
-  animation: lp-float 5s ease-in-out infinite alternate;
-}
-
-.lp-mock-chip .icon {
-  color: var(--color-a);
-}
-
-.lp-mock-chip.is-a {
-  top: 18%;
-  left: -1.25rem;
-}
-
-.lp-mock-chip.is-b {
-  right: -0.75rem;
-  bottom: 12%;
-  animation-delay: -2.5s;
-}
-
-.lp-mock-chip.is-b .icon {
-  color: var(--color-o);
-}
-
-@keyframes lp-float {
-  to {
-    transform: translateY(-10px);
-  }
-}
-
-@media (max-width: 520px) {
-  .lp-mock-chip.is-a {
-    left: 0.25rem;
-  }
-
-  .lp-mock-chip.is-b {
-    right: 0.25rem;
-  }
-}
-
 /* ---------- sections ---------- */
 
 .lp-section {
@@ -462,14 +332,6 @@
   display: grid;
   gap: 0.6rem;
   max-width: 40rem;
-}
-
-.lp-kicker {
-  color: var(--color-a);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .lp-h2 {
@@ -580,9 +442,44 @@
   position: relative;
   display: grid;
   gap: 0.5rem;
-  padding: 1.5rem;
-  border-radius: 1.25rem;
-  background: color-mix(in oklab, var(--card) 60%, var(--color-b));
+  padding: 0 0 0 3.6rem;
+}
+
+.lp-steps .lp-step-num {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* the line joining the steps */
+.lp-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 2.9rem;
+  bottom: -0.6rem;
+  left: 1.2rem;
+  width: 2px;
+  background: linear-gradient(var(--line-strong), transparent);
+}
+
+@media (min-width: 760px) {
+  .lp-steps {
+    gap: 2rem;
+  }
+
+  .lp-steps li {
+    padding: 3.6rem 0 0;
+  }
+
+  .lp-steps li:not(:last-child)::after {
+    top: 1.2rem;
+    right: -1.6rem;
+    bottom: auto;
+    left: 3.4rem;
+    width: auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--line-strong), transparent);
+  }
 }
 
 .lp-steps li::before {
@@ -610,55 +507,62 @@
   line-height: 1.55;
 }
 
-/* ---------- config split ---------- */
+/* ---------- ways to start ---------- */
 
-.lp-split {
-  align-items: center;
+.lp-sources {
+  display: grid;
+  gap: 0.75rem;
 }
 
-@media (min-width: 900px) {
-  .lp-split {
-    grid-template-columns: 0.9fr 1.1fr;
-    gap: 3rem;
+@media (min-width: 860px) {
+  .lp-sources {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.lp-code {
-  overflow: hidden;
-  border-radius: 1.1rem;
-  background: color-mix(in oklab, var(--color-c) 92%, var(--color-p));
-  box-shadow: 0 30px 60px -30px color-mix(in oklab, var(--color-c) 50%, transparent);
-}
-
-.lp-code-bar {
-  display: flex;
+.lp-source {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.7rem 0.9rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-b) 12%, transparent);
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 1.1rem;
+  background: var(--color-b);
+  color: var(--color-c);
+  text-decoration: none;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-.lp-code-bar span {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--color-b) 30%, transparent);
+.lp-source:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--color-a) 45%, var(--line-soft));
+  box-shadow: var(--shadow);
 }
 
-.lp-code-bar em {
-  margin-left: 0.6rem;
-  color: color-mix(in oklab, var(--color-b) 60%, transparent);
-  font-size: 0.8rem;
-  font-style: normal;
-}
-
-.lp-code pre {
+.lp-source .lp-tile-icon {
   margin: 0;
-  padding: 1.25rem 1.4rem 1.5rem;
-  overflow-x: auto;
-  color: color-mix(in oklab, var(--color-b) 90%, var(--color-v));
-  font-size: 0.88rem;
-  line-height: 1.7;
+}
+
+.lp-source-text {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.lp-source-text span {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.lp-source > .icon {
+  color: var(--ink-muted);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.lp-source:hover > .icon {
+  transform: translateX(3px);
+  color: var(--color-a);
 }
 
 /* ---------- final CTA ---------- */
@@ -713,8 +617,7 @@
 /* ---------- motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-glow span,
-  .lp-mock-chip,
+.lp-glow span,
   .lp-hero-text,
   .lp-mock {
     animation: none;
@@ -725,4 +628,8 @@
     transform: none;
     transition: none;
   }
+}
+
+.lp-section-head .lp-text {
+  margin: 0;
 }

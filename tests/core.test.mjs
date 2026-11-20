@@ -82,6 +82,16 @@ test("config: defaults and full section order", () => {
   assert.equal(config.animation.intro, DEFAULT_CONFIG.animation.intro);
 });
 
+test("config: removed text.cta / text.philosophy migrate silently", () => {
+  const kept = normalizeConfig({ "mz-portfolio-config": { text: { cta: "View My Work", philosophy: "x" }, animation: { intro: "dissolve" } } });
+  assert.deepEqual(kept.warnings, []);
+  assert.equal(kept.config.header.resume, true);
+  assert.equal(kept.config.animation.intro, "dissolve");
+  assert.equal("philosophy" in kept.config.text, false);
+  const hidden = normalizeConfig({ "mz-portfolio-config": { text: { cta: "" } } });
+  assert.equal(hidden.config.header.resume, false);
+});
+
 test("config: legacy shapes are migrated", () => {
   const { config, warnings } = normalizeConfig({
     theme: "elegant",
