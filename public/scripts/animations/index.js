@@ -7,7 +7,7 @@
 
 import { prefersReducedMotion } from "../utils.js";
 import { revealWithCode, prettyHtml, finishAllReveals } from "./code-reveal.js";
-import { dissolveIn, finishAllDissolves } from "./dissolve.js";
+import { dissolveIn, finishAllDissolves, loadSources } from "./dissolve.js";
 
 /** The dissolve intro at speed 1 runs at half its first tuning, which read as too quick. */
 const DISSOLVE_PACE = 0.5;
@@ -35,7 +35,8 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
 
   bindSkip();
   const isMobile = matchMedia("(max-width: 599px)").matches;
-  let queue = Promise.resolve();
+  // dissolve shows the real source lines, so read them first (briefly: never block the page)
+  let queue = intro === "dissolve" ? Promise.race([loadSources(), new Promise((r) => setTimeout(r, 400))]) : Promise.resolve();
 
   items.forEach((el, i) => {
     el.classList.add("anim", `anim-${intro}`);

@@ -1,7 +1,8 @@
 // ============================================================================
 // DISSOLVE — every small element (a heading, a line of text, a link, an
 // icon, an image) appears first as a wisp of the highlighted JavaScript that
-// builds it, floating where it will be, which then dissolves into the air as the real element condenses in.
+// builds it (the real line from this app's source), floating where it will be,
+// which then dissolves into the air as the real element condenses in.
 // Fast, no panel, no background; elements go one after another.
 // ============================================================================
 
@@ -36,8 +37,58 @@ export function collectUnits(root, max = MAX_UNITS) {
 const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 const str = (t) => JSON.stringify(clip(t, 26));
 
-/** The line of JavaScript that builds an element, e.g. h("h1.profile-name", "Ada"). */
+let sourceLines = null;
+let sourceLoading = null;
+
+/** Loads the lines of every same-origin script this page has run (from cache). */
+export function loadSources() {
+  if (sourceLines || sourceLoading) return sourceLoading || Promise.resolve();
+  const urls = [...new Set(performance.getEntriesByType("resource")
+    .map((e) => e.name)
+    .filter((u) => u.startsWith(location.origin) && /\.js(\?|$)/.test(u) && !/\/sw\.js/.test(u)))];
+  sourceLoading = Promise.all(urls.map((u) => fetch(u).then((r) => (r.ok ? r.text() : "")).catch(() => "")))
+    .then((texts) => {
+      sourceLines = texts.flatMap((t) => t.split(/\r?\n/)).map((l) => l.trim())
+        .filter((l) => l && !l.startsWith("//") && !l.startsWith("*") && !l.startsWith("/*"));
+    })
+    .finally(() => (sourceLoading = null));
+  return sourceLoading;
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const ownClasses = (el) => [...el.classList].filter((c) => !/^(anim|dz|is-|has-)/.test(c));
+
+/** The real source line that builds `el` (or its nearest classed parent), if found. */
+export function sourceLineFor(el) {
+  if (!sourceLines) return "";
+  let node = el;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    const classes = ownClasses(node);
+    if (!classes.length) continue;
+    // h("tag.cls", …), h(`tag.cls${…}`, …) or className = "cls"; the line that
+    // names the most of this element's classes (and its tag) wins, so generic
+    // classes like "btn" don't pick an unrelated line
+    const tests = classes.map((cls) => new RegExp(`["'\`][a-z0-9]*[.#\\w-]*\\.${escapeRe(cls)}(?![\\w-])|className\\s*=\\s*["'\`][\\w -]*\\b${escapeRe(cls)}(?![\\w-])`));
+    const tag = new RegExp(`["'\`]${node.tagName.toLowerCase()}[.#]`);
+    let best = "", bestScore = 0;
+    for (const l of sourceLines) {
+      const hits = tests.filter((re) => re.test(l)).length;
+      if (!hits) continue;
+      const score = hits * 2 + (tag.test(l) ? 1 : 0) - (hits < classes.length ? 0.5 : 0);
+      if (score > bestScore) [best, bestScore] = [l, score];
+    }
+    if (best && (bestScore >= 2.5 || classes.length === 1)) return best;
+  }
+  return "";
+}
+
+/** A line of JavaScript for an element: the real source when found, else a reconstruction. */
 export function codeFor(el) {
+  return sourceLineFor(el) || reconstructedCode(el);
+}
+
+/** The line of JavaScript that builds an element, e.g. h("h1.profile-name", "Ada"). */
+function reconstructedCode(el) {
   const tag = el.tagName.toLowerCase();
   const cls = [...el.classList].find((c) => !/^(anim|dz|is-|has-)/.test(c));
   const sel = cls ? `${tag}.${cls}` : tag;
