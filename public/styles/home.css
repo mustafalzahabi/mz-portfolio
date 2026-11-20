@@ -80,24 +80,6 @@
   }
 }
 
-/* ---------- account corner on portfolios (signed in only) ---------- */
-
-.account-corner {
-  position: fixed;
-  top: calc(0.75rem + env(safe-area-inset-top));
-  right: calc(0.75rem + env(safe-area-inset-right));
-  z-index: 55;
-}
-
-.account-corner .account-button {
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-b) 85%, transparent), var(--shadow);
-}
-
-.is-editing .account-corner {
-  display: none;
-}
-
 /* ---------- Try it (/preview) ---------- */
 
 .try-main {
@@ -441,54 +423,340 @@
 
 /* ---------- docs ---------- */
 
-.docs-toc {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.docs-group {
+.docs-layout {
   display: grid;
-  gap: 0.75rem;
-  scroll-margin-top: 1rem;
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 4rem;
 }
 
-.docs-h2 {
+/* phones: "Contents" menu stuck under the header */
+.docs-sidebar {
+  position: sticky;
+  top: calc(3.6rem + env(safe-area-inset-top));
+  z-index: 20;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 0.5rem var(--gutter);
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.docs-contents > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  color: var(--color-c);
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.docs-contents > summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-contents[open] .docs-nav {
+  max-height: 65dvh;
+  overflow-y: auto;
+  padding: 0.5rem 0 0.75rem;
+}
+
+.docs-nav {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.docs-nav-title {
+  margin-bottom: 0.35rem;
+  color: var(--color-c);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.docs-nav ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--line-soft);
+}
+
+.docs-nav a {
+  display: block;
+  margin-left: -1px;
+  padding: 0.3rem 0.8rem;
+  border-left: 2px solid transparent;
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.docs-nav a.is-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.84rem;
+}
+
+.docs-nav a:hover {
+  color: var(--color-c);
+}
+
+.docs-nav a[aria-current] {
+  border-left-color: var(--color-a);
+  color: var(--color-a);
+  font-weight: 600;
+}
+
+@media (min-width: 960px) {
+  .docs-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 3.5rem;
+  }
+
+  .docs-sidebar {
+    top: calc(4.5rem + env(safe-area-inset-top));
+    align-self: start;
+    max-height: calc(100dvh - 5.5rem);
+    margin: 2.5rem 0 0;
+    padding: 0;
+    overflow-y: auto;
+    border: 0;
+    background: none;
+    backdrop-filter: none;
+  }
+
+  /* the menu is always open on desktop; the sidebar scrolls, not the list */
+  .docs-contents[open] .docs-nav {
+    max-height: none;
+    overflow: visible;
+    padding: 0 0 2rem;
+  }
+
+  .docs-contents > summary {
+    display: none;
+  }
+
+}
+
+/* ---------- article ---------- */
+
+.docs-article {
+  max-width: 46rem;
+  padding-top: clamp(1.5rem, 5vw, 2.5rem);
+  line-height: 1.65;
+}
+
+.docs-intro {
+  display: grid;
+  gap: 0.6rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.docs-intro h1 {
+  font-size: clamp(2.1rem, 6vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.docs-lead {
+  color: var(--ink-muted);
+  font-size: 1.08rem;
+}
+
+.docs-part-title {
+  margin: 3rem 0 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.docs-section {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.25rem 0 1.75rem;
+  scroll-margin-top: 8rem;
+}
+
+@media (min-width: 960px) {
+  .docs-section {
+    scroll-margin-top: 5.5rem;
+  }
+}
+
+.docs-section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.docs-article .docs-section h2 code {
+  padding: 0;
+  background: none;
   font-size: 1.3rem;
 }
 
+.docs-anchor {
+  color: var(--line-strong);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.docs-section h2:hover .docs-anchor,
+.docs-anchor:focus-visible {
+  opacity: 1;
+}
+
+.docs-section ul,
+.docs-section ol {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.3rem;
+}
+
+.docs-section li::marker {
+  color: var(--color-a);
+}
+
+.docs-section :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.35rem;
+  background: color-mix(in oklab, var(--color-c) 7%, var(--color-b));
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+.docs-note {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border-left: 3px solid var(--color-o);
+  border-radius: 0.5rem;
+  background: color-mix(in oklab, var(--color-o) 8%, var(--color-b));
+}
+
+.docs-note > .icon {
+  flex: none;
+  color: var(--color-o);
+}
+
+/* code sample */
+.docs-code {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.8rem;
+  background: var(--card);
+}
+
+.docs-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.docs-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.docs-copy:hover {
+  background: var(--well);
+  color: var(--color-c);
+}
+
+.docs-code pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* option list */
+.docs-options {
+  display: grid;
+  border-top: 1px solid var(--line-soft);
+}
+
+.docs-option {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  scroll-margin-top: 8rem;
+}
+
+.docs-option p {
+  margin: 0;
+}
+
+.docs-option-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.75rem;
+}
+
+.docs-section .docs-option-name {
+  padding: 0;
+  background: none;
+  color: var(--color-c);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.docs-option-type {
+  color: var(--ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.docs-option-default {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.docs-subgroup {
+  padding: 1.25rem 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.docs-subgroup span {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+/* plain tables (guide) */
 .docs-table td:first-child,
 .docs-table th:first-child {
   white-space: nowrap;
 }
 
-.docs-table code {
-  font-size: 0.82rem;
-}
-
 @media (max-width: 599px) {
-  .docs-table,
-  .docs-table tbody,
-  .docs-table tr,
-  .docs-table th,
-  .docs-table td {
-    display: block;
-  }
-
-  .docs-table thead {
-    display: none;
-  }
-
-  .docs-table tr {
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--line-soft);
-  }
-
-  .docs-table th,
-  .docs-table td {
-    padding: 0.15rem 0;
-    border: 0;
-    white-space: normal !important;
+  .docs-table th:first-child {
+    white-space: normal;
   }
 }
 

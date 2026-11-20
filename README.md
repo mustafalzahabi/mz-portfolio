@@ -6,7 +6,7 @@ A mobile-first portfolio with projects, a blog and a printable resume, edited ri
 
 ## Screenshots
 
-**A portfolio.** The photo overlaps the banner, with your details, actions and profile links beside it.
+**A portfolio** (the built-in example). The photo overlaps the banner, with your details, actions and profile links beside it.
 
 ![A portfolio](docs/screenshots/portfolio.png)
 
@@ -43,7 +43,7 @@ A mobile-first portfolio with projects, a blog and a printable resume, edited ri
 | `/<id>/tab/<slug>` | A custom tab |
 | `/<id>/resume` | Profile with the resume viewer open |
 | `/preview`, `/preview/view/...` | Try it: edit without an account, see an example, or import a JSON Resume |
-| `/docs` | Every configuration option |
+| `/docs` | Guide and full settings reference |
 | `/<id>#projects` | Scroll to a profile section |
 
 **How the source is detected:**

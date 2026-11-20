@@ -51,7 +51,7 @@ export function renderPreviewEditor(onShow) {
     rows: "12",
     placeholder: '{\n  "basics": { "name": "Your Name" }\n}',
   });
-  textarea.value = getPreviewJson() || "";
+  // Starts empty, so a paste never has to clear old text first
   const report = h("div.preview-report", { "aria-live": "polite" });
   const editBtn = h("button.btn.btn-primary", { type: "submit", value: "edit" }, svgIcon(ICONS.pencil), "Edit it");
   const viewBtn = h("button.btn.btn-ghost", { type: "submit", value: "view" }, svgIcon(ICONS.eye), "View it");
@@ -125,7 +125,6 @@ export function renderPreviewEditor(onShow) {
     report,
     h("div.preview-actions", editBtn, viewBtn),
   );
-  if (textarea.value) pasteBox.open = true;
 
   const option = (icon, title, text, action) =>
     h("a.try-option", { href: action }, h("span.try-icon", svgIcon(ICONS[icon])), h("span.try-text", h("strong", title), h("span", text)), svgIcon(ICONS.arrowRight));
@@ -142,7 +141,7 @@ export function renderPreviewEditor(onShow) {
           user
             ? option("pencil", "Edit my portfolio", `Signed in as @${user.login}. Opens your live portfolio in edit mode.`, `${BASE_PATH}edit`)
             : option("pencil", "Start editing", "A blank portfolio with placeholders. Tap Edit on anything to change it.", `${BASE_PATH}edit`),
-          option("eye", "See an example", "A filled-in portfolio, to see what you'll get.", `${BASE_PATH}preview/view?demo`),
+          option("eye", "See an example", "Every section laid out with placeholders, to see what you'll get.", `${BASE_PATH}preview/view?demo`),
         ),
         h("section.try-import", { "aria-labelledby": "import-title" },
           h("h2", { id: "import-title" }, "Import a JSON Resume"),
