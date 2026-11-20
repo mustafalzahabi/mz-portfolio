@@ -148,7 +148,14 @@ export function openResumeOverlay(resume, opts = {}) {
   const title = document.createElement("h2");
   title.className = "resume-overlay-title";
   title.id = titleId;
-  title.textContent = resume?.basics?.name ? `Resume — ${resume.basics.name}` : "Resume";
+  title.textContent = "Resume";
+  if (resume?.basics?.name) {
+    // The name is dropped on phones, where it would only show as "Resume —…"
+    const name = document.createElement("span");
+    name.className = "resume-overlay-title-name";
+    name.textContent = ` — ${resume.basics.name}`;
+    title.appendChild(name);
+  }
 
   const actions = document.createElement("div");
   actions.className = "resume-overlay-actions";
