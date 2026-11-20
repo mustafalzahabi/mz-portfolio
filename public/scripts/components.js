@@ -63,18 +63,7 @@ function entryCard({ title, subtitle, subtitleUrl, when, location, summary, high
   card.appendChild(head);
 
   if (summary) card.appendChild(h("p.entry-summary", summary));
-  if (highlights?.length) {
-    const list = h("ul.entry-highlights", highlights.map((x, i) => h("li", { hidden: i >= 3 ? true : null }, x)));
-    card.appendChild(list);
-    if (highlights.length > 3) {
-      card.appendChild(h("button.link-btn.entry-more", { type: "button", "aria-expanded": "false", onclick: (e) => {
-        const open = e.currentTarget.getAttribute("aria-expanded") !== "true";
-        list.querySelectorAll("li").forEach((li, i) => (li.hidden = !open && i >= 3));
-        e.currentTarget.setAttribute("aria-expanded", String(open));
-        e.currentTarget.textContent = open ? "Show less" : `Show ${highlights.length - 3} more`;
-      } }, `Show ${highlights.length - 3} more`));
-    }
-  }
+  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x) => h("li", x))));
   if (extra) card.appendChild(extra);
   const tl = tagList(tags);
   if (tl) card.appendChild(tl);

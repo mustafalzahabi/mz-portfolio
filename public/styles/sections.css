@@ -308,13 +308,6 @@
   }
 }
 
-/* ---------- "Show more" for long highlight lists ---------- */
-
-.entry-more {
-  margin-top: 0.35rem;
-  font-size: 0.9rem;
-}
-
 /* ---------- very little content: a centered hero ---------- */
 
 .is-sparse .profile-info {
