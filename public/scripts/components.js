@@ -263,6 +263,7 @@ export function buildSectionNav(entries) {
     const visible = new Map();
     const io = new IntersectionObserver(
       (records) => {
+        if (!nav.isConnected) return io.disconnect(); // re-rendered: this nav is gone
         for (const r of records) visible.set(r.target.id, r.intersectionRatio);
         let best = null;
         let bestRatio = 0;

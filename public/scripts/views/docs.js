@@ -236,8 +236,12 @@ export function renderDocs() {
   // Phones: the nav folds into a "Contents" menu
   const contents = h("details.docs-contents", h("summary", svgIcon(ICONS.menu), "Contents"), nav);
   const wide = matchMedia("(min-width: 960px)");
-  const syncOpen = () => (contents.open = wide.matches);
+  const syncOpen = () => {
+    if (!contents.isConnected && contents.dataset.mounted) return wide.removeEventListener("change", syncOpen);
+    contents.open = wide.matches;
+  };
   syncOpen();
+  contents.dataset.mounted = "1";
   wide.addEventListener("change", syncOpen);
   nav.addEventListener("click", (e) => e.target.closest("a") && !wide.matches && (contents.open = false));
 

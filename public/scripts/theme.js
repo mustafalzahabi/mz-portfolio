@@ -232,6 +232,9 @@ function buildSwitchToggle() {
   onThemeChange(wrap, update);
   // Size is known only once attached
   requestAnimationFrame(update);
-  if (typeof ResizeObserver === "function") new ResizeObserver(() => !drag && update()).observe(track);
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => (wrap.isConnected ? !drag && update() : ro.disconnect()));
+    ro.observe(track);
+  }
   return wrap;
 }

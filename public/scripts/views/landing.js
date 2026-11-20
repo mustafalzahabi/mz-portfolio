@@ -41,8 +41,9 @@ const SOURCES = [
 function heroMock() {
   const frame = h("iframe", { src: `${BASE_PATH}preview/view?demo`, title: "Example portfolio", loading: "lazy", scrolling: "no", tabindex: "-1", "aria-hidden": "true" });
   const viewport = h("div.lp-mock-viewport", frame);
-  const fit = () => viewport.style.setProperty("--scale", String(viewport.clientWidth / 1280 || 0.4));
-  new ResizeObserver(fit).observe(viewport);
+  const fit = () => viewport.isConnected ? viewport.style.setProperty("--scale", String(viewport.clientWidth / 1280 || 0.4)) : ro.disconnect();
+  const ro = new ResizeObserver(fit);
+  ro.observe(viewport);
   return h("div.lp-mock", { "aria-hidden": "true" },
     h("div.lp-mock-window",
       h("div.lp-mock-bar", h("span"), h("span"), h("span"), h("span.lp-mock-url", "mz-portfolio.pages.dev/you")),
