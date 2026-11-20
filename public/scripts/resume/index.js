@@ -209,7 +209,15 @@ export function openResumeOverlay(resume, opts = {}) {
     paper.style.width = `${PAGE_WIDTH * scale}px`;
     paper.style.height = `${height * scale}px`;
   }
-  frame.addEventListener("load", () => setTimeout(fitPaper, 50));
+  frame.addEventListener("load", () => {
+    setTimeout(fitPaper, 50);
+    // Keys pressed inside the resume don't reach the page: forward Escape/Tab
+    try {
+      frame.contentDocument?.addEventListener("keydown", onKeydown);
+    } catch {
+      /* registry themes are cross-origin; the page behind is inert anyway */
+    }
+  });
   const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(fitPaper) : null;
   resizeObserver?.observe(frameWrap);
 
@@ -318,6 +326,7 @@ export function openResumeOverlay(resume, opts = {}) {
     resizeObserver?.disconnect();
     document.removeEventListener("keydown", onKeydown);
     document.body.style.overflow = previousOverflow;
+    appRoot?.removeAttribute("inert");
     overlay.classList.remove("is-open");
     overlay.classList.add("is-closing");
     const remove = () => overlay.remove();
@@ -332,6 +341,9 @@ export function openResumeOverlay(resume, opts = {}) {
   document.addEventListener("keydown", onKeydown);
 
   // ==== Mount ====
+  // The page behind can't take focus while the viewer is open
+  const appRoot = document.getElementById("app");
+  appRoot?.setAttribute("inert", "");
   document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("is-open"));

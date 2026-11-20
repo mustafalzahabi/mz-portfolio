@@ -67,6 +67,7 @@ export function showNotFound(id, reason) {
 export function showRateLimited(resetAt) {
   document.title = "Please wait";
   const countdown = h("div.status-countdown", { role: "timer", "aria-live": "off" });
+  if (!(resetAt > Date.now())) resetAt = Date.now() + 60_000; // unknown or past reset time: retry in a minute
   const at = new Date(resetAt);
   const page = statusPage({
     icon: "clock",
@@ -81,6 +82,8 @@ export function showRateLimited(resetAt) {
   });
   mount(page);
   const tick = () => {
+    // Left this page (an in-app link): stop, never reload somewhere else
+    if (!countdown.isConnected) return clearInterval(countdownTimer);
     const secs = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
     countdown.textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
     if (secs <= 0) {

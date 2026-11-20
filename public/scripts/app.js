@@ -124,6 +124,8 @@ async function route() {
     return;
   }
 
+  // A different portfolio: never carry edit mode into it (or its error page)
+  leaveEditing();
   resetPortfolio();
   const loadId = state.loadId;
   let result;
@@ -189,6 +191,7 @@ async function rerenderPortfolio(resume) {
 // theme default) so the next page never inherits another owner's look.
 function resetPortfolio() {
   state.loadId++;
+  closeResume(); // its overlay must not stay over the next page
   document.body.classList.remove("is-sparse");
   teardownAnimations();
   document.querySelector(".offline-banner")?.remove();
@@ -226,14 +229,19 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   if (EMBEDDED) config.animation.intro = "none";
   setTagOptions({ languageColors: config.tags.languageColors });
 
+  // Uploaded images live in the gist as text files; resolve them to data: URLs
+  // (into locals: a newer navigation may win while these are fetched)
+  const [photo, banner] = await Promise.all([resolveImage(pickPhoto(vm, config)), resolveImage(config.banner.image)]);
+  // Uploaded project covers are gist text files too
+  await Promise.all(vm.projects.filter((p) => isGistImage(p.image)).map(async (p) => (p.image = await resolveImage(p.image))));
+  if (loadId !== state.loadId) return false;
+
   state.key = key;
   state.base = base;
   state.vm = vm;
   state.config = config;
-  // Uploaded images live in the gist as text files; resolve them to data: URLs
-  [state.photo, state.banner] = await Promise.all([resolveImage(pickPhoto(vm, config)), resolveImage(config.banner.image)]);
-  // Uploaded project covers are gist text files too
-  await Promise.all(vm.projects.filter((p) => isGistImage(p.image)).map(async (p) => (p.image = await resolveImage(p.image))));
+  state.photo = photo;
+  state.banner = banner;
   state.shell = null;
   state.page = null;
   state.introPlayed = false;
@@ -315,7 +323,7 @@ function renderSub(sub) {
     showView(
       `project:${sub.param}`,
       project ? buildProjectPage(project, vm, config, ctx()) : notFoundInline("That project doesn't exist.", `${state.base}#projects`, "All projects"),
-      project ? `${project.name} — ${vm.basics.name}` : null,
+      project ? `${project.name} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`,
     );
     return;
   }
@@ -346,12 +354,12 @@ function renderSub(sub) {
     showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
   } else if (sub.name === "post" && blogOn) {
     const post = vm.posts.find((p) => p.slug === sub.param);
-    showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : null);
+    showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else if (sub.name === "tab") {
     const tab = config.tabs.find((t) => t.slug === sub.param && t.type !== "link");
-    showView(`tab:${sub.param}`, tab ? buildTabPage(tab, vm, config, ctx()) : back("That page doesn't exist."), tab ? `${tab.label} — ${vm.basics.name}` : null);
+    showView(`tab:${sub.param}`, tab ? buildTabPage(tab, vm, config, ctx()) : back("That page doesn't exist."), tab ? `${tab.label} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else {
-    showView("missing", back("That page doesn't exist."), null);
+    showView("missing", back("That page doesn't exist."), `Not found — ${vm.basics.name}`);
   }
 }
 
