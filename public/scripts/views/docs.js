@@ -52,7 +52,7 @@ const GUIDE = [
     pages: [
       { id: "overview", title: "Overview", body: () => [
         p("mz-portfolio turns what you've done into a fast, mobile-first portfolio: a profile, projects, experience, a blog and a printable resume. You edit it right on the page."),
-        p("There's no server and no account to create here. Your portfolio is saved to your own GitHub as a gist, and anyone can open it at a short link with your username."),
+        p("There's no server and no account to create here. Your portfolio is saved to your own account: as a gist on GitHub, or in a folder in your Google Drive. Anyone can open it at a short link."),
         ul(
           [h("strong", "Editing on the page."), " Every part has an Edit button that opens a panel."],
           [h("strong", "GitHub, merged."), " Your repos, languages and photo fill in on their own."],
@@ -61,9 +61,9 @@ const GUIDE = [
       ] },
       { id: "create", title: "Create your portfolio", body: () => [
         ol(
-          ["Click ", link(`${BASE_PATH}edit`, "Create your portfolio"), " or ", h("strong", "Sign in"), ". GitHub asks only for permission to create gists."],
+          ["Click ", link(`${BASE_PATH}edit`, "Create your portfolio"), " or ", h("strong", "Sign in"), " with GitHub or Google. GitHub asks only for permission to create gists; Google only for the files this app creates in your Drive."],
           ["Your portfolio opens in edit mode. Even with just a name it looks finished; fill in what you have."],
-          [h("strong", "Publish"), ". Your portfolio is live at ", code(`${host()}your-username`), "."],
+          [h("strong", "Publish"), ". Your portfolio is live at ", code(`${host()}your-username`), " (GitHub) or at an address made from your Drive folder's ID (Google)."],
         ),
         p("Not ready to sign in? ", link(`${BASE_PATH}preview`, "Try it"), " lets you build one in this browser first, then sign in to publish it."),
       ] },
@@ -96,8 +96,8 @@ const GUIDE = [
       { id: "drafts", title: "Drafts and publishing", body: () => [
         p("Changes are a draft until you publish. The draft is kept in this browser automatically."),
         ul(
-          [h("strong", "Save draft to GitHub"), " (the ⋯ menu) stores it in a secret gist named ", code("mz-portfolio-draft.json"), ", so you can continue on another device. It's deleted when you publish."],
-          [h("strong", "Publish"), " updates your portfolio's gist, or creates it the first time. Empty fields are dropped. If the gist changed elsewhere since you opened it, you choose which version wins."],
+          [h("strong", "Save draft to your account"), " (the ⋯ menu) stores it in a secret gist named ", code("mz-portfolio-draft.json"), " on GitHub, or in the app's hidden Drive folder on Google, so you can continue on another device. It's deleted when you publish."],
+          [h("strong", "Publish"), " updates your portfolio's gist or Drive file, or creates it the first time. Empty fields are dropped. If it changed elsewhere since you opened it, you choose which version wins."],
         ),
       ] },
       { id: "projects", title: "Projects and GitHub", body: () => [
@@ -105,11 +105,11 @@ const GUIDE = [
         p("Each project has its own page, and that's where you edit it, including a cover image. A repo that only comes from GitHub has ", h("strong", "Add to my resume"), " (then it's fully editable) and ", h("strong", "Hide this repo"), "."),
       ] },
       { id: "blog", title: "Blog", body: () => [
-        p("Click ", h("strong", "New post"), " on the blog page while editing. Posts are written in Markdown, and each one is saved as its own gist, published separately from the rest of the portfolio."),
+        p("Click ", h("strong", "New post"), " on the blog page while editing. Posts are written in Markdown, and each one is saved as its own gist (or Markdown file in your Drive folder), published separately from the rest of the portfolio."),
         p("Public gists with a ", code(".md"), " file show up as posts. For Drive portfolios, ", code(".md"), " files in the folder do."),
       ] },
       { id: "images", title: "Photos and images", body: () => [
-        p("Your photo can be your GitHub avatar, an upload, a link, or none. The banner can be a gradient or an image. Uploads are resized in the browser and stored in a gist on your account, so nothing depends on a third-party host."),
+        p("Your photo can be your GitHub avatar, an upload, a link, or none. The banner can be a gradient or an image. Uploads are resized in the browser and stored in your own account (a gist, or your Drive folder), so nothing depends on a third-party host."),
       ] },
     ],
   },
@@ -117,7 +117,7 @@ const GUIDE = [
     group: "Your data",
     pages: [
       { id: "storage", title: "Where it's stored", body: () => [
-        p("Everything lives in one JSON file, ", code("resume.json"), ", in a gist on your GitHub account. Content follows the open JSON Resume format, so other tools can read it; settings are kept beside it."),
+        p("Everything lives in one JSON file, ", code("resume.json"), ", in a gist on your GitHub account or in the mz-portfolio folder in your Google Drive. Content follows the open JSON Resume format, so other tools can read it; settings are kept beside it."),
         table(["Part", "Where in the file"], [
           ["Your content", [code("basics"), ", ", code("work"), ", ", code("projects"), " and the other sections"]],
           ["Portfolio settings", code("meta[\"mz-portfolio-config\"]")],
