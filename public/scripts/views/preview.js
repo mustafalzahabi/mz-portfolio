@@ -5,7 +5,7 @@
 
 import { h, svgIcon, plural } from "../utils.js";
 import { ICONS } from "../icons.js";
-import { cachedUser } from "../github.js";
+import { session } from "../storage.js";
 import { siteHeader } from "./site-header.js";
 import { BASE_PATH } from "../router.js";
 import { parseResumeJson } from "../data.js";
@@ -43,7 +43,7 @@ export function analyzeResume(text) {
  */
 export function renderPreviewEditor(onShow) {
   document.title = "Try it — mz-portfolio";
-  const user = cachedUser();
+  const user = session()?.user;
   const textarea = h("textarea.input.preview-text", {
     id: "preview-json",
     spellcheck: "false",
@@ -139,7 +139,7 @@ export function renderPreviewEditor(onShow) {
         ),
         h("div.try-options",
           user
-            ? option("pencil", "Edit my portfolio", `Signed in as @${user.login}. Opens your live portfolio in edit mode.`, `${BASE_PATH}edit`)
+            ? option("pencil", "Edit my portfolio", `Signed in as ${user.provider === "google" ? user.email : `@${user.login}`}. Opens your live portfolio in edit mode.`, `${BASE_PATH}edit`)
             : option("pencil", "Start editing", "A blank portfolio with placeholders. Tap Edit on anything to change it.", `${BASE_PATH}edit`),
           option("eye", "See an example", "Every section laid out with placeholders, to see what you'll get.", `${BASE_PATH}preview/view?demo`),
         ),

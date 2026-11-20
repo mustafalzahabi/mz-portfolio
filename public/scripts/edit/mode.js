@@ -14,9 +14,10 @@ import { ICONS } from "../icons.js";
 import { BASE_PATH, parsePath, navigate } from "../router.js";
 import { setPath, prune } from "../editor-core.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResume, blankScaffold } from "../template.js";
-import { cachedUser, getToken, listMyGists, getGist, createGist, updateGist, deleteGist, gistFileText } from "../github.js";
+import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
 import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
+import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
@@ -25,7 +26,7 @@ import {
   cfgFields, boundInput, itemList, imageSource, tabsGroup,
 } from "./core.js";
 
-export const DRAFT_FILE = "mz-portfolio-draft.json";
+export const DRAFT_FILE = SHARED_DRAFT_FILE;
 const EMBEDDED = typeof window !== "undefined" && window.self !== window.top;
 
 let api = null; // { state, rerender(resume), setPublished(resume) } from app.js
@@ -66,8 +67,7 @@ function editKind() {
   const vm = api?.state.vm;
   if (!vm || EMBEDDED) return null;
   if (vm.source.type === "preview") return "preview";
-  const user = cachedUser();
-  if (user && getToken() && vm.source.type === "gh" && String(vm.source.id).toLowerCase() === user.login.toLowerCase()) return "own";
+  if (storage()?.owns(vm.source)) return "own";
   return null;
 }
 
@@ -121,7 +121,7 @@ async function enterEditNow(kind) {
   // Navigated away (or signed out) while we were waiting: don't edit that page
   const stale = () => state.loadId !== loadId || editKind() !== kind;
   document.querySelector(".ed-fab")?.setAttribute("disabled", "");
-  ed.user = cachedUser();
+  ed.user = session()?.user || null;
   if (kind === "preview") {
     if (!ed.resume || ed.source?.type !== "local") begin(structuredClone(state.data.resume || {}), { type: "local" });
   } else {
@@ -707,7 +707,7 @@ function mountUi(kind) {
     label: "More actions",
     className: ".ed-more",
     items: [
-      kind === "own" ? { label: "Save draft to GitHub", icon: "upload", onclick: saveDraftToGitHub } : null,
+      kind === "own" ? { label: `Save draft to ${storage()?.label || "your account"}`, icon: "upload", onclick: saveDraftToAccount } : null,
       kind === "own" ? { label: "New blog post", icon: "plus", onclick: () => openBlog(null) } : null,
       { label: "Discard changes", icon: "undo", onclick: discardChanges },
       "sep",
@@ -745,42 +745,33 @@ async function discardChanges() {
 }
 
 // ============================================================================
-// DRAFT ON GITHUB — a secret gist, so you can continue on another device.
-// Secret gists are unlisted (anyone with the link can open them), never shown
-// on the portfolio, and don't touch the public resume gist.
+// DRAFT IN YOUR ACCOUNT — so you can continue on another device. GitHub: a
+// secret gist (unlisted, never shown on the portfolio). Google: the app's
+// hidden Drive folder. Neither touches the published portfolio.
 // ============================================================================
 
-async function findDraftGist() {
-  const gists = await listMyGists();
-  return gists.find((g) => g.files?.[DRAFT_FILE]) || null;
-}
-
-async function saveDraftToGitHub() {
+async function saveDraftToAccount() {
   if (!ed.user) return openSignIn();
-  const content = `${JSON.stringify({ savedAt: new Date().toISOString(), gistId: ed.source?.id || null, resume: ed.resume }, null, 2)}\n`;
+  const content = `${JSON.stringify({ savedAt: new Date().toISOString(), gistId: ed.source?.id || null, resume: ed.resume }, null, 2)}
+`;
   try {
-    const existing = await findDraftGist();
-    if (existing) await updateGist(existing.id, { files: { [DRAFT_FILE]: { content } } });
-    else await createGist({ description: "mz-portfolio draft (unpublished changes)", files: { [DRAFT_FILE]: { content } }, isPublic: false });
-    toast("Draft saved to GitHub. Open edit mode on any device to continue.");
+    await storage().saveDraft(content);
+    toast(`Draft saved to ${storage().label}. Open edit mode on any device to continue.`);
   } catch (e) {
     toast(e.message, "error");
   }
 }
 
 async function loadRemoteDraft() {
-  if (!getToken()) return null;
-  const found = await findDraftGist();
-  if (!found) return null;
-  const full = await getGist(found.id);
-  const data = JSON.parse((await gistFileText(full, DRAFT_FILE)) || "null");
+  const backend = storage();
+  if (!backend) return null;
+  const found = await backend.loadDraft();
+  const data = JSON.parse(found?.text || "null");
   return data?.resume ? data : null;
 }
 
 async function clearRemoteDraft() {
-  if (!getToken()) return;
-  const found = await findDraftGist();
-  if (found) await deleteGist(found.id);
+  await storage()?.clearDraft();
 }
 
 // ============================================================================
@@ -811,10 +802,27 @@ function onKeydown(e) {
 }
 
 /** /edit: your own portfolio in edit mode, or a preview with every section when signed out. */
-export function routeEdit(go) {
-  const user = cachedUser();
-  if (user && getToken()) {
-    go(`${BASE_PATH}${encodeURIComponent(user.login)}?edit`, { replace: true });
+export async function routeEdit(go) {
+  const s = session();
+  if (s?.provider === "github") {
+    go(`${BASE_PATH}${encodeURIComponent(s.user.login)}?edit`, { replace: true });
+    return;
+  }
+  if (s?.provider === "google") {
+    // Drive portfolios live at their folder's address: find it, or create it
+    try {
+      const backend = storage();
+      let own = await backend.findResume(getResumeFilename());
+      if (!own) {
+        toast("Creating your portfolio in Google Drive…");
+        const resume = { ...blankScaffold(), basics: { name: s.user.name || "" } };
+        await backend.writeResume(null, `${JSON.stringify(prune(resume), null, 2)}\n`, getResumeFilename());
+      }
+      go(`${backend.homePath(own?.source)}?edit`, { replace: true });
+    } catch (e) {
+      toast(e.message, "error");
+      go(BASE_PATH, { replace: true });
+    }
     return;
   }
   try {

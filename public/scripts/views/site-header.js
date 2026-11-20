@@ -8,7 +8,7 @@ import { logoImg } from "../icons.js";
 import { BASE_PATH } from "../router.js";
 import { buildThemeToggle } from "../theme.js";
 import { accountMenu } from "../account.js";
-import { cachedUser } from "../github.js";
+import { session } from "../storage.js";
 
 const LINKS = [
   ["preview", "Try it"],
@@ -22,6 +22,6 @@ export function siteHeader(current = "home") {
     h("nav.site-nav", { "aria-label": "Site" },
       LINKS.map(([key, label]) => h("a.site-link", { href: `${BASE_PATH}${key}`, "aria-current": key === current ? "page" : null }, label)),
     ),
-    h("div.site-tools", buildThemeToggle("switch"), accountMenu({ user: cachedUser() })),
+    h("div.site-tools", buildThemeToggle("switch"), accountMenu({ user: session()?.user })),
   );
 }

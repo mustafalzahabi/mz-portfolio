@@ -8,9 +8,9 @@ import { h, svgIcon } from "../utils.js";
 import { ICONS, logoImg } from "../icons.js";
 import { BASE_PATH, detectSource, portfolioPath, navigate } from "../router.js";
 import { getRecent, clearRecent } from "../data.js";
-import { avatarImg, loginUrl } from "../account.js";
+import { avatarImg, signInOptions } from "../account.js";
 import { siteHeader } from "./site-header.js";
-import { cachedUser } from "../github.js";
+import { session, myPortfolioPath } from "../storage.js";
 
 const FEATURES = [
   { icon: "pencil", title: "Edit right on the page", text: "Tap Edit on anything (a project, a job, a post) and change it in a panel. Undo, drafts and one-click publish.", size: "wide" },
@@ -55,7 +55,7 @@ function heroMock() {
 export function renderLanding() {
   document.title = "mz-portfolio — turn your resume into a portfolio";
   const app = document.getElementById("app");
-  const user = cachedUser();
+  const user = session()?.user;
 
   // ---------- open a portfolio ----------
   const input = h("input.lp-input", {
@@ -108,11 +108,12 @@ export function renderLanding() {
   const ctas = user
     ? h("div.lp-ctas",
         h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, svgIcon(ICONS.pencil), "Edit my portfolio"),
-        h("a.btn.btn-ghost.lp-btn", { href: `${BASE_PATH}${encodeURIComponent(user.login)}` }, avatarImg(user, 22), "View it"),
+        myPortfolioPath() ? h("a.btn.btn-ghost.lp-btn", { href: myPortfolioPath() }, avatarImg(user, 22), "View it") : null,
       )
     : h("div.lp-ctas",
         h("a.btn.btn-primary.lp-btn", { href: `${BASE_PATH}edit` }, "Create your portfolio", svgIcon(ICONS.arrowRight)),
-        h("a.btn.btn-ghost.lp-btn", { href: loginUrl(`${BASE_PATH}edit`), dataset: { external: "" } }, svgIcon(ICONS.github), "Sign in with GitHub"),
+        signInOptions(`${BASE_PATH}edit`).map((o) =>
+          h("a.btn.btn-ghost.lp-btn", { href: o.href, dataset: { external: "" } }, svgIcon(ICONS[o.icon]), o.label.replace("Continue", "Sign in"))),
       );
 
   app.replaceChildren(
@@ -174,7 +175,7 @@ export function renderLanding() {
         ),
       ),
       h("footer.site-footer",
-        h("p.footer-credit", h("span.footer-brand", logoImg(20), "mz-portfolio"), " · open source · ", h("a", { href: "https://github.com/mustafalzahabi/mz-portfolio" }, "Source"), " · ", h("a", { href: `${BASE_PATH}docs` }, "Docs")),
+        h("p.footer-credit", h("span.footer-brand", logoImg(20), "mz-portfolio"), " · open source · ", h("a", { href: "https://github.com/mustafalzahabi/mz-portfolio" }, "Source"), " · ", h("a", { href: `${BASE_PATH}docs` }, "Docs"), " · ", h("a", { href: "/privacy" }, "Privacy")),
       ),
     ),
   );

@@ -18,10 +18,9 @@ import { checkPalette, darkHex } from "../palette.js";
 import { CURATED_THEMES } from "../resume/index.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, blankScaffold } from "../template.js";
 import { getPath, setPath, isEmpty, prune, History, diffSummary, validateField, frontmatter, applyMarkdown } from "../editor-core.js";
-import {
-  TOKEN_HELP_URL, getToken, signIn, clearToken, currentUser, listMyGists, getGist, createGist,
-  updateGist, deleteGist, gistFileText, forgetCachedPortfolio, cachedUser,
-} from "../github.js";
+import { TOKEN_HELP_URL, signIn } from "../github.js";
+import { storage } from "../storage.js";
+import { googleLoginUrl } from "../google.js";
 import { accountMenu, avatarImg, dropdown, loginUrl } from "../account.js";
 import { resolveImage, imageToDataUrl, isGistImage, IMAGE_FILES } from "../images.js";
 import { selectMenu } from "../ui.js";
@@ -43,7 +42,7 @@ const ed = {
   user: null, // GitHub user when signed in
   resume: null,
   base: null, // last saved / loaded version (pruned), for "unsaved changes" + diff
-  source: null, // { type: "gist", id, filename, updatedAt, url } | { type: "local" }
+  source: null, // { type: "gist" | "drive", id, filename, updatedAt, url, folderId? } | { type: "local" }
   savedAt: null,
   saving: false,
   tab: "resume",
@@ -547,10 +546,11 @@ function cfgInput(path, node, current) {
 /** The GitHub account behind this resume: its GitHub profile, else the signed-in user. */
 function githubForPreview() {
   const p = (ed.resume?.basics?.profiles || []).find((x) => /github/i.test(String(x?.network || "")));
-  const login = String(p?.username || String(p?.url || "").match(/github\.com\/([^/?#]+)/i)?.[1] || ed.user?.login || "");
+  const ghUser = ed.user?.provider === "google" ? null : ed.user;
+  const login = String(p?.username || String(p?.url || "").match(/github\.com\/([^/?#]+)/i)?.[1] || ghUser?.login || "");
   if (!login) return null;
-  const own = ed.user && ed.user.login.toLowerCase() === login.toLowerCase();
-  return { login, avatar_url: own ? ed.user.avatar_url : `https://github.com/${encodeURIComponent(login)}.png` };
+  const own = ghUser && ghUser.login.toLowerCase() === login.toLowerCase();
+  return { login, avatar_url: own ? ghUser.avatar_url : `https://github.com/${encodeURIComponent(login)}.png` };
 }
 
 function thumb(src, fallback, extraClass = "") {
@@ -583,26 +583,25 @@ function choiceCards(name, options, selected, onPick) {
  * text) and returns its raw link. The link includes the commit, so a new
  * upload never shows a cached old image.
  */
+/** True once the resume exists in the signed-in account (gist or Drive). */
+const published = () => !!ed.source && ed.source.type !== "local";
+
 async function uploadImage(kind, file) {
   if (!ed.user) {
     openSignIn();
     return "";
   }
-  if (ed.source?.type !== "gist") {
-    toast("Saving your resume to GitHub first…");
+  if (!published()) {
+    toast(`Saving your portfolio to ${storage().label} first…`);
     await save();
-    if (ed.source?.type !== "gist") return "";
+    if (!published()) return "";
   }
   const dataUrl = await imageToDataUrl(file, kind === "photo"
     ? { maxWidth: 480, maxHeight: 480, square: true }
     : String(kind).startsWith("project") ? { maxWidth: 1600, maxHeight: 1000 }
     : { maxWidth: 1800, maxHeight: 900 });
-  const filename = IMAGE_FILES[kind] || `portfolio-${String(kind).replace(/[^\w-]/g, "-")}.txt`;
-  const saved = await updateGist(ed.source.id, { files: { [filename]: { content: dataUrl } } });
-  ed.source.updatedAt = saved.updated_at;
-  const raw = saved.files?.[filename]?.raw_url;
-  if (!raw) throw new Error("GitHub didn't return a link for the uploaded image.");
-  return raw;
+  const name = (IMAGE_FILES[kind] || `portfolio-${String(kind).replace(/[^\w-]/g, "-")}.txt`).replace(/\.txt$/, "");
+  return storage().uploadImage(ed.source, name, dataUrl);
 }
 
 /** "Upload image" button + "or paste a link" field, shared by both pickers. */
@@ -966,15 +965,9 @@ function jsonPanel() {
 // BLOG TAB
 // ============================================================================
 
+// post.gistId is the post's id in either store (a gist or a Drive file)
 async function loadPosts() {
-  const resumeFile = ed.source?.filename || getResumeFilename();
-  const gists = await listMyGists();
-  ed.posts = gists
-    .filter((g) => Object.keys(g.files).some((f) => /\.md$/i.test(f)) && !g.files[resumeFile])
-    .map((g) => {
-      const filename = Object.keys(g.files).find((f) => /\.md$/i.test(f));
-      return { gistId: g.id, filename, title: g.description || filename.replace(/\.md$/i, ""), updatedAt: g.updated_at, isPublic: g.public, url: g.html_url, loaded: false };
-    });
+  ed.posts = await storage().listPosts(ed.source?.filename || getResumeFilename());
 }
 
 const POST_FIELDS = ["title", "date", "tags", "description", "image", "draft", "body", "slug", "isPublic"];
@@ -995,19 +988,18 @@ function takePostDraft(p) {
 
 async function openPost(post) {
   if (post && !post.loaded) {
-    const gist = await getGist(post.gistId);
-    const text = (await gistFileText(gist, post.filename)) || "";
+    const { text, createdAt, updatedAt } = await storage().readPost(post);
     const { metadata, body } = parseFrontmatter(text);
     Object.assign(post, {
       loaded: true,
       title: String(metadata.title || post.title),
-      date: metadata.date ? String(metadata.date).slice(0, 10) : gist.created_at.slice(0, 10),
+      date: metadata.date ? String(metadata.date).slice(0, 10) : String(createdAt || "").slice(0, 10),
       tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
       description: String(metadata.description || metadata.preview || ""),
       image: String(metadata.image || ""),
       draft: metadata.draft === true || metadata.published === false,
       body,
-      updatedAt: gist.updated_at,
+      updatedAt,
     });
   }
   ed.post = post || {
@@ -1020,7 +1012,7 @@ async function openPost(post) {
 function blogPanel() {
   const panel = h("div.ed-panel");
   if (!ed.user) {
-    panel.appendChild(h("div.ed-empty", h("p", "Blog posts are public gists with a .md file. Sign in with GitHub to create, edit and delete them here."), signInButton()));
+    panel.appendChild(h("div.ed-empty", h("p", "Blog posts are Markdown files saved to your GitHub (as gists) or your Google Drive. Sign in to create, edit and delete them here."), signInButton()));
     return panel;
   }
   if (ed.post) return postEditor(panel);
@@ -1134,20 +1126,15 @@ function postEditor(panel) {
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving…";
     try {
-      if (p.gistId) {
-        const saved = await updateGist(p.gistId, { description: p.title, files: { [p.filename]: { content } } });
-        p.updatedAt = saved.updated_at;
-      } else {
-        const filename = `${slugify(slugInput?.value || p.title)}.md`;
-        const gist = await createGist({ description: p.title, files: { [filename]: { content } }, isPublic: p.isPublic !== false });
-        Object.assign(p, { gistId: gist.id, filename, url: gist.html_url, isPublic: gist.public, updatedAt: gist.updated_at });
-        ed.posts?.unshift(p);
-      }
+      const isNew = !p.gistId;
+      const filename = isNew ? `${slugify(slugInput?.value || p.title)}.md` : p.filename;
+      Object.assign(p, await storage().writePost(isNew ? null : p, { title: p.title, filename, content, isPublic: p.isPublic !== false }));
+      if (isNew) ed.posts?.unshift(p);
       p.dirty = false;
       store.remove(POST_DRAFT_KEY);
-      forgetCachedPortfolio(ed.user.login);
+      storage().forgetCache();
     ed.ownResume = null;
-      toast(p.isPublic ? "Post saved. It's live on your portfolio." : "Post saved as a secret gist.");
+      toast(p.isPublic !== false ? "Post saved. It's live on your portfolio." : "Post saved as a secret gist.");
       renderPanel();
     } catch (e) {
       toast(e.message, "error");
@@ -1159,13 +1146,13 @@ function postEditor(panel) {
   p.save = save;
 
   const remove = async () => {
-    if (!p.gistId || !confirm(`Delete "${p.title}"? This deletes the gist on GitHub and can't be undone.`)) return;
+    if (!p.gistId || !confirm(`Delete "${p.title}"? This deletes the ${storage().postNoun} and can't be undone.`)) return;
     try {
-      await deleteGist(p.gistId);
+      await storage().deletePost(p);
       ed.posts = ed.posts.filter((x) => x !== p);
       ed.post = null;
       store.remove(POST_DRAFT_KEY);
-      forgetCachedPortfolio(ed.user.login);
+      storage().forgetCache();
     ed.ownResume = null;
       toast("Post deleted.");
       renderPanel();
@@ -1251,13 +1238,19 @@ function showChanges() {
 // ACCOUNT
 // ============================================================================
 
-// "Sign in with GitHub" goes through /api/auth (a Cloudflare Pages Function),
-// which comes back to /edit#gh_token=…; app.js stores the token. The draft is
-// in localStorage, so leaving the page for GitHub loses nothing.
+// Sign-in leaves the page (GitHub via /api/auth, Google directly) and comes
+// back to /edit; app.js stores the token. The draft is in localStorage, so
+// leaving the page loses nothing.
 const LOGIN_URL = loginUrl(`${BASE_PATH}edit`);
 
 function githubButton(label = "Sign in with GitHub", cls = "") {
   return h(`a.btn.btn-primary${cls}`, { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), label);
+}
+
+/** Null when this site has no Google client ID configured. */
+function googleButton(label = "Continue with Google", cls = "") {
+  const href = googleLoginUrl(`${BASE_PATH}edit`);
+  return href ? h(`a.btn.btn-ghost${cls}`, { href, dataset: { external: "" } }, svgIcon(ICONS.google), label) : null;
 }
 
 function signInButton() {
@@ -1270,8 +1263,9 @@ function openSignIn() {
     h("div.ed-signin",
       h("div.ed-signin-mark", logoImg(40)),
       h("h2", "Sign in to save"),
-      h("p.muted", "Your resume and blog posts are saved as gists on your GitHub account. Your draft stays here while you sign in."),
+      h("p.muted", "Your portfolio and blog posts are saved to your own account: as gists on GitHub, or in a folder in your Google Drive. Your draft stays here while you sign in."),
       githubButton("Continue with GitHub", ".ed-signin-github"),
+      googleButton("Continue with Google", ".ed-signin-github"),
       h("details.ed-signin-token", h("summary", "Use a personal access token instead"), tokenForm),
       h("button.link-btn.ed-signin-cancel", { type: "button", onclick: () => dialog.close() }, "Not now"),
     ),
@@ -1318,15 +1312,7 @@ async function afterSignIn() {
 }
 
 async function fetchOwnResume() {
-  const filename = getResumeFilename();
-  const gists = await listMyGists();
-  const gist = gists.find((g) => g.files[filename]);
-  if (!gist) return null;
-  const full = await getGist(gist.id);
-  return {
-    resume: parseResumeJson(await gistFileText(full, filename)),
-    source: { type: "gist", id: gist.id, filename, updatedAt: full.updated_at, url: full.html_url },
-  };
+  return (await storage()?.findResume(getResumeFilename())) ?? null;
 }
 
 async function loadOwnResume() {
@@ -1349,16 +1335,16 @@ function updateStatus(note) {
   if (undoBtn) undoBtn.disabled = !ed.history?.canUndo;
   if (redoBtn) redoBtn.disabled = !ed.history?.canRedo;
   if (saveBtn) {
-    saveBtn.textContent = ed.saving ? "Publishing…" : !ed.user ? "Sign in to publish" : ed.source?.type === "gist" ? "Publish" : "Publish portfolio";
-    saveBtn.disabled = ed.saving || (ed.user && ed.source?.type === "gist" && !ed.dirty);
+    saveBtn.textContent = ed.saving ? "Publishing…" : !ed.user ? "Sign in to publish" : published() ? "Publish" : "Publish portfolio";
+    saveBtn.disabled = ed.saving || (ed.user && published() && !ed.dirty);
   }
   if (!statusEl) return;
   let text;
   let tone;
   if (note) [text, tone] = [note, "warn"];
   else if (ed.saving) [text, tone] = ["Saving…", "busy"];
-  else if (ed.dirty) [text, tone] = [ed.source?.type === "gist" ? "Unsaved changes" : "Not saved yet", "warn"];
-  else if (ed.source?.type !== "gist") [text, tone] = ["Empty draft", "idle"];
+  else if (ed.dirty) [text, tone] = [published() ? "Unsaved changes" : "Not saved yet", "warn"];
+  else if (!published()) [text, tone] = ["Empty draft", "idle"];
   else [text, tone] = [`Saved${ed.savedAt ? ` ${ago(ed.savedAt)}` : ""}`, "ok"];
   statusEl.textContent = text;
   statusEl.dataset.tone = tone;
@@ -1376,20 +1362,21 @@ async function save() {
   ed.saving = true;
   updateStatus();
   try {
-    if (ed.source?.type === "gist") {
-      const remote = await getGist(ed.source.id);
-      if (remote.updated_at !== ed.source.updatedAt) {
-        const choice = await choiceDialog("This resume changed on GitHub",
-          h("p", `Someone (maybe you, elsewhere) saved it ${ago(remote.updated_at)}, after you opened it here.`),
-          [["cancel", "Cancel"], ["theirs", "Load GitHub version"], ["mine", "Overwrite with mine", "primary"]]);
+    const backend = storage();
+    if (published()) {
+      const remote = await backend.readResume(ed.source);
+      if (remote.updatedAt !== ed.source.updatedAt) {
+        const choice = await choiceDialog(`This portfolio changed on ${backend.label}`,
+          h("p", `Someone (maybe you, elsewhere) saved it ${ago(remote.updatedAt)}, after you opened it here.`),
+          [["cancel", "Cancel"], ["theirs", `Load the ${backend.label} version`], ["mine", "Overwrite with mine", "primary"]]);
         if (choice === "theirs") {
-          const resume = parseResumeJson(await gistFileText(remote, ed.source.filename));
-          begin(resume, { ...ed.source, updatedAt: remote.updated_at }, { base: prune(resume), savedAt: remote.updated_at });
+          const resume = parseResumeJson(await remote.read());
+          begin(resume, { ...ed.source, updatedAt: remote.updatedAt }, { base: prune(resume), savedAt: remote.updatedAt });
           ed.saving = false;
           updateStatus();
           renderPanel(); // open forms show the loaded version
           hooks.onChange();
-          toast("Loaded the version from GitHub.");
+          toast(`Loaded the version from ${backend.label}.`);
           return;
         }
         if (choice !== "mine") {
@@ -1398,17 +1385,14 @@ async function save() {
           return;
         }
       }
-      const saved = await updateGist(ed.source.id, { files: { [ed.source.filename]: { content } } });
-      ed.source.updatedAt = saved.updated_at;
+      ed.source = await backend.writeResume(ed.source, content, ed.source.filename);
     } else {
-      const filename = getResumeFilename();
-      const gist = await createGist({ description: "My resume", files: { [filename]: { content } }, isPublic: true });
-      ed.source = { type: "gist", id: gist.id, filename, updatedAt: gist.updated_at, url: gist.html_url };
+      ed.source = await backend.writeResume(null, content, getResumeFilename());
     }
     const changes = diffSummary(ed.base || {}, clean);
     ed.base = clean;
     ed.savedAt = new Date().toISOString();
-    forgetCachedPortfolio(ed.user.login);
+    backend.forgetCache();
     ed.ownResume = null;
     toast(changes.length ? `Published: ${changes.slice(0, 3).join(" · ")}${changes.length > 3 ? " …" : ""}` : "Published.");
   } catch (e) {

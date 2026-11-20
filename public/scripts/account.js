@@ -1,14 +1,17 @@
 // ============================================================================
-// ACCOUNT — "Sign in with GitHub", the avatar menu, sign out.
-// Used by the landing page and the editor. Sign-in goes through the
-// /api/auth Pages Function, which comes back to the page it started on with
-// #gh_token=… (or #gh_error=…) in the URL fragment.
+// ACCOUNT — sign in with GitHub or Google, the avatar menu, sign out.
+// One account at a time. GitHub sign-in goes through the /api/auth Pages
+// Function, which comes back with #gh_token=… (or #gh_error=…). Google's
+// comes straight back to the site root with #access_token=…&state=… (see
+// google.js).
 // ============================================================================
 
 import { h, svgIcon, toast } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { BASE_PATH } from "./router.js";
-import { signIn, clearToken, cachedUser } from "./github.js";
+import { signIn, clearToken } from "./github.js";
+import { googleLoginUrl, completeGoogleSignIn, clearGoogle, googleClientId } from "./google.js";
+import { session, signOutAll, myPortfolioPath } from "./storage.js";
 
 const LOGIN_ERRORS = {
   denied: "Sign-in was cancelled on GitHub.",
@@ -21,8 +24,27 @@ export function loginUrl(returnPath = location.pathname) {
   return `/api/auth/login?return=${encodeURIComponent(returnPath)}`;
 }
 
-/** Finishes a sign-in redirect, if this page load is one. Returns the user or null. */
+/** True when this page load is coming back from a sign-in. */
+export function isSignInReturn() {
+  return /[#&](gh_(token|error)|access_token|error)=/.test(location.hash) && (/gh_/.test(location.hash) || /[#&]state=/.test(location.hash));
+}
+
+/**
+ * Finishes a sign-in redirect, if this page load is one.
+ * Returns { user, returnPath? } or null.
+ */
 export async function completeSignIn() {
+  if (/[#&]state=/.test(location.hash) && !/gh_/.test(location.hash)) {
+    const result = await completeGoogleSignIn();
+    if (!result) return null;
+    if (result.error) {
+      toast(result.error, "error");
+      return null;
+    }
+    clearToken(); // one account at a time
+    toast(`Signed in as ${result.user.name || result.user.email}`);
+    return result;
+  }
   const params = new URLSearchParams(location.hash.slice(1));
   const token = params.get("gh_token");
   const error = params.get("gh_error");
@@ -34,8 +56,9 @@ export async function completeSignIn() {
   }
   try {
     const user = await signIn(token);
+    clearGoogle(); // one account at a time
     toast(`Signed in as ${user.login}`);
-    return user;
+    return { user };
   } catch (e) {
     toast(e.message, "error");
     return null;
@@ -43,7 +66,7 @@ export async function completeSignIn() {
 }
 
 export function signOut() {
-  clearToken();
+  signOutAll();
   dispatchEvent(new CustomEvent("mz-auth", { detail: { user: null } }));
 }
 
@@ -68,7 +91,7 @@ export function dropdown({ button, label, items, head = null, className = "" }) 
   const entry = (i) => {
     if (i === "sep") return h("div.account-sep", { role: "separator" });
     const icon = i.icon ? svgIcon(ICONS[i.icon]) : null;
-    if (i.href) return h("a.account-item", { role: "menuitem", href: i.href, target: i.newTab ? "_blank" : null, rel: i.newTab ? "noopener" : null }, icon, i.label);
+    if (i.href) return h("a.account-item", { role: "menuitem", href: i.href, target: i.newTab ? "_blank" : null, rel: i.newTab ? "noopener" : null, dataset: { external: i.external ? "" : null } }, icon, i.label);
     return h("button.account-item", { role: "menuitem", type: "button", onclick: () => { close(); i.onclick(); } }, icon, i.label);
   };
   const menu = h("div.account-menu", { role: "menu", hidden: true }, head, head ? entry("sep") : null, items.filter(Boolean).map(entry));
@@ -112,23 +135,44 @@ export function dropdown({ button, label, items, head = null, className = "" }) 
   return wrap;
 }
 
+/** The sign-in choices: GitHub always, Google when the site has a client ID. */
+export function signInOptions(returnPath = location.pathname + location.search) {
+  return [
+    { label: "Continue with GitHub", icon: "github", href: loginUrl(returnPath), external: true },
+    googleClientId() ? { label: "Continue with Google", icon: "google", href: googleLoginUrl(returnPath), external: true } : null,
+  ].filter(Boolean);
+}
+
 /**
- * Signed out: a "Sign in" button. Signed in: the avatar, opening a menu.
- * `items` adds page-specific entries before "GitHub profile".
+ * Signed out: "Sign in", opening the choice of GitHub or Google.
+ * Signed in: the avatar, opening a menu. `items` adds page-specific entries.
  */
-export function accountMenu({ user = cachedUser(), items = [], returnPath } = {}) {
+export function accountMenu({ user = session()?.user, items = [], returnPath } = {}) {
   if (!user) {
-    return h("a.btn.btn-ghost.account-signin", { href: loginUrl(returnPath), dataset: { external: "" } }, svgIcon(ICONS.github), h("span", "Sign in"));
+    const options = signInOptions(returnPath);
+    if (options.length === 1) {
+      return h("a.btn.btn-ghost.account-signin", { href: options[0].href, dataset: { external: "" } }, svgIcon(ICONS.github), h("span", "Sign in"));
+    }
+    return dropdown({
+      button: h("button.btn.btn-ghost.account-signin", { type: "button" }, svgIcon(ICONS.user), h("span", "Sign in")),
+      label: "Sign in",
+      items: options,
+    });
   }
+  const google = user.provider === "google";
+  const home = myPortfolioPath();
   return dropdown({
     button: h("button.account-button", { type: "button" }, avatarImg(user, 32)),
-    label: `Account: ${user.login}`,
-    head: h("div.account-head", avatarImg(user, 40), h("div", h("strong", user.name || user.login), h("span.muted", `@${user.login}`))),
+    label: `Account: ${user.name || user.login}`,
+    head: h("div.account-head", avatarImg(user, 40), h("div",
+      h("strong", user.name || user.login),
+      h("span.muted", google ? user.email : `@${user.login}`),
+      h("span.account-provider", svgIcon(ICONS[google ? "google" : "github"]), google ? "Google Drive" : "GitHub"))),
     items: [
-      { label: "My portfolio", icon: "user", href: `${BASE_PATH}${encodeURIComponent(user.login)}` },
-      { label: "Edit my portfolio", icon: "pencil", href: `${BASE_PATH}edit` },
+      home ? { label: "My portfolio", icon: "user", href: home } : null,
+      { label: home ? "Edit my portfolio" : "Create my portfolio", icon: "pencil", href: `${BASE_PATH}edit` },
       ...items,
-      { label: "GitHub profile", icon: "github", href: `https://github.com/${encodeURIComponent(user.login)}` },
+      google ? null : { label: "GitHub profile", icon: "github", href: `https://github.com/${encodeURIComponent(user.login)}` },
       "sep",
       { label: "Sign out", icon: "logout", onclick: signOut },
     ],

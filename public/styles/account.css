@@ -154,3 +154,18 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* which account you're signed in with */
+.account-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.account-provider .icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}

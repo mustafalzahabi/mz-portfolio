@@ -12,7 +12,7 @@
 // path is derived from this module's own URL.
 // ============================================================================
 
-const RESERVED = new Set(["preview", "docs", "edit"]);
+const RESERVED = new Set(["preview", "docs", "edit", "privacy"]);
 
 export const BASE_PATH =
   typeof location !== "undefined" ? new URL("../", import.meta.url).pathname : "/";
@@ -146,7 +146,7 @@ export function interceptLinks(root = document) {
     if (!a || a.target === "_blank" || a.hasAttribute("download") || a.dataset.external !== undefined) return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(BASE_PATH)) return;
-    if (url.pathname.startsWith("/api/")) return; // server routes (sign-in) → real navigation
+    if (url.pathname.startsWith("/api/") || /^\/privacy(\.html)?$/.test(url.pathname)) return; // server routes and static pages → real navigation
     const samePage = url.pathname === location.pathname && url.search === location.search;
     if (samePage && url.hash) return; // in-page anchor → native
     e.preventDefault();

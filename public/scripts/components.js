@@ -7,7 +7,7 @@
 // ============================================================================
 
 import { dropdown, loginUrl, accountMenu } from "./account.js";
-import { cachedUser } from "./github.js";
+import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
@@ -440,7 +440,7 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
 
 /** Signed in: your avatar menu, in the page's own top row (never floating over content). */
 function signedInMenu(ctx) {
-  const user = cachedUser();
+  const user = session()?.user;
   if (!user || ctx.embedded) return null;
   return accountMenu({ user, items: [{ label: "mz-portfolio home", icon: "globe", href: ctx.homeHref }] });
 }
@@ -769,8 +769,8 @@ export function buildFooter(vm, cfg, ctx) {
         h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
         h("span", " · "),
         h("a", { href: ctx.homeHref }, "Make your own"),
-        cachedUser() ? null : h("span", " · "),
-        cachedUser() ? null : h("a", { href: loginUrl(location.pathname), dataset: { external: "" } }, "Sign in")),
+        session()?.user ? null : h("span", " · "),
+        session()?.user ? null : h("a", { href: loginUrl(location.pathname), dataset: { external: "" } }, "Sign in")),
     );
   }
   return footer;

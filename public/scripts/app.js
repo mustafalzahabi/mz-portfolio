@@ -4,7 +4,7 @@
 
 import { resolveImage, isGistImage } from "./images.js";
 import { templateResume } from "./template.js";
-import { completeSignIn } from "./account.js";
+import { completeSignIn, isSignInReturn } from "./account.js";
 import { h, svgIcon, safeUrl } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
@@ -541,7 +541,7 @@ export function init() {
     if (location.href === lastRoutedHref) return;
     lastRoutedHref = location.href;
     const path = parsePath();
-    if (path.view === "docs" && document.querySelector(".docs-main") && location.hash) return; // in-page anchors
+    if (path.view === "docs" && document.querySelector(".docs-page") && location.hash) return; // in-page anchors
     route();
   };
   addEventListener("popstate", onNavigate);
@@ -553,9 +553,15 @@ export function init() {
     else if (view === "portfolio") afterRender();
   });
 
-  // Back from "Sign in with GitHub": store the token before the first render
-  if (/[#&]gh_(token|error)=/.test(location.hash)) completeSignIn().finally(onNavigate);
-  else onNavigate();
+  // Back from a sign-in: store the token before the first render. Google
+  // always returns to the site root, so go on to where sign-in started.
+  if (isSignInReturn()) {
+    completeSignIn()
+      .then((result) => {
+        if (result?.returnPath && result.returnPath !== location.pathname + location.search) history.replaceState(null, "", result.returnPath);
+      })
+      .finally(onNavigate);
+  } else onNavigate();
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).catch(() => {});
