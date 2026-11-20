@@ -1,6 +1,6 @@
 // ============================================================================
 // SITE HEADER — one header for the home, preview and docs pages. Portfolios
-// don't get it: they show only a small account corner (see accountCorner).
+// don't get it: a signed-in user's avatar sits in the portfolio's own top row.
 // ============================================================================
 
 import { h } from "../utils.js";
@@ -22,17 +22,6 @@ export function siteHeader(current = "home") {
     h("nav.site-nav", { "aria-label": "Site" },
       LINKS.map(([key, label]) => h("a.site-link", { href: `${BASE_PATH}${key}`, "aria-current": key === current ? "page" : null }, label)),
     ),
-    h("div.site-tools", buildThemeToggle("icon"), accountMenu({ user: cachedUser() })),
+    h("div.site-tools", buildThemeToggle("switch"), accountMenu({ user: cachedUser() })),
   );
-}
-
-/**
- * On portfolios: signed in → the avatar menu in the top corner (so you never
- * need the home page to reach your account). Signed out → nothing here; the
- * footer credit carries a quiet "Sign in" link.
- */
-export function accountCorner() {
-  const user = cachedUser();
-  if (!user) return null;
-  return h("div.account-corner", accountMenu({ user, items: [{ label: "mz-portfolio home", icon: "globe", href: BASE_PATH }] }));
 }

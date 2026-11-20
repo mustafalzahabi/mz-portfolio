@@ -470,3 +470,9 @@
 .project-readme .prose .table-wrap {
   max-width: 100%;
 }
+
+.page-bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

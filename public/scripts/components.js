@@ -6,9 +6,9 @@
 // ctx = { base, locale, present, photo, openResume() }  (base = "/<id>")
 // ============================================================================
 
-import { dropdown, loginUrl } from "./account.js";
+import { dropdown, loginUrl, accountMenu } from "./account.js";
 import { cachedUser } from "./github.js";
-import { h, svgIcon, isSamePage, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
+import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile } from "./merge.js";
@@ -98,7 +98,8 @@ export function buildHeader(vm, cfg, ctx) {
     if (cfg.banner.overlay) banner.classList.add("has-overlay");
   }
   const toggle = buildThemeToggle(cfg.theme.toggle);
-  if (toggle) banner.appendChild(h("div.banner-toggle", toggle));
+  const account = signedInMenu(ctx);
+  if (toggle || account) banner.appendChild(h("div.banner-toggle", toggle, account));
 
   header.appendChild(banner);
 
@@ -127,7 +128,7 @@ export function buildHeader(vm, cfg, ctx) {
 
   const facts = h("ul.profile-facts", { role: "list" });
   if (cfg.header.showLocation && b.location) facts.appendChild(h("li", iconLabel("pin", b.location)));
-  if (b.url) facts.appendChild(h("li", h("a", { href: b.url }, iconLabel("globe", b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")))));
+  if (b.url && !isThisPortfolio(b.url, ctx.base)) facts.appendChild(h("li", h("a", { href: b.url }, iconLabel("globe", b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")))));
   if (cfg.header.showPhone && b.phone) facts.appendChild(h("li", h("a", { href: `tel:${b.phone.replace(/[^\d+]/g, "")}` }, iconLabel("phone", b.phone))));
   if (facts.children.length) details.appendChild(facts);
 
@@ -145,7 +146,7 @@ export function buildHeader(vm, cfg, ctx) {
       continue;
     }
     const p = findProfile(b, key);
-    if (p) links.appendChild(h("a.profile-link", { href: p.url, "aria-label": p.network, title: p.network }, svgIcon(networkIcon(p.network))));
+    if (p && !isThisPortfolio(p.url, ctx.base)) links.appendChild(h("a.profile-link", { href: p.url, "aria-label": p.network, title: p.network }, svgIcon(networkIcon(p.network))));
   }
   const extra = [
     b.email && { label: "Copy email address", icon: "copy", onclick: async () => toast((await copyText(b.email)) ? "Email address copied" : "Couldn't copy", "info") },
@@ -431,8 +432,16 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
   back.appendChild(h("span.page-bar-text", h("strong", vm.basics.name), h("span.muted", backLabel)));
   bar.appendChild(back);
   const toggle = buildThemeToggle(cfg.theme.toggle === "none" ? "none" : "icon");
-  if (toggle) bar.appendChild(toggle);
+  const account = signedInMenu(ctx);
+  if (toggle || account) bar.appendChild(h("div.page-bar-tools", toggle, account));
   return bar;
+}
+
+/** Signed in: your avatar menu, in the page's own top row (never floating over content). */
+function signedInMenu(ctx) {
+  const user = cachedUser();
+  if (!user || ctx.embedded) return null;
+  return accountMenu({ user, items: [{ label: "mz-portfolio home", icon: "globe", href: ctx.homeHref }] });
 }
 
 function factRow(label, value) {
@@ -712,15 +721,32 @@ export function buildReferences(vm, cfg) {
 // CONTACT & FOOTER
 // ============================================================================
 
+/**
+ * True when url points back to this very portfolio, on this host or any
+ * mz-portfolio deployment (production, staging, previews).
+ */
+export function isThisPortfolio(url, base) {
+  try {
+    const u = new URL(url, location.origin);
+    const host = u.host.replace(/^www\./, "");
+    const ours = host === location.host || /(^|\.)mz-portfolio\.pages\.dev$/.test(host);
+    // "/gh/user" and "/gd/id" are older forms of the same address
+    const path = (p) => decodeURIComponent(p).replace(/\/+$/, "").replace(/^\/(gh|gd)\//, "/").toLowerCase();
+    return ours && path(u.pathname) === path(new URL(base || "/", location.origin).pathname);
+  } catch {
+    return false;
+  }
+}
+
 export function buildContact(vm, cfg, ctx) {
   const b = vm.basics;
   // Links back to this very portfolio (e.g. basics.url) are left out
-  const ownUrl = new URL(ctx.base || "/", location.origin).href;
+  const ownUrl = { test: (u) => isThisPortfolio(u, ctx.base) };
   const links = [];
   if (b.email) links.push({ href: `mailto:${b.email}`, label: b.email, icon: ICONS.mail });
   if (b.phone && cfg.header.showPhone) links.push({ href: `tel:${b.phone.replace(/[^\d+]/g, "")}`, label: b.phone, icon: ICONS.phone });
-  if (b.url && !isSamePage(b.url, ownUrl)) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
-  for (const p of b.profiles) if (!isSamePage(p.url, ownUrl)) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
+  if (b.url && !ownUrl.test(b.url)) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
+  for (const p of b.profiles) if (!ownUrl.test(p.url)) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
   const message = cfg.text.contact_message;
   if (!links.length && !message) return null;
 

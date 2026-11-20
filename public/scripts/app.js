@@ -33,7 +33,6 @@ import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
 import { renderDocs } from "./views/docs.js";
 import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme } from "./edit/mode.js";
-import { accountCorner } from "./views/site-header.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -257,6 +256,7 @@ function ctx() {
     photo: state.photo,
     bannerImage: state.banner,
     homeHref: BASE_PATH,
+    embedded: EMBEDDED,
     openResume: () => navigate(`${state.base}/resume`),
   };
 }
@@ -281,7 +281,6 @@ function ensureShell(kind, active) {
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
       vm.source.type === "preview" && !EMBEDDED ? buildPreviewBar() : null,
-      EMBEDDED || vm.source.type === "preview" ? null : accountCorner(),
       ...top,
       h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
       buildFooter(vm, config, c),
