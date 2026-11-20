@@ -30,6 +30,7 @@ const EMBEDDED = typeof window !== "undefined" && window.self !== window.top;
 
 let api = null; // { state, rerender(resume), setPublished(resume) } from app.js
 let editing = false;
+let entering = false; // enterEdit is awaiting GitHub / the draft dialog
 let ui = null; // { toolbar, bar }
 let rerenderTimer = null;
 
@@ -105,7 +106,21 @@ export function leaveEditing() {
 // ============================================================================
 
 async function enterEdit(kind) {
+  if (entering || editing) return; // double click
+  entering = true;
+  try {
+    await enterEditNow(kind);
+  } finally {
+    entering = false;
+  }
+}
+
+async function enterEditNow(kind) {
   const { state } = api;
+  const loadId = state.loadId;
+  // Navigated away (or signed out) while we were waiting: don't edit that page
+  const stale = () => state.loadId !== loadId || editKind() !== kind;
+  document.querySelector(".ed-fab")?.setAttribute("disabled", "");
   ed.user = cachedUser();
   if (kind === "preview") {
     if (!ed.resume || ed.source?.type !== "local") begin(structuredClone(state.data.resume || {}), { type: "local" });
@@ -116,8 +131,10 @@ async function enterEdit(kind) {
       own = await fetchOwnResume();
     } catch (e) {
       toast(e.message, "error");
+      document.querySelector(".ed-fab")?.removeAttribute("disabled");
       return;
     }
+    if (stale()) return;
     const local = readDraft();
     begin(
       own ? own.resume : { ...blankScaffold(), basics: { name: ed.user?.name || "" } },
@@ -126,6 +143,7 @@ async function enterEdit(kind) {
     );
     await offerDraft(local, own);
   }
+  if (stale()) return;
   editing = true;
   setEditParam(true);
   mountUi(kind);
@@ -160,6 +178,8 @@ function exitEdit() {
   editing = false;
   leaveUi();
   setEditParam(false);
+  // A preview has nowhere to publish: what you edited is what it shows
+  if (editKind() === "preview") api.setPublished(structuredClone(ed.resume));
   api.rerender(api.state.data.resume);
 }
 
@@ -371,7 +391,7 @@ function resumeIndex(key, item) {
   const list = ed.resume[key];
   if (!Array.isArray(list)) return -1;
   if (key === "projects") return item.fromResume === false ? -1 : (item.order ?? -1);
-  if (key === "skills") return item.fromGithub ? -1 : list.findIndex((s) => s && s.name === item.name);
+  if (key === "skills") return item.fromGithub ? -1 : (item.index ?? list.findIndex((s) => s && s.name === item.name));
   return list.indexOf(item);
 }
 

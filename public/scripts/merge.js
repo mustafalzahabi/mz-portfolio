@@ -110,8 +110,10 @@ export function skillLevelPercent(level) {
 
 export function mergeSkills(resumeSkills, repos, { githubLanguages = true } = {}) {
   const groups = arr(resumeSkills)
-    .filter((s) => s && (s.name || arr(s.keywords).length))
-    .map((s) => ({
+    .map((s, index) => [s, index])
+    .filter(([s]) => s && (s.name || arr(s.keywords).length))
+    .map(([s, index]) => ({
+      index, // position in resume.skills (names can repeat)
       name: str(s.name) || "Skills",
       level: str(s.level),
       percent: skillLevelPercent(s.level),

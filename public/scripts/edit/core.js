@@ -1386,6 +1386,8 @@ async function save() {
           const resume = parseResumeJson(await gistFileText(remote, ed.source.filename));
           begin(resume, { ...ed.source, updatedAt: remote.updated_at }, { base: prune(resume), savedAt: remote.updated_at });
           ed.saving = false;
+          updateStatus();
+          renderPanel(); // open forms show the loaded version
           hooks.onChange();
           toast("Loaded the version from GitHub.");
           return;
