@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { tokenizeJs } from "./code-reveal.js";
+import { sourceOf } from "../utils.js";
 
 const UNIT_TAGS = new Set(["IMG", "SVG", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "VIDEO", "IFRAME", "CANVAS", "HR", "PICTURE"]);
 const INLINE = new Set(["SPAN", "STRONG", "EM", "B", "I", "A", "CODE", "SMALL", "TIME", "ABBR", "MARK", "BR", "SUP", "SUB"]);
@@ -37,10 +38,11 @@ export function collectUnits(root, max = MAX_UNITS) {
 const clip = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 const str = (t) => JSON.stringify(clip(t, 26));
 
-let sourceLines = null;
+let sourceFiles = null; // url (no query) -> raw lines
+let sourceLines = null; // every code line, trimmed, for the class-based fallback
 let sourceLoading = null;
 
-/** Loads the lines of every same-origin script this page has run (from cache). */
+/** Loads every same-origin script this page has run (from cache). */
 export function loadSources() {
   if (sourceLines || sourceLoading) return sourceLoading || Promise.resolve();
   const urls = [...new Set(performance.getEntriesByType("resource")
@@ -48,6 +50,7 @@ export function loadSources() {
     .filter((u) => u.startsWith(location.origin) && /\.js(\?|$)/.test(u) && !/\/sw\.js/.test(u)))];
   sourceLoading = Promise.all(urls.map((u) => fetch(u).then((r) => (r.ok ? r.text() : "")).catch(() => "")))
     .then((texts) => {
+      sourceFiles = new Map(urls.map((u, i) => [u.split("?")[0], texts[i].split(/\r?\n/)]));
       sourceLines = texts.flatMap((t) => t.split(/\r?\n/)).map((l) => l.trim())
         .filter((l) => l && !l.startsWith("//") && !l.startsWith("*") && !l.startsWith("/*"));
     })
@@ -55,12 +58,41 @@ export function loadSources() {
   return sourceLoading;
 }
 
+/** The statement starting at `line` (1-based): continued until its brackets close. */
+function statementAt(lines, line) {
+  let out = "";
+  let depth = 0;
+  for (let i = line - 1; i < lines.length && i < line + 6; i++) {
+    const part = lines[i].trim();
+    out += (out && !/^[)\]}.,]/.test(part) ? " " : "") + part;
+    for (const ch of part.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, "")) {
+      if ("([{".includes(ch)) depth++;
+      else if (")]}".includes(ch)) depth--;
+    }
+    if (depth <= 0 || out.length > 220) break;
+  }
+  return out;
+}
+
+/** The exact line that created `el` or its nearest tracked parent (see traceSources). */
+function exactLineFor(el) {
+  if (!sourceFiles) return "";
+  for (let node = el, depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    const where = sourceOf(node);
+    const lines = where && sourceFiles.get(where.url);
+    if (lines?.[where.line - 1]) return statementAt(lines, where.line);
+  }
+  return "";
+}
+
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const ownClasses = (el) => [...el.classList].filter((c) => !/^(anim|dz|is-|has-)/.test(c));
 
-/** The real source line that builds `el` (or its nearest classed parent), if found. */
+/** The real source line that builds `el`: its exact creation site, else the best class match. */
 export function sourceLineFor(el) {
   if (!sourceLines) return "";
+  const exact = exactLineFor(el);
+  if (exact) return exact;
   let node = el;
   for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
     const classes = ownClasses(node);

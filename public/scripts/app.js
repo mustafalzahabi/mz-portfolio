@@ -5,7 +5,7 @@
 import { resolveImage, isGistImage } from "./images.js";
 import { templateResume } from "./template.js";
 import { completeSignIn, isSignInReturn } from "./account.js";
-import { h, svgIcon, safeUrl } from "./utils.js";
+import { h, svgIcon, safeUrl, traceSources } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
 import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "./router.js";
@@ -279,6 +279,7 @@ function ensureShell(kind, active) {
   const c = ctx();
   const app = document.getElementById("app");
   app.setAttribute("aria-busy", "false");
+  if (kind === "profile") traceIfDissolving();
 
   const top =
     kind === "profile"
@@ -376,6 +377,7 @@ function renderProfile(view) {
   const { vm, config } = state;
   updateHead(vm, config);
   const c = ctx();
+  traceIfDissolving();
   const hidden = new Set(config.sections.hide);
   const sections = [];
   const builders = new Map();
@@ -412,6 +414,12 @@ function renderProfile(view) {
     builders.set(header, buildHeader);
     setupAnimations(items, config.animation, (el) => builders.get(el) || null);
   }
+  traceSources(false);
+}
+
+/** Before the first portfolio render with the dissolve intro, record where each element is built. */
+function traceIfDissolving() {
+  traceSources(!state.introPlayed && state.config?.animation?.intro === "dissolve");
 }
 
 function notFoundInline(message, href, label) {

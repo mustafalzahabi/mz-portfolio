@@ -67,9 +67,37 @@ export function isExternalUrl(url) {
 // h("a.btn", { href, onclick }, "text", childNode, [more])
 // ============================================================================
 
+// While the dissolve intro is about to play, h() remembers the file and line
+// that created each element, so its wisp can show that exact line of code.
+let tracing = false;
+const origins = new WeakMap();
+const FRAME = /((?:https?|file):\/\/[^\s()]+?):(\d+):\d+/;
+
+/** Turns creation-site tracking on or off (off by default: it costs a stack trace per element). */
+export function traceSources(on) {
+  tracing = Boolean(on);
+}
+
+/** { url, line } of the h() call that created `el`, when it was tracked. */
+export function sourceOf(el) {
+  return origins.get(el) || null;
+}
+
+function callerOf(stack = "") {
+  for (const frame of stack.split("\n").slice(1)) {
+    const m = frame.match(FRAME);
+    if (m && !/\/utils\.js(\?|$)/.test(m[1])) return { url: m[1].split("?")[0], line: Number(m[2]) };
+  }
+  return null;
+}
+
 export function h(tag, props, ...children) {
   const [name, ...classes] = tag.split(".");
   const el = document.createElement(name || "div");
+  if (tracing) {
+    const where = callerOf(new Error().stack);
+    if (where) origins.set(el, where);
+  }
   if (classes.length) el.className = classes.join(" ");
 
   if (props && (typeof props !== "object" || props instanceof Node || Array.isArray(props))) {
