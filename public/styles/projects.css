@@ -20,6 +20,36 @@
   background: var(--well);
 }
 
+/* Generated cover for projects without a picture: the owner's colors + initials */
+.project-media.is-generated {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--color-a), var(--color-v));
+  color: color-mix(in oklab, var(--color-b) 92%, transparent);
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.project-media.is-generated[data-tone="1"] {
+  background: linear-gradient(135deg, var(--color-d), var(--color-p));
+}
+
+.project-media.is-generated[data-tone="2"] {
+  background: linear-gradient(135deg, var(--color-p), var(--color-a));
+}
+
+.project-media.is-generated span {
+  text-shadow: 0 2px 12px color-mix(in oklab, var(--color-c) 25%, transparent);
+  transition: transform 0.5s var(--anim-ease);
+}
+
+@media (hover: hover) {
+  .project-card:hover .project-media.is-generated span {
+    transform: scale(1.08);
+  }
+}
+
 .project-media img {
   width: 100%;
   height: 100%;
@@ -153,5 +183,27 @@
 
   .projects[data-layout="list"] .project-media {
     width: 14rem;
+  }
+}
+
+/* ---------- the grid adapts to how many projects there are ---------- */
+
+@media (min-width: 700px) {
+  .projects[data-layout="grid"][data-count="1"] {
+    grid-template-columns: 1fr;
+  }
+
+  .projects[data-layout="grid"][data-count="1"] .project-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+
+  .projects[data-layout="grid"][data-count="1"] .project-media {
+    aspect-ratio: auto;
+    min-height: 100%;
+  }
+
+  .projects[data-layout="grid"][data-count="2"] {
+    grid-template-columns: 1fr 1fr;
   }
 }

@@ -3,6 +3,7 @@
 // Path:  /                     landing page
 //        /preview              local preview (drop / paste a resume.json)
 //        /docs                 configuration reference
+//        /edit                 editor (forms, live preview, save to gist)
 //        /preview/view/...     the previewed portfolio
 //        /gh/:username/...     redirects to /:username/...
 //        /:id/...              portfolio, source auto-detected (GitHub or Drive)
@@ -11,7 +12,7 @@
 // path is derived from this module's own URL.
 // ============================================================================
 
-const RESERVED = new Set(["preview", "docs"]);
+const RESERVED = new Set(["preview", "docs", "edit", "privacy"]);
 
 export const BASE_PATH =
   typeof location !== "undefined" ? new URL("../", import.meta.url).pathname : "/";
@@ -76,6 +77,7 @@ export function parsePath(pathname = location.pathname, base = BASE_PATH) {
   if (!parts.length) return { view: "landing" };
   const first = parts[0].toLowerCase();
   if (first === "docs" && parts.length === 1) return { view: "docs" };
+  if (first === "edit" && parts.length === 1) return { view: "edit" };
   if (first === "preview") {
     if (parts[1] !== "view") return { view: "preview" };
     return { view: "portfolio", preview: true, source: "preview", id: "preview", base: `${base}preview/view`, sub: parseSub(parts.slice(2)) };
@@ -144,6 +146,7 @@ export function interceptLinks(root = document) {
     if (!a || a.target === "_blank" || a.hasAttribute("download") || a.dataset.external !== undefined) return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(BASE_PATH)) return;
+    if (url.pathname.startsWith("/api/") || /^\/privacy(\.html)?$/.test(url.pathname)) return; // server routes and static pages → real navigation
     const samePage = url.pathname === location.pathname && url.search === location.search;
     if (samePage && url.hash) return; // in-page anchor → native
     e.preventDefault();

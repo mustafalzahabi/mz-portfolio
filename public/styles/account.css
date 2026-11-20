@@ -1,0 +1,251 @@
+/* ============================================================================
+   ACCOUNT — avatar button + menu, welcome strip (landing and editor)
+   ============================================================================ */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--size, 32px);
+  height: var(--size, 32px);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--well);
+}
+
+.avatar-initials {
+  background: var(--color-p);
+  color: var(--on-p);
+  font-size: calc(var(--size, 32px) * 0.4);
+  font-weight: 700;
+}
+
+.account {
+  position: relative;
+}
+
+.account-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.account-button .avatar {
+  box-shadow: 0 0 0 2px var(--color-b), 0 0 0 3px var(--line-soft);
+  transition: box-shadow 0.15s;
+}
+
+.account-button:hover .avatar,
+.account-button[aria-expanded="true"] .avatar {
+  box-shadow: 0 0 0 2px var(--color-b), 0 0 0 4px var(--color-a);
+}
+
+.account-button:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 15rem;
+  padding: 0.4rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  box-shadow: var(--shadow-lg);
+}
+
+.account-menu[hidden] {
+  display: none;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.6rem 0.6rem;
+}
+
+.account-head > div {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.account-head strong,
+.account-head .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-head .muted {
+  font-size: 0.85rem;
+}
+
+.account-sep {
+  height: 1px;
+  margin: 0.3rem 0;
+  background: var(--line-soft);
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 40px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: calc(var(--radius) * 0.6);
+  background: none;
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.account-item .icon {
+  color: var(--ink-muted);
+}
+
+.account-item:hover,
+.account-item:focus-visible {
+  background: var(--well);
+  outline: none;
+}
+
+.landing-welcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.landing-welcome-text {
+  display: grid;
+  flex: 1;
+  min-width: 10rem;
+  line-height: 1.3;
+}
+
+.landing-welcome-text .muted {
+  font-size: 0.88rem;
+}
+
+.landing-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* which account you're signed in with */
+.account-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.account-provider .icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* ---------- sign-in overlay ---------- */
+
+.signin-dialog {
+  width: min(24rem, calc(100vw - 2rem));
+  margin: auto;
+  inset: 0;
+  height: fit-content;
+  position: fixed;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--color-c);
+  box-shadow: var(--shadow-lg);
+}
+
+.signin-dialog::backdrop {
+  background: color-mix(in oklab, var(--color-c) 45%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.signin-card {
+  position: relative;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.75rem 1.5rem 1.25rem;
+  text-align: center;
+}
+
+.signin-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--color-c);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.signin-card p {
+  margin: 0;
+}
+
+.signin-mark {
+  display: flex;
+  justify-content: center;
+}
+
+.signin-options {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.signin-option {
+  justify-content: center;
+  width: 100%;
+}
+
+.signin-note {
+  font-size: 0.85rem;
+}
+
+.signin-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.signin-close:hover {
+  background: var(--well);
+}

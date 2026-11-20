@@ -1,0 +1,1453 @@
+// ============================================================================
+// EDIT CORE — the draft resume, undo/redo, forms, settings, JSON, blog posts
+// and saving. The portfolio page itself is the preview: edit/mode.js shows
+// these panels in the Customize drawer and re-renders the page through
+// hooks.onChange(). Drafts are kept in this browser (localStorage) and can be
+// saved to a secret gist to continue on another device.
+// ============================================================================
+
+import { h, svgIcon, toast, copyText, downloadFile, slugify, parseFrontmatter, readingTime } from "../utils.js";
+import { ICONS, logoImg } from "../icons.js";
+import { BASE_PATH } from "../router.js";
+import { CONFIG_SCHEMA, DEFAULT_CONFIG, COLOR_TOKENS, normalizeConfig, migrateLegacy, isValidColor } from "../config.js";
+import { validateResume } from "../merge.js";
+import { parseResumeJson, getResumeFilename } from "../data.js";
+import { fetchGistList, fetchText } from "../api.js";
+import { markdownToHtml } from "../markdown.js";
+import { checkPalette, darkHex } from "../palette.js";
+import { CURATED_THEMES } from "../resume/index.js";
+import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, blankScaffold } from "../template.js";
+import { getPath, setPath, isEmpty, prune, History, diffSummary, validateField, frontmatter, applyMarkdown } from "../editor-core.js";
+import { TOKEN_HELP_URL, signIn } from "../github.js";
+import { storage } from "../storage.js";
+import { googleLoginUrl } from "../google.js";
+import { accountMenu, avatarImg, dropdown, loginUrl } from "../account.js";
+import { resolveImage, imageToDataUrl, isGistImage, IMAGE_FILES } from "../images.js";
+import { selectMenu } from "../ui.js";
+
+/** "photoShape" / "two-column" → "Photo shape" / "Two column" */
+const humanize = (v) => String(v).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+const DRAFT_KEY = "mz-editor-draft";
+const POST_DRAFT_KEY = "mz-editor-post-draft";
+
+/** Set by edit/mode.js: onChange re-renders the page, onSaved reloads it from GitHub. */
+export const hooks = { onChange: () => {}, onSaved: () => {}, onStatus: () => {} };
+
+// ============================================================================
+// STATE
+// ============================================================================
+
+const ed = {
+  user: null, // GitHub user when signed in
+  resume: null,
+  base: null, // last saved / loaded version (pruned), for "unsaved changes" + diff
+  source: null, // { type: "gist" | "drive", id, filename, updatedAt, url, folderId? } | { type: "local" }
+  savedAt: null,
+  saving: false,
+  tab: "resume",
+  dirty: false,
+  history: null,
+  posts: null, // [{ gistId, filename, title, … }] once loaded
+  post: null, // post being edited
+  root: null, // the Customize drawer, while open
+  query: { resume: "", settings: "" },
+  open: new Set(["basics", "settings:colors", "settings:theme"]), // expanded groups
+};
+
+const store = {
+  get(key) {
+    try {
+      return JSON.parse(localStorage.getItem(key) || "null");
+    } catch {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
+function ago(ts) {
+  if (!ts) return "";
+  const s = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const hrs = Math.round(m / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+/** Starts editing a resume. base = the saved version (null when it isn't saved anywhere yet). */
+function begin(resume, source, { base = null, savedAt = null } = {}) {
+  ed.resume = resume;
+  ed.source = source;
+  ed.base = base;
+  ed.savedAt = savedAt;
+  ed.history = new History(resume);
+  ed.post = null;
+  ed.dirty = computeDirty();
+  saveDraft();
+}
+
+/** A collapsible group whose open/closed state survives re-renders. */
+function group(key, summaryChildren, body) {
+  const d = h("details.ed-group", { open: ed.open.has(key) ? true : null, dataset: { key } }, h("summary", summaryChildren), body);
+  d.addEventListener("toggle", () => (d.open ? ed.open.add(key) : ed.open.delete(key)));
+  return d;
+}
+
+// ============================================================================
+// CHANGE HANDLING
+// ============================================================================
+
+const snapshot = () => JSON.stringify(prune(ed.resume));
+
+function computeDirty() {
+  if (!ed.resume) return false;
+  if (!ed.base) return !isEmpty(prune(ed.resume));
+  return snapshot() !== JSON.stringify(ed.base);
+}
+
+/** Call after every edit. key = the field path, so typing merges into one undo step. */
+function changed({ rerender = false, key = null } = {}) {
+  ed.history?.push(ed.resume, key);
+  afterChange();
+  if (rerender) renderPanel();
+}
+
+function afterChange() {
+  ed.dirty = computeDirty();
+  saveDraft();
+  updateStatus();
+  hooks.onChange();
+}
+
+function undo() {
+  const prev = ed.history?.undo();
+  if (!prev) return;
+  ed.resume = prev;
+  afterChange();
+  renderPanel({ keepFocus: true });
+}
+
+function redo() {
+  const next = ed.history?.redo();
+  if (!next) return;
+  ed.resume = next;
+  afterChange();
+  renderPanel({ keepFocus: true });
+}
+
+function saveDraft() {
+  if (!ed.resume) return;
+  ed.draftFailed = !store.set(DRAFT_KEY, { resume: ed.resume, source: ed.source, base: ed.base, savedAt: ed.savedAt, editedAt: new Date().toISOString(), dirty: ed.dirty });
+  if (ed.draftFailed) updateStatus("Draft too large to keep in this browser");
+}
+
+function readDraft() {
+  const d = store.get(DRAFT_KEY);
+  return d && d.resume && typeof d.resume === "object" ? d : null;
+}
+
+// Drafts are kept in localStorage, so leaving only needs a warning when that failed.
+function beforeUnload(e) {
+  if (ed.dirty && ed.draftFailed) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+}
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+
+let uid = 0;
+
+function field(label, input, hint) {
+  const id = `f${++uid}`;
+  const control = input.control || input; // custom selects label their button
+  control.id = id;
+  const error = h("p.ed-field-error", { id: `${id}-err`, "aria-live": "polite" });
+  control.setAttribute("aria-describedby", `${id}-err`);
+  return h("div.ed-field", h("label", { for: id }, label), input, hint ? h("p.ed-hint", hint) : null, error);
+}
+
+function showFieldError(input, message) {
+  const err = document.getElementById(`${input.id}-err`);
+  if (err) err.textContent = message;
+  if (message) input.setAttribute("aria-invalid", "true");
+  else input.removeAttribute("aria-invalid");
+}
+
+/** Text-like input bound to resume[path]. kind: text | textarea | url | email | tel | date | list */
+function boundInput(path, label, kind = "text", { onChange, placeholder } = {}) {
+  const value = getPath(ed.resume, path);
+  let input;
+  if (kind === "textarea") {
+    input = h("textarea.input", { rows: "4", placeholder });
+    input.value = value ?? "";
+  } else if (kind === "list") {
+    input = h("textarea.input", { rows: "3", placeholder: placeholder || "One per line" });
+    input.value = Array.isArray(value) ? value.join("\n") : value ?? "";
+  } else {
+    input = h("input.input", {
+      type: kind === "date" ? "text" : kind,
+      inputmode: kind === "date" ? "numeric" : null,
+      autocomplete: "off",
+      placeholder: placeholder || (kind === "date" ? "YYYY-MM" : null),
+    });
+    input.value = value ?? "";
+  }
+  input.dataset.path = path.join(".");
+  const wrap = field(label, input, kind === "list" ? "One item per line." : null);
+  const check = () => showFieldError(input, kind === "list" || kind === "textarea" ? "" : validateField(kind, input.value));
+  input.addEventListener("input", () => {
+    const v = kind === "list" ? input.value.split("\n").map((s) => s.trim()).filter(Boolean) : input.value;
+    setPath(ed.resume, path, kind === "list" ? v : v.trim() === "" ? "" : v);
+    onChange?.(v);
+    changed({ key: input.dataset.path });
+  });
+  input.addEventListener("blur", check);
+  if (input.value) check();
+  return wrap;
+}
+
+function iconButton(icon, label, onclick, extra = "") {
+  return h(`button.ed-icon-btn${extra}`, { type: "button", "aria-label": label, title: label, onclick }, svgIcon(ICONS[icon] || icon));
+}
+
+let drag = null; // { list: "work", from: 2 }
+
+/** Editable list of objects (sections, profiles, tabs) with add / move / drag / duplicate / remove. */
+function itemList({ path, fields, title, addLabel, noun = "item", newItem = () => ({}), renderFields }) {
+  const listKey = path.join(".");
+  const wrap = h("div.ed-items", { dataset: { path: listKey } });
+  const items = getPath(ed.resume, path) || [];
+
+  const move = (from, to) => {
+    if (to < 0 || to >= items.length || from === to) return;
+    const [item] = items.splice(from, 1);
+    items.splice(to, 0, item);
+    changed({ rerender: true });
+  };
+
+  items.forEach((item, i) => {
+    const heading = h("span.ed-item-title", title(item) || `New ${noun}`);
+    const handle = h("span.ed-grip", { title: "Drag to reorder", "aria-hidden": "true" }, svgIcon(ICONS.grip));
+    const card = h("details.ed-item", { open: items.length === 1 ? true : null, dataset: { index: String(i) } },
+      h("summary",
+        handle,
+        heading,
+        h("span.ed-item-actions",
+          iconButton("chevronUp", "Move up", (e) => { e.preventDefault(); move(i, i - 1); }),
+          iconButton("chevronDown", "Move down", (e) => { e.preventDefault(); move(i, i + 1); }),
+          iconButton("copy", "Duplicate", (e) => {
+            e.preventDefault();
+            items.splice(i + 1, 0, structuredClone(item));
+            changed({ rerender: true });
+          }),
+          iconButton("close", "Remove", (e) => {
+            e.preventDefault();
+            if (isEmpty(prune(item)) || confirm(`Remove "${title(item) || `this ${noun}`}"?`)) {
+              items.splice(i, 1);
+              setPath(ed.resume, path, items.length ? items : []);
+              changed({ rerender: true });
+            }
+          }, ".danger"),
+        ),
+      ),
+    );
+
+    // Drag to reorder (pointer devices; the arrow buttons cover keyboard and touch)
+    handle.addEventListener("pointerdown", () => (card.draggable = true));
+    card.addEventListener("dragstart", (e) => {
+      drag = { list: listKey, from: i };
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(i));
+      card.classList.add("is-dragging");
+    });
+    card.addEventListener("dragend", () => {
+      card.draggable = false;
+      card.classList.remove("is-dragging");
+      drag = null;
+    });
+    card.addEventListener("dragover", (e) => {
+      if (drag?.list !== listKey) return;
+      e.preventDefault();
+      card.classList.add("is-drop");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("is-drop"));
+    card.addEventListener("drop", (e) => {
+      card.classList.remove("is-drop");
+      if (drag?.list !== listKey) return;
+      e.preventDefault();
+      move(drag.from, i);
+    });
+
+    const body = h("div.ed-item-body");
+    if (renderFields) body.append(...renderFields([...path, i], item));
+    else for (const [key, label, kind, placeholder] of fields) {
+      body.appendChild(boundInput([...path, i, key], label, kind, {
+        placeholder,
+        onChange: () => (heading.textContent = title(getPath(ed.resume, [...path, i])) || `New ${noun}`),
+      }));
+    }
+    card.appendChild(body);
+    wrap.appendChild(card);
+  });
+
+  wrap.appendChild(
+    h("button.btn.btn-ghost.ed-add", { type: "button", onclick: () => {
+      const list = getPath(ed.resume, path) || [];
+      list.push(newItem());
+      setPath(ed.resume, path, list);
+      changed({ rerender: true });
+      requestAnimationFrame(() => {
+        const el = ed.root.querySelector(`.ed-items[data-path="${CSS.escape(listKey)}"]`);
+        el?.closest(".ed-group")?.setAttribute("open", "");
+        const added = el?.querySelector(":scope > .ed-item:last-of-type");
+        if (added) {
+          added.open = true;
+          added.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          added.querySelector("input, textarea, select")?.focus({ preventScroll: true });
+        }
+      });
+    } }, svgIcon(ICONS.plus), addLabel),
+  );
+  return wrap;
+}
+
+// ============================================================================
+// PANEL TOOLS — search, expand/collapse, clickable warnings
+// ============================================================================
+
+function panelTools(kind, panel) {
+  const search = h("input.input.ed-search", {
+    type: "search", placeholder: kind === "resume" ? "Find a field or section" : "Find a setting", "aria-label": "Filter fields", value: ed.query[kind],
+  });
+  search.addEventListener("input", () => {
+    ed.query[kind] = search.value;
+    filterPanel(panel, search.value);
+  });
+  const setAll = (open) => panel.querySelectorAll(".ed-group").forEach((g) => (g.open = open));
+  return h("div.ed-tools",
+    h("span.ed-search-wrap", svgIcon(ICONS.search), search),
+    h("button.link-btn", { type: "button", onclick: () => setAll(true) }, "Expand all"),
+    h("button.link-btn", { type: "button", onclick: () => setAll(false) }, "Collapse all"),
+  );
+}
+
+function filterPanel(panel, query) {
+  const q = query.trim().toLowerCase();
+  let shown = 0;
+  for (const g of panel.querySelectorAll(":scope > .ed-group")) {
+    if (!q) {
+      g.hidden = false;
+      g.querySelectorAll(".ed-field, .ed-item").forEach((el) => (el.hidden = false));
+      shown++;
+      continue;
+    }
+    const titleHit = g.querySelector("summary").textContent.toLowerCase().includes(q);
+    let any = titleHit;
+    for (const f of g.querySelectorAll(".ed-field")) {
+      const text = `${f.querySelector("label, .ed-label")?.textContent || ""} ${f.querySelector("input, textarea, select")?.value || ""}`.toLowerCase();
+      const hit = titleHit || text.includes(q);
+      f.hidden = !hit;
+      any ||= hit;
+    }
+    for (const item of g.querySelectorAll(".ed-item")) {
+      item.hidden = !titleHit && ![...item.querySelectorAll(".ed-field")].some((f) => !f.hidden);
+      if (!item.hidden && !titleHit) item.open = true;
+    }
+    g.hidden = !any;
+    if (any) {
+      g.open = true;
+      shown++;
+    }
+  }
+  panel.querySelector(".ed-no-match")?.remove();
+  if (q && !shown) panel.appendChild(h("p.muted.ed-no-match", `Nothing matches “${query}”.`));
+}
+
+function warningsBox(warnings, label) {
+  return h("details.ed-warnings", h("summary", svgIcon(ICONS.alert), label),
+    h("ul", warnings.map((w) => {
+      const m = /^(\w+)(?:\[(\d+)\])?/.exec(w);
+      const key = m?.[1];
+      const target = key === "basics" ? "basics" : SECTIONS.some((s) => s.key === key) ? `resume:${key}` : null;
+      return h("li", target ? h("button.link-btn", { type: "button", onclick: () => revealGroup(target, m[2]) }, w) : w);
+    })));
+}
+
+function revealGroup(key, index) {
+  ed.open.add(key);
+  ed.query.resume = "";
+  renderPanel();
+  const g = ed.root.querySelector(`.ed-group[data-key="${CSS.escape(key)}"]`);
+  if (!g) return;
+  const item = index !== undefined ? g.querySelector(`.ed-item[data-index="${index}"]`) : null;
+  if (item) item.open = true;
+  (item || g).scrollIntoView({ block: "start", behavior: "smooth" });
+  (item || g).querySelector("[aria-invalid], input, textarea")?.focus({ preventScroll: true });
+}
+
+// ============================================================================
+// RESUME TAB
+// ============================================================================
+
+function resumePanel() {
+  const panel = h("div.ed-panel");
+  const warnings = validateResume(prune(ed.resume));
+  panel.appendChild(panelTools("resume", panel));
+  if (warnings.length) panel.appendChild(warningsBox(warnings, `${warnings.length} thing(s) to check`));
+
+  const body = h("div.ed-group-body");
+  const basics = group("basics", [h("strong", "Basics"), h("span.muted", "Name, contact, summary")], body);
+  for (const [key, label, kind, placeholder] of BASICS_FIELDS) body.appendChild(boundInput(["basics", key], label, kind, { placeholder }));
+  body.appendChild(h("h3.ed-sub", "Location"));
+  const loc = h("div.ed-grid");
+  for (const [key, label, kind, placeholder] of LOCATION_FIELDS) loc.appendChild(boundInput(["basics", "location", key], label, kind, { placeholder }));
+  body.appendChild(loc);
+  body.appendChild(h("h3.ed-sub", "Profiles"));
+  body.appendChild(itemList({
+    path: ["basics", "profiles"],
+    fields: PROFILE_FIELDS,
+    noun: "profile",
+    title: (p) => [p.network, p.username].filter(Boolean).join(" · "),
+    addLabel: "Add profile",
+  }));
+  panel.appendChild(basics);
+
+  for (const s of SECTIONS) {
+    const filled = (ed.resume[s.key] || []).filter((x) => !isEmpty(prune(x))).length;
+    const total = (ed.resume[s.key] || []).length;
+    panel.appendChild(group(`resume:${s.key}`, [h("strong", s.label), h("span.muted", filled ? `${filled}` : "empty")],
+      h("div.ed-group-body",
+        total ? null : h("p.ed-hint", `No ${s.label.toLowerCase()} yet. Add your first ${s.noun}.`),
+        itemList({ path: [s.key], fields: s.fields, title: s.title, noun: s.noun, addLabel: `Add ${s.noun}` }))));
+  }
+  if (ed.query.resume) queueMicrotask(() => filterPanel(panel, ed.query.resume));
+  return panel;
+}
+
+// ============================================================================
+// SETTINGS TAB (generated from CONFIG_SCHEMA)
+// ============================================================================
+
+function cfgRoot(create = false) {
+  ed.resume.meta ||= {};
+  let c = ed.resume.meta["mz-portfolio-config"];
+  if (Array.isArray(c)) {
+    if (!c[0] && create) c[0] = {};
+    return c[0] || {};
+  }
+  if (!c || typeof c !== "object") {
+    if (!create) return {};
+    c = ed.resume.meta["mz-portfolio-config"] = {};
+  }
+  return c;
+}
+
+function setCfg(path, value) {
+  const def = getPath(DEFAULT_CONFIG, path);
+  const root = cfgRoot(true);
+  const same = JSON.stringify(value) === JSON.stringify(def);
+  setPath(root, path, same ? undefined : value);
+  if (isEmpty(cfgRoot())) {
+    if (Array.isArray(ed.resume.meta["mz-portfolio-config"])) ed.resume.meta["mz-portfolio-config"] = [{}];
+    else delete ed.resume.meta["mz-portfolio-config"];
+  }
+  if (isEmpty(ed.resume.meta)) delete ed.resume.meta;
+}
+
+const isLeaf = (n) => n && typeof n === "object" && "type" in n && "desc" in n;
+const LONG_TEXT = new Set(["bio", "contact_message", "text"]);
+
+function cfgInput(path, node, current) {
+  const key = path[path.length - 1];
+  const label = key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  const fieldKey = `cfg.${path.join(".")}`;
+  const set = (v) => {
+    setCfg(path, v);
+    changed({ key: fieldKey });
+  };
+
+  switch (node.type) {
+    case "enum": {
+      const sel = selectMenu({ options: node.values.map((v) => ({ value: v, label: humanize(v) })), value: current, onChange: set });
+      return field(label, sel, node.desc);
+    }
+    case "boolean": {
+      const box = h("input", { type: "checkbox", checked: current ? true : null });
+      box.addEventListener("change", () => set(box.checked));
+      const id = `f${++uid}`;
+      box.id = id;
+      return h("div.ed-field.ed-check", box, h("label", { for: id }, label), h("p.ed-hint", node.desc));
+    }
+    case "number": {
+      const n = h("input.input", { type: "number", min: node.min, max: node.max, step: node.max <= 10 ? "0.05" : "1", value: current, placeholder: String(node.default) });
+      n.addEventListener("change", () => {
+        if (n.value === "") return set(node.default);
+        const v = Math.min(node.max, Math.max(node.min, Number(n.value)));
+        n.value = String(v);
+        set(v);
+      });
+      return field(label, n, `${node.desc} (${node.min}–${node.max})`);
+    }
+    case "array": {
+      const t = h("textarea.input", { rows: "3", placeholder: node.values ? `One per line: ${node.values.join(", ")}` : "One per line" });
+      t.value = (current || []).join("\n");
+      t.addEventListener("input", () => set(t.value.split("\n").map((s) => s.trim()).filter(Boolean)));
+      return field(label, t, node.desc);
+    }
+    case "map": {
+      const box = h("div.ed-grid");
+      for (const k of node.keys) {
+        const inp = h("input.input", { type: "text", placeholder: "Default", value: current?.[k] || "" });
+        inp.addEventListener("input", () => {
+          const next = { ...(getPath(cfgRoot(), path) || {}) };
+          if (inp.value.trim()) next[k] = inp.value;
+          else delete next[k];
+          set(next);
+        });
+        box.appendChild(field(k, inp));
+      }
+      return h("div.ed-field", h("span.ed-label", label), h("p.ed-hint", node.desc), box);
+    }
+    default: {
+      const long = LONG_TEXT.has(key);
+      const placeholder = node.default ? String(node.default) : long ? "Leave empty to use your resume text" : "Default";
+      const t = long ? h("textarea.input", { rows: "3", placeholder }) : h("input.input", { type: "text", placeholder });
+      t.value = current && current !== node.default ? current : "";
+      t.addEventListener("input", () => set(t.value));
+      return field(label, t, node.desc);
+    }
+  }
+}
+
+// ---------- photo & banner pickers ----------
+// The choice lives only in the portfolio settings (profile.photo /
+// banner.image): basics.image and your GitHub avatar are never changed.
+
+/** The GitHub account behind this resume: its GitHub profile, else the signed-in user. */
+function githubForPreview() {
+  const p = (ed.resume?.basics?.profiles || []).find((x) => /github/i.test(String(x?.network || "")));
+  const ghUser = ed.user?.provider === "google" ? null : ed.user;
+  const login = String(p?.username || String(p?.url || "").match(/github\.com\/([^/?#]+)/i)?.[1] || ghUser?.login || "");
+  if (!login) return null;
+  const own = ghUser && ghUser.login.toLowerCase() === login.toLowerCase();
+  return { login, avatar_url: own ? ghUser.avatar_url : `https://github.com/${encodeURIComponent(login)}.png` };
+}
+
+function thumb(src, fallback, extraClass = "") {
+  const box = h(`span.ed-thumb${extraClass}`, { "aria-hidden": "true" });
+  const showFallback = () => box.replaceChildren(h("span.ed-thumb-text", fallback));
+  showFallback();
+  if (src) {
+    resolveImage(src).then((url) => {
+      if (!url) return;
+      const img = h("img", { src: url, alt: "", decoding: "async" });
+      img.addEventListener("error", showFallback);
+      box.replaceChildren(img);
+    });
+  }
+  return box;
+}
+
+function choiceCards(name, options, selected, onPick) {
+  const wrap = h("div.ed-choices", { role: "radiogroup" });
+  for (const o of options) {
+    const input = h("input", { type: "radio", name, value: o.value, checked: o.value === selected ? true : null, disabled: o.disabled ? true : null });
+    input.addEventListener("change", () => input.checked && onPick(o.value));
+    wrap.appendChild(h("label.ed-choice", { dataset: { disabled: o.disabled ? "" : null } }, input, o.thumb, h("span.ed-choice-text", h("strong", o.label), h("span.muted", o.hint))));
+  }
+  return wrap;
+}
+
+/**
+ * Uploads a picked image into the resume gist as a .txt file (gists only hold
+ * text) and returns its raw link. The link includes the commit, so a new
+ * upload never shows a cached old image.
+ */
+/** True once the resume exists in the signed-in account (gist or Drive). */
+const published = () => !!ed.source && ed.source.type !== "local";
+
+async function uploadImage(kind, file) {
+  if (!ed.user) {
+    openSignIn();
+    return "";
+  }
+  if (!published()) {
+    toast(`Saving your portfolio to ${storage().label} first…`);
+    await save();
+    if (!published()) return "";
+  }
+  const dataUrl = await imageToDataUrl(file, kind === "photo"
+    ? { maxWidth: 480, maxHeight: 480, square: true }
+    : String(kind).startsWith("project") ? { maxWidth: 1600, maxHeight: 1000 }
+    : { maxWidth: 1800, maxHeight: 900 });
+  const name = (IMAGE_FILES[kind] || `portfolio-${String(kind).replace(/[^\w-]/g, "-")}.txt`).replace(/\.txt$/, "");
+  return storage().uploadImage(ed.source, name, dataUrl);
+}
+
+/** "Upload image" button + "or paste a link" field, shared by both pickers. */
+function imageSource(kind, current, onSet) {
+  const file = h("input", { type: "file", accept: "image/png,image/jpeg,image/webp,image/gif,image/avif", class: "visually-hidden" });
+  const upload = h("button.btn.btn-ghost", { type: "button", onclick: () => file.click() }, svgIcon(ICONS.upload), "Upload image");
+  file.addEventListener("change", async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    upload.disabled = true;
+    upload.lastChild.textContent = "Uploading…";
+    try {
+      const url = await uploadImage(kind, f);
+      if (url) {
+        onSet(url);
+        toast("Image uploaded to your gist.");
+      }
+    } catch (e) {
+      toast(e.message, "error");
+    }
+    upload.disabled = false;
+    upload.lastChild.textContent = "Upload image";
+  });
+  const uploaded = isGistImage(current);
+  const link = h("input.input", { type: "url", placeholder: "https://…/image.jpg", value: uploaded ? "" : current });
+  link.addEventListener("change", () => {
+    const v = link.value.trim();
+    const err = validateField("url", v);
+    link.setAttribute("aria-invalid", err ? "true" : "false");
+    if (err) return toast(err, "error");
+    onSet(v);
+  });
+  return h("div.ed-image-source",
+    h("div.ed-row", upload, file, uploaded ? h("span.ed-uploaded", svgIcon(ICONS.check), "Uploaded image in use") : null),
+    field("Or paste an image link", link, kind === "photo" ? "Square images look best." : "A wide image works best (about 1800×750)."),
+  );
+}
+
+function photoPicker() {
+  const box = h("div.ed-field.ed-picker");
+  const draw = () => {
+    const current = String(getPath(normalizeConfig(ed.resume.meta || {}).config, ["profile", "photo"]) || "");
+    const mode = current === "none" ? "none" : /^(gh|github)$/.test(current) ? "gh" : current ? "custom" : "auto";
+    const gh = githubForPreview();
+    const own = String(ed.resume.basics?.image || "");
+    const initials = String(ed.resume.basics?.name || "?").split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+    const set = (v) => {
+      setCfg(["profile", "photo"], v);
+      changed({ key: "cfg.profile.photo" });
+      draw();
+    };
+    const pick = (v) => {
+      if (v === "custom") {
+        box.querySelector(".ed-image-source button")?.focus();
+        return;
+      }
+      set(v === "auto" ? "" : v);
+    };
+    box.replaceChildren(
+      h("span.ed-label", "Photo"),
+      h("p.ed-hint", "Only changes what this portfolio shows. Your resume's photo and your GitHub avatar stay as they are."),
+      choiceCards("photo", [
+        { value: "auto", label: "Automatic", hint: own ? "Your resume photo" : gh ? "Your GitHub photo" : "Your initials", thumb: thumb(own || gh?.avatar_url, initials) },
+        { value: "gh", label: "GitHub photo", hint: gh ? `@${gh.login}` : "Add a GitHub profile in Basics", thumb: thumb(gh?.avatar_url, "GH"), disabled: !gh },
+        { value: "custom", label: "Your own image", hint: "Upload or paste a link", thumb: thumb(mode === "custom" ? current : "", "+") },
+        { value: "none", label: "No photo", hint: "Shows your initials", thumb: thumb("", initials) },
+      ], mode, pick),
+      imageSource("photo", mode === "custom" ? current : "", set),
+    );
+  };
+  draw();
+  return box;
+}
+
+function bannerPicker() {
+  const box = h("div.ed-field.ed-picker");
+  const draw = () => {
+    const current = String(getPath(normalizeConfig(ed.resume.meta || {}).config, ["banner", "image"]) || "");
+    const set = (v) => {
+      setCfg(["banner", "image"], v);
+      changed({ key: "cfg.banner.image" });
+      draw();
+    };
+    box.replaceChildren(
+      h("span.ed-label", "Banner"),
+      choiceCards("banner", [
+        { value: "gradient", label: "Gradient", hint: "Made from your colors", thumb: h("span.ed-thumb.ed-thumb-wide.ed-thumb-gradient", { "aria-hidden": "true" }) },
+        { value: "image", label: "Image", hint: "Upload or paste a link", thumb: thumb(current, "+", ".ed-thumb-wide") },
+      ], current ? "image" : "gradient", (v) => (v === "gradient" ? set("") : box.querySelector(".ed-image-source button")?.focus())),
+      imageSource("banner", current, set),
+    );
+  };
+  draw();
+  return box;
+}
+
+function defaultTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  return Object.fromEntries(COLOR_TOKENS.map((t) => [t, cs.getPropertyValue(`--${t}`).trim()]));
+}
+
+function colorsGroup(config) {
+  const defaults = defaultTokens();
+  const report = h("div.ed-contrast", { "aria-live": "polite" });
+  const grid = h("div.ed-colors");
+
+  const tokens = () => Object.fromEntries(COLOR_TOKENS.map((t) => [t, config.colors[t] || defaults[t]]));
+  const updateReport = () => {
+    const results = checkPalette(tokens());
+    const bad = results.filter((r) => !r.ok);
+    report.dataset.tone = bad.length ? "warn" : "ok";
+    report.replaceChildren(
+      h("p", svgIcon(bad.length ? ICONS.alert : ICONS.check),
+        bad.length ? `${bad.length} of ${results.length} contrast checks are too low` : `All ${results.length} contrast checks pass in light and dark mode`),
+      bad.length ? h("ul", bad.map((r) => h("li", `${r.label} (${r.scheme}): ${r.ratio}:1, needs ${r.min}:1`))) : null,
+    );
+  };
+
+  for (const t of COLOR_TOKENS) {
+    const value = config.colors[t] || "";
+    const shown = isValidColor(value) && /^#/.test(value) ? value : defaults[t];
+    const picker = h("input.ed-swatch", { type: "color", value: /^#[0-9a-f]{6}$/i.test(shown) ? shown : "#000000", "aria-label": `${t} color` });
+    const text = h("input.input", { type: "text", placeholder: defaults[t], value, spellcheck: "false", "aria-label": `${t} hex value` });
+    const dark = h("span.ed-dark", { title: "Generated dark-mode color" });
+    const paintDark = () => {
+      const hex = darkHex(t, config.colors[t] || defaults[t]);
+      dark.style.background = hex;
+      dark.title = `Dark mode: ${hex}`;
+    };
+    const apply = (v) => {
+      config.colors[t] = v;
+      setCfg(["colors", t], v);
+      paintDark();
+      updateReport();
+      changed({ key: `cfg.colors.${t}` });
+    };
+    picker.addEventListener("input", () => {
+      text.value = picker.value;
+      text.removeAttribute("aria-invalid");
+      apply(picker.value);
+    });
+    text.addEventListener("input", () => {
+      const v = text.value.trim();
+      const ok = v === "" || isValidColor(v);
+      if (ok) text.removeAttribute("aria-invalid");
+      else text.setAttribute("aria-invalid", "true");
+      if (ok) {
+        if (/^#[0-9a-f]{6}$/i.test(v)) picker.value = v;
+        apply(v);
+      }
+    });
+    const reset = iconButton("close", `Reset ${t} to the default`, () => {
+      text.value = "";
+      picker.value = /^#[0-9a-f]{6}$/i.test(defaults[t]) ? defaults[t] : "#000000";
+      apply("");
+    });
+    paintDark();
+    grid.appendChild(h("div.ed-color", h("span.ed-color-name", t), picker, dark, text, reset));
+  }
+  updateReport();
+  return h("div", h("p.ed-hint", "The small square beside each picker shows the generated dark-mode color. Leave a field empty to use the default."), grid, report);
+}
+
+function sectionsGroup(config) {
+  const list = h("ol.ed-order");
+  const order = [...config.sections.order];
+  const hidden = new Set(config.sections.hide);
+  let from = null;
+  const save = () => {
+    setCfg(["sections", "order"], order);
+    setCfg(["sections", "hide"], order.filter((k) => hidden.has(k)));
+    changed();
+  };
+  const moveTo = (i, j) => {
+    if (j < 0 || j >= order.length || i === j) return;
+    const [k] = order.splice(i, 1);
+    order.splice(j, 0, k);
+    render();
+    save();
+  };
+  const render = () => {
+    list.replaceChildren(
+      ...order.map((key, i) => {
+        const box = h("input", { type: "checkbox", checked: hidden.has(key) ? null : true, "aria-label": `Show ${key}` });
+        box.addEventListener("change", () => {
+          box.checked ? hidden.delete(key) : hidden.add(key);
+          li.dataset.hidden = String(hidden.has(key));
+          save();
+        });
+        const li = h("li.ed-order-item", { draggable: "true", dataset: { hidden: String(hidden.has(key)) } },
+          h("span.ed-grip", { "aria-hidden": "true" }, svgIcon(ICONS.grip)),
+          box,
+          h("span", key),
+          iconButton("chevronUp", `Move ${key} up`, () => moveTo(i, i - 1)),
+          iconButton("chevronDown", `Move ${key} down`, () => moveTo(i, i + 1)),
+        );
+        li.addEventListener("dragstart", (e) => {
+          from = i;
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", key);
+          li.classList.add("is-dragging");
+        });
+        li.addEventListener("dragend", () => li.classList.remove("is-dragging"));
+        li.addEventListener("dragover", (e) => {
+          if (from === null) return;
+          e.preventDefault();
+          li.classList.add("is-drop");
+        });
+        li.addEventListener("dragleave", () => li.classList.remove("is-drop"));
+        li.addEventListener("drop", (e) => {
+          e.preventDefault();
+          if (from !== null) moveTo(from, i);
+          from = null;
+        });
+        return li;
+      }),
+    );
+  };
+  render();
+  return h("div", h("p.ed-hint", "Drag or use the arrows to reorder. Untick a section to hide it. Sections with no content are hidden automatically."), list);
+}
+
+const TAB_TYPES = ["link", "embed", "markdown", "code", "html"];
+
+function tabsGroup() {
+  const path = ["meta", "mz-portfolio-config", ...(Array.isArray(ed.resume.meta?.["mz-portfolio-config"]) ? [0] : []), "tabs"];
+  return h("div",
+    h("p.ed-hint", CONFIG_SCHEMA.tabs.desc),
+    itemList({
+      path,
+      noun: "tab",
+      title: (t) => [t.label, t.type].filter(Boolean).join(" · "),
+      addLabel: "Add tab",
+      newItem: () => ({ label: "", type: "markdown" }),
+      renderFields: (p) => [
+        boundInput([...p, "label"], "Label", "text", { placeholder: "Tab label" }),
+        (() => {
+          const sel = selectMenu({
+            options: TAB_TYPES.map((v) => ({ value: v, label: humanize(v) })),
+            value: getPath(ed.resume, [...p, "type"]),
+            onChange: (v) => { setPath(ed.resume, [...p, "type"], v); changed(); },
+          });
+          return field("Type", sel);
+        })(),
+        boundInput([...p, "url"], "URL (https; raw GitHub/gist link for files)", "url", { placeholder: "https://…" }),
+        boundInput([...p, "content"], "Content (instead of a URL)", "textarea", { placeholder: "Markdown, code or HTML" }),
+        boundInput([...p, "language"], "Code language (code tabs)", "text", { placeholder: "e.g. js" }),
+        boundInput([...p, "height"], "Height in px (embed / html)", "text", { placeholder: "e.g. 600" }),
+      ],
+    }),
+  );
+}
+
+function settingsPanel() {
+  const panel = h("div.ed-panel");
+  // Migrate legacy config shapes once, so edits land where the app reads them
+  const raw = cfgRoot();
+  if (raw && Object.keys(raw).length) {
+    const migrated = migrateLegacy(raw);
+    if (JSON.stringify(migrated) !== JSON.stringify(raw)) {
+      for (const k of Object.keys(raw)) delete raw[k];
+      Object.assign(raw, migrated);
+    }
+  }
+  const { config, warnings } = normalizeConfig(ed.resume.meta || {});
+  panel.appendChild(panelTools("settings", panel));
+  if (warnings.length) panel.appendChild(warningsBox(warnings, `${warnings.length} setting(s) need attention`));
+
+  // Resume theme (JSON Resume standard meta.theme)
+  const themeSel = selectMenu({
+    options: [
+      ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
+      ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
+    ],
+    value: config.resume.theme,
+    onChange: (v) => {
+      setPath(ed.resume, ["meta", "theme"], v);
+      changed();
+    },
+  });
+  panel.appendChild(group("settings:theme", [h("strong", "Resume theme"), h("span.muted", "meta.theme")], h("div.ed-group-body", field("Theme for the resume viewer", themeSel))));
+
+  for (const [name, node] of Object.entries(CONFIG_SCHEMA)) {
+    const body = h("div.ed-group-body");
+    const details = group(`settings:${name}`, [h("strong", name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())), node._desc ? h("span.muted", node._desc) : null], body);
+    if (name === "colors") body.appendChild(colorsGroup(config));
+    else if (name === "sections") body.appendChild(sectionsGroup(config));
+    else if (name === "tabs") body.appendChild(tabsGroup());
+    else if (isLeaf(node)) body.appendChild(cfgInput([name], node, getPath(config, [name])));
+    else {
+      const walk = (n, path) => {
+        for (const [k, child] of Object.entries(n)) {
+          if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
+          if (name === "profile" && k === "photo") body.appendChild(photoPicker());
+          else if (name === "banner" && k === "image") body.appendChild(bannerPicker());
+          else if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
+          else {
+            body.appendChild(h("h3.ed-sub", k));
+            walk(child, [...path, k]);
+          }
+        }
+      };
+      walk(node, [name]);
+    }
+    panel.appendChild(details);
+  }
+  if (ed.query.settings) queueMicrotask(() => filterPanel(panel, ed.query.settings));
+  return panel;
+}
+
+// ============================================================================
+// JSON TAB
+// ============================================================================
+
+function jsonPanel() {
+  const area = h("textarea.input.ed-json", { spellcheck: "false", autocapitalize: "off", "aria-label": "resume.json" });
+  area.value = JSON.stringify(ed.resume, null, 2);
+  const status = h("p.ed-hint", { "aria-live": "polite" }, "Edit the raw JSON, then apply it. Changes in the forms show up here.");
+  let parsed = null;
+  const apply = h("button.btn.btn-primary", { type: "button", disabled: true, onclick: () => {
+    if (!parsed) return;
+    ed.resume = parsed;
+    changed();
+    apply.disabled = true;
+    status.textContent = "Applied.";
+    status.dataset.tone = "ok";
+  } }, "Apply JSON");
+  const check = () => {
+    try {
+      parsed = parseResumeJson(area.value);
+      const unchanged = JSON.stringify(parsed) === JSON.stringify(ed.resume);
+      apply.disabled = unchanged;
+      status.textContent = unchanged ? "Valid JSON — no changes yet." : "Valid JSON — apply to use it.";
+      status.dataset.tone = "ok";
+      area.removeAttribute("aria-invalid");
+    } catch (e) {
+      parsed = null;
+      apply.disabled = true;
+      status.textContent = e.message;
+      status.dataset.tone = "error";
+      area.setAttribute("aria-invalid", "true");
+    }
+  };
+  let t = null;
+  area.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(check, 200);
+  });
+  const format = h("button.btn.btn-ghost", { type: "button", onclick: () => {
+    try {
+      area.value = JSON.stringify(JSON.parse(area.value), null, 2);
+      check();
+    } catch {
+      check();
+    }
+  } }, "Format");
+  return h("div.ed-panel", area, h("div.ed-row", apply, format, status));
+}
+
+// ============================================================================
+// BLOG TAB
+// ============================================================================
+
+// post.gistId is the post's id in either store (a gist or a Drive file)
+async function loadPosts() {
+  ed.posts = await storage().listPosts(ed.source?.filename || getResumeFilename());
+}
+
+const POST_FIELDS = ["title", "date", "tags", "description", "image", "draft", "body", "slug", "isPublic"];
+
+function savePostDraft(p) {
+  store.set(POST_DRAFT_KEY, { gistId: p.gistId, ...Object.fromEntries(POST_FIELDS.map((k) => [k, p[k]])), editedAt: new Date().toISOString() });
+}
+
+function takePostDraft(p) {
+  const d = store.get(POST_DRAFT_KEY);
+  if (!d || d.gistId !== p.gistId) return;
+  const differs = POST_FIELDS.some((k) => JSON.stringify(d[k]) !== JSON.stringify(p[k]));
+  if (differs && confirm(`You have unsaved changes to ${p.gistId ? `"${p.title}"` : "a new post"} from ${ago(d.editedAt)}. Restore them?`)) {
+    for (const k of POST_FIELDS) if (k in d) p[k] = d[k];
+    p.dirty = true;
+  } else if (differs) store.remove(POST_DRAFT_KEY);
+}
+
+async function openPost(post) {
+  if (post && !post.loaded) {
+    const { text, createdAt, updatedAt } = await storage().readPost(post);
+    const { metadata, body } = parseFrontmatter(text);
+    Object.assign(post, {
+      loaded: true,
+      title: String(metadata.title || post.title),
+      date: metadata.date ? String(metadata.date).slice(0, 10) : String(createdAt || "").slice(0, 10),
+      tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
+      description: String(metadata.description || metadata.preview || ""),
+      image: String(metadata.image || ""),
+      draft: metadata.draft === true || metadata.published === false,
+      body,
+      updatedAt,
+    });
+  }
+  ed.post = post || {
+    gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", draft: false, body: "", isPublic: true, loaded: true,
+  };
+  takePostDraft(ed.post);
+  renderPanel();
+}
+
+function blogPanel() {
+  const panel = h("div.ed-panel");
+  if (!ed.user) {
+    panel.appendChild(h("div.ed-empty", h("p", "Blog posts are Markdown files saved to your GitHub (as gists) or your Google Drive. Sign in to create, edit and delete them here."), signInButton()));
+    return panel;
+  }
+  if (ed.post) return postEditor(panel);
+
+  if (!ed.posts) {
+    panel.appendChild(h("p.muted", "Loading your posts…"));
+    loadPosts().then(() => renderPanel()).catch((e) => panel.replaceChildren(h("p.ed-error", e.message)));
+    return panel;
+  }
+  panel.appendChild(h("div.ed-row", h("button.btn.btn-primary", { type: "button", onclick: () => openPost(null) }, svgIcon(ICONS.plus), "New post"),
+    h("span.muted", `${ed.posts.length} post(s)`)));
+  if (!ed.posts.length) panel.appendChild(h("p.ed-hint", "No posts yet. Write your first one — it's published as a gist and shows in your portfolio's Blog tab."));
+  const list = h("ul.ed-posts", { role: "list" });
+  for (const post of ed.posts) {
+    list.appendChild(h("li.card",
+      h("button.ed-post-open", { type: "button", onclick: () => openPost(post).catch((e) => toast(e.message, "error")) },
+        h("strong", post.title), h("span.muted", `${post.filename} · updated ${ago(post.updatedAt)}${post.isPublic ? "" : " · secret gist (not shown on the portfolio)"}`)),
+    ));
+  }
+  panel.appendChild(list);
+  return panel;
+}
+
+const MD_ACTIONS = [
+  ["bold", "Bold (Ctrl+B)", "bold"], ["italic", "Italic (Ctrl+I)", "italic"], ["heading", "Heading", "heading"],
+  ["link", "Link (Ctrl+K)", "link"], ["code", "Code", "code"], ["list", "Bullet list", "list"],
+  ["ordered", "Numbered list", "list"], ["quote", "Quote", "quote"], ["image", "Image", "image"],
+];
+
+function postEditor(panel) {
+  const p = ed.post;
+  const touch = () => {
+    p.dirty = true;
+    savePostDraft(p);
+  };
+  const bind = (key, label, kind = "text", { hint, placeholder } = {}) => {
+    const input = h("input.input", { type: kind === "date" ? "text" : kind, placeholder, inputmode: kind === "date" ? "numeric" : null });
+    input.value = key === "tags" ? p.tags.join(", ") : p[key] ?? "";
+    const wrap = field(label, input, hint);
+    input.addEventListener("input", () => {
+      p[key] = key === "tags" ? input.value.split(",").map((s) => s.trim()).filter(Boolean) : input.value;
+      if (key === "title" && !p.gistId && !p.slugEdited) slugInput && (slugInput.value = slugify(p.title));
+      touch();
+    });
+    input.addEventListener("blur", () => showFieldError(input, validateField(kind, input.value)));
+    return wrap;
+  };
+
+  // Body + toolbar + live preview
+  const body = h("textarea.input.ed-md", { rows: "16", spellcheck: "true", placeholder: "Write your post in Markdown…" });
+  body.value = p.body || "";
+  const preview = h("div.prose.card.ed-md-preview");
+  const stats = h("p.ed-hint", { "aria-live": "off" });
+  let mdTimer = null;
+  const renderMd = () => {
+    preview.innerHTML = markdownToHtml(p.body || "*Nothing written yet.*");
+    const words = String(p.body || "").trim().split(/\s+/).filter(Boolean).length;
+    stats.textContent = `${words} word${words === 1 ? "" : "s"} · ${readingTime(p.body)} min read`;
+  };
+  body.addEventListener("input", () => {
+    p.body = body.value;
+    touch();
+    clearTimeout(mdTimer);
+    mdTimer = setTimeout(renderMd, 150);
+  });
+  const runAction = (action) => {
+    const r = applyMarkdown(body.value, body.selectionStart, body.selectionEnd, action);
+    body.value = r.text;
+    body.focus();
+    body.setSelectionRange(r.start, r.end);
+    body.dispatchEvent(new Event("input"));
+  };
+  body.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const action = { b: "bold", i: "italic", k: "link" }[e.key.toLowerCase()];
+    if (action) {
+      e.preventDefault();
+      runAction(action);
+    }
+  });
+  const toolbar = h("div.ed-md-toolbar", { role: "toolbar", "aria-label": "Formatting" },
+    MD_ACTIONS.map(([action, label, icon]) => {
+      const b = iconButton(icon, label, () => runAction(action));
+      if (action === "ordered") b.replaceChildren(h("span.ed-ol", "1."));
+      return b;
+    }));
+  renderMd();
+
+  const draft = h("input", { type: "checkbox", checked: p.draft ? true : null, id: "post-draft" });
+  draft.addEventListener("change", () => { p.draft = draft.checked; touch(); });
+
+  let slugInput = null;
+  const newPostOptions = [];
+  if (!p.gistId) {
+    slugInput = h("input.input", { type: "text", placeholder: "post-title", spellcheck: "false" });
+    slugInput.value = p.slug || slugify(p.title || "");
+    slugInput.addEventListener("input", () => { p.slugEdited = true; p.slug = slugInput.value; touch(); });
+    const pub = h("input", { type: "checkbox", checked: p.isPublic !== false ? true : null, id: "post-public" });
+    pub.addEventListener("change", () => { p.isPublic = pub.checked; touch(); });
+    newPostOptions.push(
+      field("File name (URL slug)", slugInput, "The post's address: /blog/<slug>. Can't be changed after publishing."),
+      h("div.ed-field.ed-check", pub, h("label", { for: "post-public" }, "Public gist"),
+        h("p.ed-hint", "Only public gists show on your portfolio. Untick to keep it as a private (secret) gist.")),
+    );
+  }
+
+  const saveBtn = h("button.btn.btn-primary", { type: "button" }, p.gistId ? "Save post" : "Publish post");
+  const save = async () => {
+    if (!p.title.trim()) return toast("Give the post a title first.", "error");
+    const content = frontmatter(p);
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+    try {
+      const isNew = !p.gistId;
+      const filename = isNew ? `${slugify(slugInput?.value || p.title)}.md` : p.filename;
+      Object.assign(p, await storage().writePost(isNew ? null : p, { title: p.title, filename, content, isPublic: p.isPublic !== false }));
+      if (isNew) ed.posts?.unshift(p);
+      p.dirty = false;
+      store.remove(POST_DRAFT_KEY);
+      storage().forgetCache();
+    ed.ownResume = null;
+      toast(p.isPublic !== false ? "Post saved. It's live on your portfolio." : "Post saved as a secret gist.");
+      renderPanel();
+    } catch (e) {
+      toast(e.message, "error");
+      saveBtn.disabled = false;
+      saveBtn.textContent = p.gistId ? "Save post" : "Publish post";
+    }
+  };
+  saveBtn.addEventListener("click", save);
+  p.save = save;
+
+  const remove = async () => {
+    if (!p.gistId || !confirm(`Delete "${p.title}"? This deletes the ${storage().postNoun} and can't be undone.`)) return;
+    try {
+      await storage().deletePost(p);
+      ed.posts = ed.posts.filter((x) => x !== p);
+      ed.post = null;
+      store.remove(POST_DRAFT_KEY);
+      storage().forgetCache();
+    ed.ownResume = null;
+      toast("Post deleted.");
+      renderPanel();
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  };
+
+  panel.append(
+    h("div.ed-row",
+      h("button.btn.btn-ghost", { type: "button", onclick: () => {
+        if (p.dirty) toast("Unsaved post changes are kept as a draft in this browser.");
+        ed.post = null;
+        renderPanel();
+      } }, svgIcon(ICONS.arrowLeft), "All posts"),
+      h("span.ed-spacer"),
+      p.url ? h("a.btn.btn-ghost", { href: p.url }, svgIcon(ICONS.github), h("span.btn-label", "Gist")) : null,
+      p.gistId ? h("button.btn.btn-ghost.ed-danger", { type: "button", onclick: remove }, "Delete") : null,
+      saveBtn,
+    ),
+    bind("title", "Title", "text", { placeholder: "Post title" }),
+    ...newPostOptions,
+    h("div.ed-grid", bind("date", "Date", "date", { placeholder: "YYYY-MM-DD" }), bind("tags", "Tags", "text", { hint: "Comma separated", placeholder: "tag, another tag" })),
+    bind("description", "Short description", "text", { hint: "Shown in the post list.", placeholder: "One sentence about the post" }),
+    bind("image", "Cover image URL", "url", { placeholder: "https://…/cover.jpg" }),
+    h("div.ed-field.ed-check", draft, h("label", { for: "post-draft" }, "Draft"),
+      h("p.ed-hint", "Drafts are hidden from your portfolio, but a public gist can still be found on GitHub.")),
+    h("div.ed-md-split",
+      h("div.ed-field", h("label", { for: "post-body" }, "Post (Markdown)"), toolbar, body, stats),
+      h("div.ed-field", h("span.ed-label", "Preview"), preview)),
+  );
+  body.id = "post-body";
+  return panel;
+}
+
+// ============================================================================
+// DIALOGS
+// ============================================================================
+
+/** A modal with buttons. Resolves to the chosen value (or null on Esc/cancel). */
+function choiceDialog(title, content, choices) {
+  return new Promise((resolve) => {
+    const dialog = h("dialog.ed-dialog",
+      h("form", { method: "dialog" },
+        h("h2", title),
+        ...[].concat(content),
+        h("div.ed-row", choices.map(([value, label, kind = "ghost"]) =>
+          h(`button.btn.btn-${kind}`, { type: "button", onclick: () => { dialog.close(); resolve(value); } }, label))),
+      ),
+    );
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      resolve(null);
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  });
+}
+
+const SHORTCUTS = [
+  ["Ctrl / ⌘ + S", "Save"],
+  ["Ctrl / ⌘ + Z", "Undo"],
+  ["Ctrl / ⌘ + Shift + Z", "Redo"],
+  ["Ctrl / ⌘ + B · I · K", "Bold · italic · link (in a post)"],
+  ["?", "Show these shortcuts"],
+];
+
+function showShortcuts() {
+  choiceDialog("Keyboard shortcuts",
+    h("dl.ed-keys", SHORTCUTS.map(([k, v]) => [h("dt", h("kbd", k)), h("dd", v)])),
+    [[null, "Close", "primary"]]);
+}
+
+function showChanges() {
+  const changes = diffSummary(ed.base || {}, prune(ed.resume));
+  choiceDialog("Unsaved changes",
+    changes.length ? h("ul.ed-changes", changes.map((c) => h("li", c))) : h("p", "No changes."),
+    [[null, "Close"], ...(changes.length ? [["save", ed.user ? "Save now" : "Sign in to save", "primary"]] : [])],
+  ).then((v) => v === "save" && save());
+}
+
+// ============================================================================
+// ACCOUNT
+// ============================================================================
+
+// Sign-in leaves the page (GitHub via /api/auth, Google directly) and comes
+// back to /edit; app.js stores the token. The draft is in localStorage, so
+// leaving the page loses nothing.
+const LOGIN_URL = loginUrl(`${BASE_PATH}edit`);
+
+function githubButton(label = "Sign in with GitHub", cls = "") {
+  return h(`a.btn.btn-primary${cls}`, { href: LOGIN_URL, dataset: { external: "" } }, svgIcon(ICONS.github), label);
+}
+
+/** Null when this site has no Google client ID configured. */
+function googleButton(label = "Continue with Google", cls = "") {
+  const href = googleLoginUrl(`${BASE_PATH}edit`);
+  return href ? h(`a.btn.btn-ghost${cls}`, { href, dataset: { external: "" } }, svgIcon(ICONS.google), label) : null;
+}
+
+function signInButton() {
+  return githubButton("Sign in to save");
+}
+
+function openSignIn() {
+  const tokenForm = tokenSignInForm(() => dialog.close());
+  const dialog = h("dialog.ed-dialog",
+    h("div.ed-signin",
+      h("div.ed-signin-mark", logoImg(40)),
+      h("h2", "Sign in to save"),
+      h("p.muted", "Your portfolio and blog posts are saved to your own account: as gists on GitHub, or in a folder in your Google Drive. Your draft stays here while you sign in."),
+      githubButton("Continue with GitHub", ".ed-signin-github"),
+      googleButton("Continue with Google", ".ed-signin-github"),
+      h("details.ed-signin-token", h("summary", "Use a personal access token instead"), tokenForm),
+      h("button.link-btn.ed-signin-cancel", { type: "button", onclick: () => dialog.close() }, "Not now"),
+    ),
+  );
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
+function tokenSignInForm(done) {
+  const input = h("input.input", { type: "password", autocomplete: "off", spellcheck: "false", placeholder: "ghp_… or github_pat_…", id: "gh-token" });
+  const error = h("p.ed-error", { "aria-live": "polite" });
+  const submit = h("button.btn.btn-primary", { type: "submit" }, "Sign in");
+  return h("form", { onsubmit: async (e) => {
+    e.preventDefault();
+    error.textContent = "";
+    submit.disabled = true;
+    submit.textContent = "Checking…";
+    try {
+      ed.user = await signIn(input.value);
+      done();
+      toast(`Signed in as ${ed.user.login}`);
+      await afterSignIn();
+    } catch (err) {
+      error.textContent = err.message;
+      submit.disabled = false;
+      submit.textContent = "Sign in";
+    }
+  } },
+    h("ol.ed-steps",
+      h("li", h("a", { href: TOKEN_HELP_URL, target: "_blank", rel: "noopener" }, "Create a token on GitHub"), " (opens with only the ", h("strong", "gist"), " permission ticked)."),
+      h("li", "Copy the token and paste it below."),
+    ),
+    field("Token", input),
+    h("p.ed-hint", "Saved in this browser until you sign out, and sent only to api.github.com."),
+    error,
+    h("div.ed-row", submit),
+  );
+}
+
+/** A token sign-in changes who owns what's on screen: start fresh. */
+async function afterSignIn() {
+  location.reload();
+}
+
+async function fetchOwnResume() {
+  return (await storage()?.findResume(getResumeFilename())) ?? null;
+}
+
+async function loadOwnResume() {
+  const own = await fetchOwnResume();
+  if (!own) return false;
+  begin(own.resume, own.source, { base: prune(own.resume), savedAt: own.source.updatedAt });
+  return true;
+}
+
+// ============================================================================
+// SAVE / STATUS
+// ============================================================================
+
+let saveBtn = null;
+let statusEl = null;
+let undoBtn = null;
+let redoBtn = null;
+
+function updateStatus(note) {
+  if (undoBtn) undoBtn.disabled = !ed.history?.canUndo;
+  if (redoBtn) redoBtn.disabled = !ed.history?.canRedo;
+  if (saveBtn) {
+    saveBtn.textContent = ed.saving ? "Publishing…" : !ed.user ? "Sign in to publish" : published() ? "Publish" : "Publish portfolio";
+    saveBtn.disabled = ed.saving || (ed.user && published() && !ed.dirty);
+  }
+  if (!statusEl) return;
+  let text;
+  let tone;
+  if (note) [text, tone] = [note, "warn"];
+  else if (ed.saving) [text, tone] = ["Saving…", "busy"];
+  else if (ed.dirty) [text, tone] = [published() ? "Unsaved changes" : "Not saved yet", "warn"];
+  else if (!published()) [text, tone] = ["Empty draft", "idle"];
+  else [text, tone] = [`Saved${ed.savedAt ? ` ${ago(ed.savedAt)}` : ""}`, "ok"];
+  statusEl.textContent = text;
+  statusEl.dataset.tone = tone;
+  statusEl.disabled = !ed.dirty;
+}
+
+setInterval(() => statusEl?.isConnected && !ed.dirty && updateStatus(), 30_000);
+
+async function save() {
+  if (!ed.resume || ed.saving) return;
+  if (ed.post && ed.tab === "blog") return ed.post.save?.();
+  if (!ed.user) return openSignIn();
+  const clean = prune(ed.resume);
+  const content = `${JSON.stringify(clean, null, 2)}\n`;
+  ed.saving = true;
+  updateStatus();
+  try {
+    const backend = storage();
+    if (published()) {
+      const remote = await backend.readResume(ed.source);
+      if (remote.updatedAt !== ed.source.updatedAt) {
+        const choice = await choiceDialog(`This portfolio changed on ${backend.label}`,
+          h("p", `Someone (maybe you, elsewhere) saved it ${ago(remote.updatedAt)}, after you opened it here.`),
+          [["cancel", "Cancel"], ["theirs", `Load the ${backend.label} version`], ["mine", "Overwrite with mine", "primary"]]);
+        if (choice === "theirs") {
+          const resume = parseResumeJson(await remote.read());
+          begin(resume, { ...ed.source, updatedAt: remote.updatedAt }, { base: prune(resume), savedAt: remote.updatedAt });
+          ed.saving = false;
+          updateStatus();
+          renderPanel(); // open forms show the loaded version
+          hooks.onChange();
+          toast(`Loaded the version from ${backend.label}.`);
+          return;
+        }
+        if (choice !== "mine") {
+          ed.saving = false;
+          updateStatus();
+          return;
+        }
+      }
+      ed.source = await backend.writeResume(ed.source, content, ed.source.filename);
+    } else {
+      ed.source = await backend.writeResume(null, content, getResumeFilename());
+    }
+    const changes = diffSummary(ed.base || {}, clean);
+    ed.base = clean;
+    ed.savedAt = new Date().toISOString();
+    backend.forgetCache();
+    ed.ownResume = null;
+    toast(changes.length ? `Published: ${changes.slice(0, 3).join(" · ")}${changes.length > 3 ? " …" : ""}` : "Published.");
+  } catch (e) {
+    toast(e.message, "error");
+  }
+  ed.saving = false;
+  ed.dirty = computeDirty();
+  saveDraft();
+  updateStatus();
+  if (!ed.dirty) hooks.onSaved();
+}
+
+// ============================================================================
+// LAYOUT
+// ============================================================================
+
+function renderPanel({ keepFocus = false } = {}) {
+  const slot = ed.root?.querySelector("#ed-panel");
+  if (!slot) {
+    ed.sheetRender?.(); // a panel built from its own forms (edit/mode.js)
+    return;
+  }
+  const focusedPath = keepFocus ? document.activeElement?.dataset?.path : null;
+  const y = slot.scrollTop;
+  const winY = scrollY;
+  const panel = ed.tab === "settings" ? settingsPanel() : ed.tab === "blog" ? blogPanel() : ed.tab === "json" ? jsonPanel() : resumePanel();
+  slot.replaceChildren(panel);
+  slot.scrollTop = y;
+  if (scrollY !== winY) scrollTo(0, winY);
+  if (focusedPath) slot.querySelector(`[data-path="${CSS.escape(focusedPath)}"]`)?.focus({ preventScroll: true });
+}
+
+// ============================================================================
+// STATUS CONTROLS — edit/mode.js builds the bar and hands its buttons here
+// ============================================================================
+
+export function bindControls(controls) {
+  ({ saveBtn = null, statusEl = null, undoBtn = null, redoBtn = null } = controls);
+  updateStatus();
+}
+
+export {
+  ed, store, ago, begin, changed, undo, redo, save, saveDraft, readDraft, computeDirty, updateStatus,
+  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPosts,
+  photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
+  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL,
+};
+
+/** Inputs for some settings of one config group, e.g. cfgFields("footer") or cfgFields("text", ["bio"]). */
+export function cfgFields(groupName, keys = null) {
+  const { config } = normalizeConfig(ed.resume.meta || {});
+  const node = CONFIG_SCHEMA[groupName];
+  return Object.entries(node)
+    .filter(([k, child]) => !k.startsWith("_") && isLeaf(child) && (!keys || keys.includes(k)))
+    .map(([k, child]) => cfgInput([groupName, k], child, getPath(config, [groupName, k])));
+}
+
+export { boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };

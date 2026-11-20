@@ -37,7 +37,15 @@
   position: absolute;
   top: calc(0.75rem + env(safe-area-inset-top));
   right: calc(0.75rem + env(safe-area-inset-right));
-  z-index: 2;
+  z-index: 55; /* above the photo, tabs and section nav, so its menu isn't covered */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.banner-toggle .account-button {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-b) 80%, transparent);
 }
 
 .banner-links {
@@ -220,23 +228,6 @@
     bottom: 1rem;
   }
 
-  .profile-info {
-    grid-template-columns: auto 1fr;
-    justify-items: start;
-    align-items: end;
-    gap: 1.5rem;
-    text-align: left;
-  }
-
-  .profile-details {
-    justify-items: start;
-    padding-top: 1rem;
-  }
-
-  .profile-facts,
-  .profile-actions {
-    justify-content: flex-start;
-  }
 }
 
 /* ============================================================================
@@ -253,6 +244,7 @@
   padding: 2px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--color-c) 25%, transparent);
+  color: var(--on-p);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-b) 30%, transparent);
   backdrop-filter: blur(6px);
   cursor: pointer;
@@ -277,21 +269,48 @@
   cursor: grabbing;
 }
 
-.theme-switch-knob.auto-mode {
-  box-shadow: var(--shadow), 0 0 0 2px var(--color-v);
+.theme-switch-knob .icon {
+  animation: theme-icon-in 0.3s ease-out;
 }
 
-.theme-icon {
+@keyframes theme-icon-in {
+  from {
+    opacity: 0;
+    transform: rotate(-60deg) scale(0.6);
+  }
+}
+
+/* Auto: the knob still shows light/dark, but is visibly not the one deciding */
+.theme-switch-auto {
   position: absolute;
-  display: grid;
-  place-items: center;
-  transition: opacity 0.25s, transform 0.25s;
+  top: 50%;
+  font-size: 0.68rem;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: inherit;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.2s;
+  pointer-events: none;
 }
 
-.theme-switch-knob[data-mode="dark"] .theme-icon-sun,
-.theme-switch-knob[data-mode="light"] .theme-icon-moon {
-  opacity: 0;
-  transform: rotate(-60deg) scale(0.6);
+.theme-switch-track[data-mode="light"] .theme-switch-auto {
+  left: 0.6rem;
+}
+
+.theme-switch-track[data-mode="dark"] .theme-switch-auto {
+  right: 0.6rem;
+}
+
+.theme-switch-track.is-auto .theme-switch-auto {
+  opacity: 0.85;
+}
+
+.theme-switch-track.is-auto .theme-switch-knob {
+  background: color-mix(in oklab, var(--color-b) 55%, transparent);
+  color: color-mix(in oklab, var(--color-c) 45%, transparent);
+  box-shadow: none;
 }
 
 /* Icon button */
@@ -332,10 +351,15 @@
   color: var(--color-p);
 }
 
-/* Toggles outside the banner (landing page) */
-.landing-links .theme-switch-track,
-.landing-links .theme-toggle--icon,
-.landing-links .theme-toggle--slider {
+/* Toggles outside the banner (site header) */
+.site-tools .theme-switch-track {
+  background: var(--well);
+  color: var(--ink-muted);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.site-tools .theme-toggle--icon,
+.site-tools .theme-toggle--slider {
   background: var(--well);
 }
 
@@ -394,4 +418,74 @@
   .tab:hover {
     color: var(--color-v);
   }
+}
+
+/* ---------- side-by-side identity from tablet width ----------
+   Photo on the left overlapping the banner, name and details beside it. */
+@media (min-width: 640px) {
+  .profile-info {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    align-items: start; /* the photo keeps its upward overlap; text starts under the banner */
+    gap: 0.5rem 1.5rem;
+    text-align: left;
+  }
+
+  .profile-details {
+    justify-items: start;
+    padding-top: 0.9rem;
+  }
+
+  .profile-facts,
+  .profile-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- profile links: round icon buttons beside the actions ---------- */
+
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.profile-link {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--color-b);
+  color: var(--color-c);
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+@media (hover: hover) {
+  .profile-link:hover {
+    border-color: var(--color-a);
+    color: var(--color-a);
+    transform: translateY(-1px);
+  }
+}
+
+.profile-link:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
+}
+
+/* ---------- ⋯ menu among the profile links ---------- */
+
+.profile-more .profile-link {
+  cursor: pointer;
+}
+
+.profile-more .account-menu {
+  min-width: 13rem;
+}
+
+button.profile-link {
+  padding: 0;
+  font: inherit;
 }

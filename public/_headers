@@ -1,0 +1,19 @@
+# Cloudflare Pages response headers. The CSP mirrors the <meta> one in
+# index.html and adds what only a header can do (frame-ancestors).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org; frame-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+
+# Demo tabs run here at an opaque origin with their own CSP (in the file)
+/markup/sandbox.html
+  ! Content-Security-Policy
+  Content-Security-Policy: frame-ancestors 'self'
+
+# The page CSP would also bind the service worker's own fetches (connect-src)
+# and block avatar images it proxies; the worker only fetches what pages ask for.
+/sw.js
+  ! Content-Security-Policy
+  Cache-Control: no-cache

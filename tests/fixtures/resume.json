@@ -1,0 +1,306 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
+  "basics": {
+    "name": "Full Name",
+    "label": "Label",
+    "image": "",
+    "email": "name@example.com",
+    "phone": "+1 555 0100",
+    "url": "https://example.com",
+    "summary": "Summary",
+    "location": {
+      "address": "Address",
+      "postalCode": "Postal code",
+      "city": "City",
+      "countryCode": "US",
+      "region": "Region"
+    },
+    "profiles": [
+      {
+        "network": "Network 1",
+        "username": "Username 1",
+        "url": "https://example.com"
+      },
+      {
+        "network": "Network 2",
+        "username": "Username 2",
+        "url": "https://example.com"
+      },
+      {
+        "network": "Network 3",
+        "username": "Username 3",
+        "url": "https://example.com"
+      }
+    ]
+  },
+  "work": [
+    {
+      "name": "Company 1",
+      "position": "Position 1",
+      "url": "https://example.com",
+      "location": "Location 1",
+      "startDate": "2019-04",
+      "summary": "Summary 1",
+      "highlights": [
+        "Highlight 1",
+        "Highlight 2",
+        "Highlight 3"
+      ]
+    },
+    {
+      "name": "Company 2",
+      "position": "Position 2",
+      "location": "Location 2",
+      "startDate": "2015-09",
+      "endDate": "2019-03",
+      "summary": "Summary 2",
+      "highlights": [
+        "Highlight 1"
+      ]
+    }
+  ],
+  "volunteer": [
+    {
+      "organization": "Organization 1",
+      "position": "Position 1",
+      "url": "https://example.com",
+      "startDate": "2021-10",
+      "endDate": "2023-10",
+      "summary": "Summary 1",
+      "highlights": [
+        "Highlight 1"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Institution 1",
+      "url": "https://example.com",
+      "area": "Area 1",
+      "studyType": "Study type 1",
+      "startDate": "2013-09",
+      "endDate": "2015-06",
+      "score": "Score 1",
+      "courses": [
+        "Course 1",
+        "Course 2",
+        "Course 3"
+      ]
+    },
+    {
+      "institution": "Institution 2",
+      "area": "Area 2",
+      "studyType": "Study type 2",
+      "startDate": "2008-09",
+      "endDate": "2013-06"
+    }
+  ],
+  "awards": [
+    {
+      "title": "Award 1",
+      "date": "2022-11-01",
+      "awarder": "Awarder 1",
+      "summary": "Summary 1"
+    }
+  ],
+  "certificates": [
+    {
+      "name": "Certificate 1",
+      "date": "2018-05-01",
+      "issuer": "Issuer 1",
+      "url": "https://example.com"
+    },
+    {
+      "name": "Certificate 2",
+      "date": "2020-02-01",
+      "issuer": "Issuer 2"
+    }
+  ],
+  "publications": [
+    {
+      "name": "Publication 1",
+      "publisher": "Publisher 1",
+      "releaseDate": "2021-03-01",
+      "url": "https://example.com",
+      "summary": "Summary 1"
+    }
+  ],
+  "skills": [
+    {
+      "name": "Skill group 1",
+      "level": "Master",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2",
+        "Keyword 3"
+      ]
+    },
+    {
+      "name": "Skill group 2",
+      "level": "Advanced",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2",
+        "Keyword 3",
+        "Keyword 4"
+      ]
+    },
+    {
+      "name": "Skill group 3",
+      "level": "Intermediate",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2"
+      ]
+    }
+  ],
+  "languages": [
+    {
+      "language": "Language 1",
+      "fluency": "Fluency 1"
+    },
+    {
+      "language": "Language 2",
+      "fluency": "Fluency 2"
+    },
+    {
+      "language": "Language 3",
+      "fluency": "Fluency 3"
+    }
+  ],
+  "interests": [
+    {
+      "name": "Interest 1",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2"
+      ]
+    },
+    {
+      "name": "Interest 2",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2"
+      ]
+    }
+  ],
+  "references": [
+    {
+      "name": "Referee 1",
+      "reference": "Reference 1"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Project 1",
+      "startDate": "2020-01",
+      "endDate": "2022-06",
+      "description": "Description 1",
+      "highlights": [
+        "Highlight 1",
+        "Highlight 2"
+      ],
+      "url": "https://example.com",
+      "roles": [
+        "Role 1"
+      ],
+      "entity": "Entity 1",
+      "type": "application",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2",
+        "Keyword 3"
+      ]
+    },
+    {
+      "name": "Project 2",
+      "startDate": "2017-03",
+      "endDate": "2018-12",
+      "description": "Description 2",
+      "roles": [
+        "Role 1"
+      ],
+      "entity": "Entity 2",
+      "keywords": [
+        "Keyword 1",
+        "Keyword 2"
+      ]
+    }
+  ],
+  "meta": {
+    "canonical": "https://raw.githubusercontent.com/jsonresume/resume-schema/master/resume.json",
+    "version": "v1.0.0",
+    "lastModified": "2026-10-01T10:00:00",
+    "theme": "even",
+    "mz-portfolio-config": {
+      "theme": {
+        "mode": "auto",
+        "toggle": "switch"
+      },
+      "text": {
+        "tagline": "Tagline",
+        "cta": "Cta",
+        "locale": "Locale"
+      },
+      "profile": {
+        "photoShape": "rounded"
+      },
+      "projects": {
+        "layout": "grid",
+        "sort": "resume",
+        "github": "matched"
+      },
+      "skills": {
+        "display": "progress"
+      },
+      "sections": {
+        "order": [
+          "about",
+          "work",
+          "projects",
+          "skills",
+          "education",
+          "awards",
+          "certificates",
+          "publications",
+          "volunteer",
+          "languages",
+          "interests",
+          "references",
+          "contact"
+        ]
+      },
+      "animation": {
+        "intro": "code",
+        "hover": {
+          "lift": true,
+          "shadow": true
+        }
+      },
+      "tabs": [
+        {
+          "label": "Notes",
+          "type": "markdown",
+          "content": "## Heading\n\n1. Item 1\n2. Item 2\n\n> Quote"
+        },
+        {
+          "label": "Snippet",
+          "type": "code",
+          "language": "js",
+          "content": "export function add(a, b) {\n  return a + b;\n}\n"
+        },
+        {
+          "label": "Demo",
+          "type": "html",
+          "height": 260,
+          "content": "<style>body{margin:0;display:grid;place-items:center;height:100vh;background:linear-gradient(135deg,#f6d365,#fda085);font:600 1.2rem system-ui}</style><div id=o>Demo</div><script>var r=[];try{parent.document.title;r.push('parent DOM: LEAK')}catch(e){r.push('parent DOM: blocked')}try{localStorage.length;r.push('storage: LEAK')}catch(e){r.push('storage: blocked')}document.getElementById('o').textContent=r.join(' · ')</script>"
+        },
+        {
+          "label": "Website",
+          "type": "link",
+          "url": "https://example.com"
+        }
+      ]
+    }
+  }
+}

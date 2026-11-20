@@ -4,18 +4,23 @@
  * (they must come first: @import is only valid at the top of a file).
  */
 
-@import url("global.css?v=4");
-@import url("header.css?v=4");
-@import url("navbar.css?v=4");
-@import url("sections.css?v=4");
-@import url("projects.css?v=4");
-@import url("detail.css?v=4");
-@import url("project-page.css?v=4");
-@import url("blog.css?v=4");
-@import url("home.css?v=4");
-@import url("status.css?v=4");
-@import url("animations.css?v=4");
-@import url("resume-overlay.css?v=4");
+@import url("global.css?v=5");
+@import url("header.css?v=6");
+@import url("navbar.css?v=5");
+@import url("sections.css?v=6");
+@import url("projects.css?v=5");
+@import url("detail.css?v=5");
+@import url("project-page.css?v=5");
+@import url("blog.css?v=5");
+@import url("home.css?v=5");
+@import url("status.css?v=5");
+@import url("animations.css?v=5");
+@import url("resume-overlay.css?v=6");
+@import url("editor.css?v=5");
+@import url("account.css?v=7");
+@import url("edit.css?v=5");
+@import url("ui.css?v=5");
+@import url("landing.css?v=5");
 
 /* ============================================================================
    DESIGN TOKENS
@@ -40,7 +45,7 @@
 
   /* Signal Flags (Additional) */
   --optimal: #3f8f5f; /* success */
-  --risky: #c28a2c;   /* warning */
+  --risky: #b07a1f;   /* warning */
   --fatal: #b4483f;   /* critical / error */
 
   /* Contextual Pennant (Optional) */

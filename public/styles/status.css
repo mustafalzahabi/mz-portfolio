@@ -76,76 +76,70 @@
   margin-top: 0.75rem;
 }
 
-/* ---------- skeleton ---------- */
+/* ---------- skeleton (reuses the real header/section classes) ---------- */
 
-.status-page.is-loading {
-  place-items: start stretch;
-  padding: 0;
-}
-
-.skeleton {
-  display: grid;
-  gap: 1.25rem;
-  width: 100%;
-  max-width: var(--content-width);
-  margin: 0 auto;
-}
-
-.skeleton-banner,
-.skeleton-avatar,
-.skeleton-lines span,
-.skeleton-block {
+.sk {
   background: linear-gradient(90deg, var(--well) 0%, var(--card) 50%, var(--well) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
 
-.skeleton-banner {
+.profile-banner.sk,
+.profile-photo.sk {
+  background: linear-gradient(90deg, var(--well) 0%, var(--card) 50%, var(--well) 100%);
+  background-size: 200% 100%;
+  box-shadow: none;
+}
+
+.sk-line {
+  display: block;
   width: 100%;
-  height: clamp(9rem, 40vw, 18rem);
-}
-
-.skeleton-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: -3.5rem;
-  padding: 0 var(--gutter);
-}
-
-.skeleton-avatar {
-  flex: none;
-  width: 7rem;
-  height: 7rem;
-  border: 4px solid var(--color-b);
-  border-radius: 50%;
-}
-
-.skeleton-lines {
-  display: grid;
-  flex: 1;
-  gap: 0.6rem;
-  padding-top: 3rem;
-}
-
-.skeleton-lines span {
-  height: 1rem;
+  height: 0.9rem;
   border-radius: 999px;
 }
 
-.skeleton-lines span:first-child {
-  width: 60%;
+.sk-name {
+  width: min(16rem, 70vw);
+  height: 2.2rem;
+}
+
+.sk-title {
+  width: min(12rem, 55vw);
+  height: 1.1rem;
+}
+
+.sk-facts {
+  width: min(18rem, 75vw);
+}
+
+.sk-btn {
+  display: inline-block;
+  width: 8rem;
+  height: 2.75rem;
+  border-radius: 999px;
+}
+
+.sk-tab {
+  display: inline-block;
+  width: 5.5rem;
+  height: 1.1rem;
+  margin: 0.9rem 0.5rem;
+  border-radius: 999px;
+}
+
+.sk-heading {
+  width: 9rem;
   height: 1.5rem;
+  margin-bottom: 1rem;
 }
 
-.skeleton-lines span:last-child {
-  width: 40%;
+.sk-card {
+  display: grid;
+  gap: 0.7rem;
 }
 
-.skeleton-block {
-  height: 8rem;
-  margin: 0 var(--gutter);
-  border-radius: var(--radius);
+.sk-short {
+  width: 60%;
 }
 
 @keyframes shimmer {

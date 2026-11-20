@@ -1,12 +1,16 @@
 // ============================================================================
 // INTRO ANIMATIONS
-// intro: none | fade | slide | stagger | typewriter | blueprint | code
+// intro: none | fade | slide | stagger | typewriter | blueprint | code | dissolve
 // Each section animates the first time it scrolls into view. Click, Esc or
 // any key skips; prefers-reduced-motion disables everything.
 // ============================================================================
 
 import { prefersReducedMotion } from "../utils.js";
 import { revealWithCode, prettyHtml, finishAllReveals } from "./code-reveal.js";
+import { dissolveIn, finishAllDissolves, loadSources } from "./dissolve.js";
+
+/** The dissolve intro at speed 1 runs at half its first tuning, which read as too quick. */
+const DISSOLVE_PACE = 0.5;
 
 let observer = null;
 let skipBound = false;
@@ -15,6 +19,7 @@ export function teardownAnimations() {
   observer?.disconnect();
   observer = null;
   finishAllReveals();
+  finishAllDissolves();
 }
 
 /**
@@ -30,7 +35,8 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
 
   bindSkip();
   const isMobile = matchMedia("(max-width: 599px)").matches;
-  let queue = Promise.resolve();
+  // dissolve shows the real source lines, so read them first (briefly: never block the page)
+  let queue = intro === "dissolve" ? Promise.race([loadSources(), new Promise((r) => setTimeout(r, 400))]) : Promise.resolve();
 
   items.forEach((el, i) => {
     el.classList.add("anim", `anim-${intro}`);
@@ -60,9 +66,17 @@ export function setupAnimations(items, cfg, builderFor = () => null) {
               source,
               lang: useHtml ? "html" : "js",
               title: useHtml ? `<${el.tagName.toLowerCase()} id="${el.id}">` : `${builder.name}()`,
-              speed: cfg.code.speed * (isMobile ? 1.6 : 1),
+              speed: cfg.code.speed * cfg.speed * (isMobile ? 1.6 : 1),
               maxSeconds: cfg.code.maxPerSection * (isMobile ? 0.7 : 1),
             });
+          });
+        } else if (intro === "dissolve") {
+          // Each visible section starts shortly after the one before
+          queue = queue.then(() => {
+            // speed 1 plays at half the original pace (DISSOLVE_PACE)
+            const pace = cfg.speed * DISSOLVE_PACE;
+            dissolveIn(el, { speed: pace * (isMobile ? 1.2 : 1) });
+            return new Promise((r) => setTimeout(r, 180 / pace));
           });
         } else if (intro === "typewriter") {
           typeHeading(el);
@@ -98,6 +112,9 @@ function bindSkip() {
   if (skipBound) return;
   skipBound = true;
   addEventListener("keydown", (e) => {
-    if (e.key === "Escape") finishAllReveals();
+    if (e.key === "Escape") {
+      finishAllReveals();
+      finishAllDissolves();
+    }
   });
 }

@@ -1,0 +1,451 @@
+/* ============================================================================
+   EDIT MODE — Edit buttons on every object, panels (sheet), toolbar, bar.
+   Mobile first: bottom sheet + one-row bar; desktop: side panel.
+   ============================================================================ */
+
+/* ---------- "Edit portfolio" (owner / preview) ---------- */
+
+.ed-fab {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  min-height: 52px;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---------- top pill ---------- */
+
+.ed-toolbar {
+  position: fixed;
+  top: calc(0.6rem + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.3rem 0.3rem 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-b) 92%, transparent);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(-50%);
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+.ed-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-right: 0.25rem;
+  color: var(--color-c);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.ed-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-o);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-o) 25%, transparent);
+}
+
+.ed-toolbar .btn {
+  min-height: 38px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+}
+
+/* ---------- bottom bar ---------- */
+
+.ed-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem var(--gutter) calc(0.5rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+  background: color-mix(in oklab, var(--color-b) 95%, transparent);
+  box-shadow: 0 -8px 24px -16px color-mix(in oklab, var(--color-c) 30%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.ed-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ed-bar .ed-status {
+  overflow: hidden;
+  max-width: 11rem;
+  text-overflow: ellipsis;
+}
+
+.ed-bar .ed-more .account-menu {
+  top: auto;
+  bottom: calc(100% + 0.5rem);
+}
+
+.ed-publish {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+body.is-editing {
+  padding-bottom: 4.75rem; /* room for the bar */
+}
+
+/* ---------- Edit buttons on objects ---------- */
+
+.ed-host {
+  position: relative;
+}
+
+.ed-edit {
+  position: absolute;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.6rem;
+  border: 2px solid var(--color-b);
+  border-radius: 999px;
+  background: var(--color-c);
+  color: var(--color-b);
+  box-shadow: var(--shadow);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.ed-edit:hover {
+  transform: scale(1.05);
+}
+
+.ed-edit:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
+}
+
+.ed-edit.is-item {
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.ed-edit.is-header {
+  top: 0.75rem;
+  right: var(--gutter);
+}
+
+.ed-edit.is-banner {
+  top: calc(0.75rem + env(safe-area-inset-top) + 3.25rem); /* under the edit pill */
+  left: 1rem;
+}
+
+.ed-edit.is-inline {
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+/* Cards show their button on hover/focus on desktop; always on touch screens */
+@media (hover: hover) {
+  .ed-edit.is-item {
+    opacity: 0;
+  }
+
+  .ed-host:hover > .ed-edit.is-item,
+  .ed-host:focus-within > .ed-edit.is-item,
+  .ed-edit.is-item:focus-visible {
+    opacity: 1;
+  }
+
+  .is-editing .ed-host:has(> .ed-edit.is-item):hover {
+    outline: 2px dashed color-mix(in oklab, var(--color-a) 55%, transparent);
+    outline-offset: 4px;
+  }
+}
+
+.is-editing .project-card {
+  cursor: pointer;
+}
+
+/* ---------- section bar ---------- */
+
+.ed-section {
+  position: relative;
+}
+
+.ed-section-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: -0.5rem 0 1.1rem;
+  padding: 0.35rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.ed-small {
+  min-height: 36px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+
+.ed-section-bar .ed-icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.ed-page-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.ed-more-sections {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.ed-more-sections h2 {
+  margin-bottom: 0.6rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ed-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ed-danger {
+  color: var(--color-f);
+}
+
+/* ---------- the panel (sheet) ---------- */
+
+.sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+  border-top-left-radius: 1.25rem;
+  border-top-right-radius: 1.25rem;
+  background: var(--color-b);
+  box-shadow: 0 -20px 60px -20px color-mix(in oklab, var(--color-c) 45%, transparent);
+  animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.15s;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+.sheet-handle {
+  flex: none;
+  width: 2.75rem;
+  height: 5px;
+  margin: 0.6rem auto 0.2rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: grab;
+  touch-action: none;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 1.1rem 0.75rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sheet-titles {
+  display: grid;
+  line-height: 1.25;
+}
+
+.sheet-title {
+  font-size: 1.1rem;
+}
+
+.sheet-subtitle {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--well);
+  color: var(--color-c);
+  cursor: pointer;
+}
+
+.sheet-body {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem 1.1rem 1.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Panels that host a tabbed editor panel */
+.sheet-body:has(> #ed-panel) {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.sheet-body > .ed-tabs {
+  flex: none;
+}
+
+.sheet-body > #ed-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-b);
+}
+
+.sheet-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem calc(0.7rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line-soft);
+}
+
+/* While a sheet is open on phones, the bar hides behind it */
+body.has-sheet .ed-bar {
+  visibility: hidden;
+}
+
+@media (min-width: 900px) {
+  .sheet {
+    top: 0;
+    left: auto;
+    width: 26rem;
+    max-height: none;
+    border-radius: 0;
+    border-left: 1px solid var(--line-soft);
+    box-shadow: -20px 0 50px -20px color-mix(in oklab, var(--color-c) 35%, transparent);
+    animation-name: sheet-in;
+  }
+
+  .sheet.is-wide {
+    width: 32rem;
+  }
+
+  @keyframes sheet-in {
+    from {
+      transform: translateX(30px);
+      opacity: 0;
+    }
+  }
+
+  .sheet-handle {
+    display: none;
+  }
+
+  .sheet-head {
+    padding-top: calc(0.9rem + env(safe-area-inset-top));
+  }
+
+  /* The page stays visible beside the panel */
+  body.has-sheet {
+    padding-right: 26rem;
+  }
+
+  body.has-sheet:has(.sheet.is-wide) {
+    padding-right: 32rem;
+  }
+
+  body.has-sheet .ed-bar {
+    visibility: visible;
+    right: 26rem;
+  }
+
+  body.has-sheet:has(.sheet.is-wide) .ed-bar {
+    right: 32rem;
+  }
+
+  body.has-sheet .ed-toolbar {
+    left: calc(50% - 13rem);
+  }
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 599px) {
+  .ed-toolbar-label {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .ed-toolbar .ed-btn-text {
+    display: none;
+  }
+
+  .ed-bar .ed-status {
+    max-width: 7.5rem;
+  }
+
+  .ed-edit.is-header span:not(.icon) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    animation: none;
+  }
+}
+
+.is-editing .preview-bar {
+  display: none;
+}

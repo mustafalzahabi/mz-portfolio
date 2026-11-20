@@ -9,7 +9,7 @@ import { normalizeConfig, DEFAULT_CONFIG, SECTION_KEYS, isValidColor } from "../
 import { detectSource, parsePath, isGithubUsername, looksLikeDriveId } from "../public/scripts/router.js";
 import { mergeProjects, mergeSkills, skillLevelPercent, buildBasics, validateResume, buildViewModel } from "../public/scripts/merge.js";
 
-const example = JSON.parse(readFileSync(new URL("../public/assets/examples/resume.json", import.meta.url), "utf8"));
+const example = JSON.parse(readFileSync(new URL("./fixtures/resume.json", import.meta.url), "utf8"));
 
 // ---------------------------------------------------------------------------
 test("escapeHtml escapes all specials", () => {
@@ -80,6 +80,16 @@ test("config: defaults and full section order", () => {
   assert.deepEqual(config.sections.order, SECTION_KEYS);
   assert.equal(config.resume.theme, "even");
   assert.equal(config.animation.intro, DEFAULT_CONFIG.animation.intro);
+});
+
+test("config: removed text.cta / text.philosophy migrate silently", () => {
+  const kept = normalizeConfig({ "mz-portfolio-config": { text: { cta: "View My Work", philosophy: "x" }, animation: { intro: "dissolve" } } });
+  assert.deepEqual(kept.warnings, []);
+  assert.equal(kept.config.header.resume, true);
+  assert.equal(kept.config.animation.intro, "dissolve");
+  assert.equal("philosophy" in kept.config.text, false);
+  const hidden = normalizeConfig({ "mz-portfolio-config": { text: { cta: "" } } });
+  assert.equal(hidden.config.header.resume, false);
 });
 
 test("config: legacy shapes are migrated", () => {
@@ -196,16 +206,16 @@ const repo = (name, extra = {}) => ({
   ...extra,
 });
 const repos = [
-  repo("cedar-court", { description: "Repo desc", stars: 5 }),
+  repo("sample-app", { description: "Repo desc", stars: 5 }),
   repo("other", { language: "Python", topics: ["ml"], stars: 9, updatedAt: "2025-01-01" }),
   repo("forked", { language: "Go", fork: true }),
 ];
 
 test("merge: projects match by name and respect config", () => {
   const all = mergeProjects(example.projects, repos, { github: "all" });
-  assert.equal(all[0].name, "Cedar Court Housing");
+  assert.equal(all[0].name, "Project 1");
   assert.equal(all[0].stars, null, "different names must not match");
-  const matched = mergeProjects([{ name: "Cedar Court" }], repos, { github: "matched" });
+  const matched = mergeProjects([{ name: "Sample App" }], repos, { github: "matched" });
   assert.equal(matched.length, 1);
   assert.equal(matched[0].stars, 5);
   assert.equal(matched[0].description, "Repo desc");
@@ -213,7 +223,7 @@ test("merge: projects match by name and respect config", () => {
   assert.ok(mergeProjects([], repos, { github: "all", showForks: true }).some((p) => p.name === "forked"));
   assert.equal(mergeProjects([], repos, { github: "all", sort: "stars" })[0].name, "other");
   assert.equal(mergeProjects(example.projects, repos, { github: "none", limit: 1 }).length, 1);
-  assert.equal(mergeProjects(example.projects, repos, { github: "none", exclude: ["Gallery Extension"] }).length, 1);
+  assert.equal(mergeProjects(example.projects, repos, { github: "none", exclude: ["Project 2"] }).length, 1);
 });
 
 test("merge: skills keep level; levels map to percent", () => {
@@ -250,9 +260,21 @@ test("merge: validation warnings", () => {
 test("merge: view model from example", () => {
   const { config } = normalizeConfig(example.meta);
   const vm = buildViewModel({ resume: example, github: null, repos: [], posts: [], source: { type: "preview", id: "x" } }, config);
-  assert.equal(vm.basics.name, "Lina Haddad");
-  assert.equal(vm.basics.location, "Cambridge, Massachusetts, US");
+  assert.equal(vm.basics.name, "Full Name");
+  assert.equal(vm.basics.location, "City, Region, US");
   assert.equal(vm.projects.length, 2);
   assert.equal(vm.interests.length, 2);
   assert.equal(vm.references.length, 1);
+});
+
+test("isSamePage: matches a portfolio's own address loosely", async () => {
+  const { isSamePage } = await import("../public/scripts/utils.js");
+  const own = "https://mz-portfolio.pages.dev/mustafalzahabi";
+  assert.ok(isSamePage("https://mz-portfolio.pages.dev/mustafalzahabi", own));
+  assert.ok(isSamePage("http://www.MZ-portfolio.pages.dev/MustafAlzahabi/", own));
+  assert.ok(isSamePage("https://mz-portfolio.pages.dev/mustafalzahabi#projects", own));
+  assert.ok(!isSamePage("https://mz-portfolio.pages.dev/someone-else", own));
+  assert.ok(!isSamePage("https://github.com/mustafalzahabi", own));
+  assert.ok(!isSamePage("mailto:a@b.co", own));
+  assert.ok(!isSamePage("not a url", own));
 });

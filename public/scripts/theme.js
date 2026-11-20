@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { ICONS } from "./icons.js";
+import { svgIcon } from "./utils.js";
 
 const STORAGE_KEY = "mz-theme";
 const MODES = ["auto", "light", "dark"];
@@ -156,8 +157,12 @@ function buildSwitchToggle() {
 
   const knob = document.createElement("div");
   knob.className = "theme-switch-knob";
-  knob.innerHTML = `<span class="theme-icon theme-icon-moon">${ICONS.moon}</span><span class="theme-icon theme-icon-sun">${ICONS.sun}</span>`;
-  track.appendChild(knob);
+  // "auto" sits in the free half of the pill while the system decides
+  const autoTag = document.createElement("span");
+  autoTag.className = "theme-switch-auto";
+  autoTag.textContent = "auto";
+  autoTag.setAttribute("aria-hidden", "true");
+  track.append(autoTag, knob);
   wrap.appendChild(track);
 
   const maxTranslate = () => Math.max(0, track.clientWidth - knob.offsetWidth - 4);
@@ -169,8 +174,10 @@ function buildSwitchToggle() {
   const update = () => {
     const mode = getThemeMode();
     const scheme = getEffectiveScheme(mode);
+    if (knob.dataset.mode !== scheme) knob.replaceChildren(svgIcon(ICONS[scheme === "dark" ? "moon" : "sun"]));
     knob.dataset.mode = scheme;
-    knob.classList.toggle("auto-mode", mode === "auto");
+    track.dataset.mode = scheme;
+    track.classList.toggle("is-auto", mode === "auto");
     track.setAttribute("aria-checked", String(scheme === "light"));
     track.setAttribute("aria-label", `${MODE_LABEL[mode]}. Press to switch; press A for automatic.`);
     track.title = MODE_LABEL[mode];
@@ -225,6 +232,9 @@ function buildSwitchToggle() {
   onThemeChange(wrap, update);
   // Size is known only once attached
   requestAnimationFrame(update);
-  if (typeof ResizeObserver === "function") new ResizeObserver(() => !drag && update()).observe(track);
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => (wrap.isConnected ? !drag && update() : ro.disconnect()));
+    ro.observe(track);
+  }
   return wrap;
 }

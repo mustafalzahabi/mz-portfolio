@@ -6,13 +6,14 @@
 // ctx = { base, locale, present, photo, openResume() }  (base = "/<id>")
 // ============================================================================
 
+import { dropdown, loginUrl, accountMenu } from "./account.js";
+import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
 import { fetchReadme, extractReadmeImages, extractReadmeSummary } from "./api.js";
-import { buildResumePreview } from "./resume/index.js";
 import { paintLanguageTag } from "./languages.js";
 import { tokenizeJs, tokenizeHtml } from "./animations/code-reveal.js";
 
@@ -86,18 +87,9 @@ export function buildHeader(vm, cfg, ctx) {
     if (cfg.banner.overlay) banner.classList.add("has-overlay");
   }
   const toggle = buildThemeToggle(cfg.theme.toggle);
-  if (toggle) banner.appendChild(h("div.banner-toggle", toggle));
+  const account = signedInMenu(ctx);
+  if (toggle || account) banner.appendChild(h("div.banner-toggle", toggle, account));
 
-  const bannerLinks = h("nav.banner-links", { "aria-label": "Profiles" });
-  for (const key of cfg.header.links) {
-    if (key === "email" && b.email) {
-      bannerLinks.appendChild(h("a.banner-link", { href: `mailto:${b.email}`, "aria-label": "Email" }, svgIcon(ICONS.mail), h("span", "Email")));
-      continue;
-    }
-    const p = findProfile(b, key);
-    if (p) bannerLinks.appendChild(h("a.banner-link", { href: p.url, "aria-label": p.network }, svgIcon(networkIcon(p.network)), h("span", p.network)));
-  }
-  if (bannerLinks.children.length) banner.appendChild(bannerLinks);
   header.appendChild(banner);
 
   // Identity
@@ -125,32 +117,40 @@ export function buildHeader(vm, cfg, ctx) {
 
   const facts = h("ul.profile-facts", { role: "list" });
   if (cfg.header.showLocation && b.location) facts.appendChild(h("li", iconLabel("pin", b.location)));
-  if (b.url) facts.appendChild(h("li", h("a", { href: b.url }, iconLabel("globe", b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")))));
+  if (b.url && !isThisPortfolio(b.url, ctx.base)) facts.appendChild(h("li", h("a", { href: b.url }, iconLabel("globe", b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")))));
   if (cfg.header.showPhone && b.phone) facts.appendChild(h("li", h("a", { href: `tel:${b.phone.replace(/[^\d+]/g, "")}` }, iconLabel("phone", b.phone))));
   if (facts.children.length) details.appendChild(facts);
 
   // Actions
   const actions = h("div.profile-actions");
-  if (cfg.text.cta && vm.hasResume) {
-    actions.appendChild(h("button.btn.btn-primary", { type: "button", onclick: () => ctx.openResume() }, svgIcon(ICONS.doc), cfg.text.cta));
+  if (cfg.header.resume && vm.hasResume) {
+    actions.appendChild(h("button.btn.btn-primary", { type: "button", onclick: () => ctx.openResume() }, svgIcon(ICONS.doc), "Resume"));
   }
-  if (b.email) {
-    actions.appendChild(
-      h("button.btn.btn-ghost", {
-        type: "button",
-        "aria-label": `Copy email address ${b.email}`,
-        onclick: async () => toast((await copyText(b.email)) ? "Email address copied" : "Couldn't copy", "info"),
-      }, svgIcon(ICONS.copy), h("span.btn-label", "Copy email")),
-    );
+  // Profile links (header.links) as round icon buttons, then a ⋯ menu for
+  // the less common actions, so the row stays short on every screen
+  const links = h("nav.profile-links", { "aria-label": "Profiles" });
+  for (const key of cfg.header.links) {
+    if (key === "email" && b.email) {
+      links.appendChild(h("a.profile-link", { href: `mailto:${b.email}`, "aria-label": "Email", title: "Email" }, svgIcon(ICONS.mail)));
+      continue;
+    }
+    const p = findProfile(b, key);
+    if (p && !isThisPortfolio(p.url, ctx.base)) links.appendChild(h("a.profile-link", { href: p.url, "aria-label": p.network, title: p.network }, svgIcon(networkIcon(p.network))));
   }
-  if (cfg.header.vcard) {
-    actions.appendChild(
-      h("button.btn.btn-ghost", { type: "button", onclick: () => downloadVCard(vm) }, svgIcon(ICONS.contact), h("span.btn-label", "Save contact")),
-    );
+  const extra = [
+    b.email && { label: "Copy email address", icon: "copy", onclick: async () => toast((await copyText(b.email)) ? "Email address copied" : "Couldn't copy", "info") },
+    cfg.header.vcard && { label: "Save contact", icon: "contact", onclick: () => downloadVCard(vm) },
+    cfg.header.share && { label: "Share", icon: "share", onclick: () => sharePage(b) },
+  ].filter(Boolean);
+  if (extra.length) {
+    links.appendChild(dropdown({
+      button: h("button.profile-link", { type: "button", title: "More" }, svgIcon(ICONS.more)),
+      label: "More actions",
+      className: ".profile-more",
+      items: extra,
+    }));
   }
-  if (cfg.header.share) {
-    actions.appendChild(h("button.btn.btn-ghost", { type: "button", onclick: () => sharePage(b) }, svgIcon(ICONS.share), h("span.btn-label", "Share")));
-  }
+  if (links.children.length) actions.appendChild(links);
   if (actions.children.length) details.appendChild(actions);
 
   info.appendChild(details);
@@ -252,6 +252,7 @@ export function buildSectionNav(entries) {
     const visible = new Map();
     const io = new IntersectionObserver(
       (records) => {
+        if (!nav.isConnected) return io.disconnect(); // re-rendered: this nav is gone
         for (const r of records) visible.set(r.target.id, r.intersectionRatio);
         let best = null;
         let bestRatio = 0;
@@ -276,38 +277,17 @@ export function buildSectionNav(entries) {
 // ABOUT
 // ============================================================================
 
-export function buildAbout(vm, cfg, ctx) {
+export function buildAbout(vm, cfg) {
   const bio = cfg.text.bio || vm.basics.summary;
-  const philosophy = cfg.text.philosophy || vm.resume.meta?.philosophy || vm.resume.basics?.philosophy || "";
-  if (!bio && !philosophy && !vm.hasResume) return null;
+  if (!bio) return null;
 
+  // One readable column; the resume opens from the header button
   const section = createSection("about", "About", cfg);
-  const grid = h("div.about-grid");
   const text = h("div.about-text");
-  if (bio) {
-    const prose = h("div.prose");
-    prose.innerHTML = markdownToHtml(bio);
-    text.appendChild(prose);
-  }
-  if (philosophy) {
-    text.appendChild(h("h3.about-subtitle", "Philosophy"));
-    const p = h("div.prose");
-    p.innerHTML = markdownToHtml(philosophy);
-    text.appendChild(p);
-  }
-  grid.appendChild(text);
-
-  if (vm.hasResume) {
-    grid.appendChild(
-      buildResumePreview(vm.resume, {
-        theme: cfg.resume.theme,
-        allowDownload: cfg.resume.download,
-        allowPrint: cfg.resume.print,
-        onOpen: ctx.openResume,
-      }),
-    );
-  }
-  section.appendChild(grid);
+  const prose = h("div.prose.about-lead");
+  prose.innerHTML = markdownToHtml(bio);
+  text.appendChild(prose);
+  section.appendChild(text);
   return section;
 }
 
@@ -387,15 +367,17 @@ export function buildProjects(vm, cfg, ctx) {
   if (!vm.projects.length) return null;
   const pc = cfg.projects;
   const section = createSection("projects", "Projects", cfg);
-  const grid = h("div.projects", { dataset: { layout: pc.layout, image: pc.imagePosition } });
+  const grid = h("div.projects", { dataset: { layout: pc.layout, image: pc.imagePosition, count: String(Math.min(vm.projects.length, 3)) } });
 
-  for (const p of vm.projects) {
+  for (const [i, p] of vm.projects.entries()) {
     const card = h("a.card.project-card", { href: `${ctx.base}/project/${encodeURIComponent(p.slug)}`, "aria-label": `${p.name} — details` });
     const cover = p.image || p.images[0];
-    if (cover && pc.imagePosition !== "none") {
-      card.appendChild(
-        h("div.project-media", h("img", { src: cover, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.remove() })),
-      );
+    if (pc.imagePosition !== "none") {
+      // No picture → a generated cover in the owner's colors, so every card has a visual
+      const generated = () => h("div.project-media.is-generated", { dataset: { tone: String(i % 3) }, "aria-hidden": "true" }, h("span", initials(p.name)));
+      card.appendChild(cover
+        ? h("div.project-media", h("img", { src: cover, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.replaceWith(generated()) }))
+        : generated());
     }
     const body = h("div.project-body");
     const title = h("h3.project-title", p.name);
@@ -440,8 +422,16 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
   back.appendChild(h("span.page-bar-text", h("strong", vm.basics.name), h("span.muted", backLabel)));
   bar.appendChild(back);
   const toggle = buildThemeToggle(cfg.theme.toggle === "none" ? "none" : "icon");
-  if (toggle) bar.appendChild(toggle);
+  const account = signedInMenu(ctx);
+  if (toggle || account) bar.appendChild(h("div.page-bar-tools", toggle, account));
   return bar;
+}
+
+/** Your avatar menu (or "Sign in"), in the page's own top row (never floating over content). */
+function signedInMenu(ctx) {
+  const user = session()?.user;
+  if (ctx.embedded) return null;
+  return accountMenu({ user, items: [{ label: "mz-portfolio home", icon: "globe", href: ctx.homeHref }] });
 }
 
 function factRow(label, value) {
@@ -468,8 +458,6 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   // ---- Hero
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
-  const eyebrow = [project.type, project.entity].filter(Boolean).join(" · ");
-  if (eyebrow) intro.appendChild(h("p.eyebrow", eyebrow));
   intro.appendChild(h("h1.project-hero-title", project.name));
   if (project.description) intro.appendChild(h("p.project-hero-lead", project.description));
   const actions = h("div.project-hero-actions");
@@ -477,6 +465,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   if (project.github) actions.appendChild(h("a.btn.btn-ghost", { href: project.github }, svgIcon(ICONS.github), "Source code"));
   if (actions.children.length) intro.appendChild(actions);
   const chips = [
+    (project.type || project.entity) && [ICONS.folder, [project.type, project.entity].filter(Boolean).join(" · ")],
     project.roles.length && [ICONS.contact, project.roles.join(", ")],
     when && [ICONS.clock, when],
     project.stars && [ICONS.star, plural(project.stars, "star")],
@@ -722,13 +711,32 @@ export function buildReferences(vm, cfg) {
 // CONTACT & FOOTER
 // ============================================================================
 
-export function buildContact(vm, cfg) {
+/**
+ * True when url points back to this very portfolio, on this host or any
+ * mz-portfolio deployment (production, staging, previews).
+ */
+export function isThisPortfolio(url, base) {
+  try {
+    const u = new URL(url, location.origin);
+    const host = u.host.replace(/^www\./, "");
+    const ours = host === location.host || /(^|\.)mz-portfolio\.pages\.dev$/.test(host);
+    // "/gh/user" and "/gd/id" are older forms of the same address
+    const path = (p) => decodeURIComponent(p).replace(/\/+$/, "").replace(/^\/(gh|gd)\//, "/").toLowerCase();
+    return ours && path(u.pathname) === path(new URL(base || "/", location.origin).pathname);
+  } catch {
+    return false;
+  }
+}
+
+export function buildContact(vm, cfg, ctx) {
   const b = vm.basics;
+  // Links back to this very portfolio (e.g. basics.url) are left out
+  const ownUrl = { test: (u) => isThisPortfolio(u, ctx.base) };
   const links = [];
   if (b.email) links.push({ href: `mailto:${b.email}`, label: b.email, icon: ICONS.mail });
   if (b.phone && cfg.header.showPhone) links.push({ href: `tel:${b.phone.replace(/[^\d+]/g, "")}`, label: b.phone, icon: ICONS.phone });
-  if (b.url) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
-  for (const p of b.profiles) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
+  if (b.url && !ownUrl.test(b.url)) links.push({ href: b.url, label: b.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), icon: ICONS.globe });
+  for (const p of b.profiles) if (!ownUrl.test(p.url)) links.push({ href: p.url, label: p.network, icon: networkIcon(p.network) });
   const message = cfg.text.contact_message;
   if (!links.length && !message) return null;
 
@@ -748,7 +756,10 @@ export function buildFooter(vm, cfg, ctx) {
     footer.appendChild(
       h("p.muted.footer-credit",
         h("a.footer-brand", { href: ctx.homeHref }, logoImg(20), "mz-portfolio"),
-        h("span", " — make yours from a resume.json.")),
+        h("span", " · "),
+        h("a", { href: ctx.homeHref }, "Make your own"),
+        session()?.user ? null : h("span", " · "),
+        session()?.user ? null : h("a", { href: loginUrl(location.pathname), dataset: { external: "" } }, "Sign in")),
     );
   }
   return footer;

@@ -1,0 +1,195 @@
+/* ============================================================================
+   UI CONTROLS — custom dropdown, switch checkboxes, clean number fields.
+   Same look in every browser.
+   ============================================================================ */
+
+/* ---------- dropdown (scripts/ui.js) ---------- */
+
+.ui-select {
+  position: relative;
+  width: 100%;
+}
+
+.ui-select-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem 0.55rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  color: var(--color-c);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ui-select-button:hover {
+  border-color: var(--color-d);
+}
+
+.ui-select-button:focus-visible,
+.ui-select.is-open .ui-select-button {
+  outline: none;
+  border-color: var(--color-v);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-v) 25%, transparent);
+}
+
+.ui-select-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-label.is-placeholder {
+  color: var(--ink-soft);
+}
+
+.ui-select-button > .icon {
+  color: var(--ink-muted);
+  transition: transform 0.2s;
+}
+
+.ui-select.is-open .ui-select-button > .icon {
+  transform: rotate(180deg);
+}
+
+.ui-select-list {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 16rem;
+  margin: 0;
+  padding: 0.3rem;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  box-shadow: var(--shadow-lg);
+  animation: ui-pop 0.14s ease-out;
+}
+
+.ui-select.is-up .ui-select-list {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
+}
+
+.ui-select-list[hidden] {
+  display: none;
+}
+
+@keyframes ui-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.ui-select-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.4rem 0.6rem;
+  border-radius: calc(var(--radius) * 0.6);
+  cursor: pointer;
+}
+
+.ui-select-option.is-active {
+  background: var(--well);
+}
+
+.ui-select-option-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-select-hint {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.ui-select-option > .icon {
+  color: var(--color-a);
+  visibility: hidden;
+}
+
+.ui-select-option[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.ui-select-option[aria-selected="true"] > .icon {
+  visibility: visible;
+}
+
+/* ---------- switch checkboxes ---------- */
+
+.editor input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.45rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.editor input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--color-b);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--color-c) 25%, transparent);
+  transition: transform 0.18s;
+}
+
+.editor input[type="checkbox"]:checked {
+  background: var(--color-a);
+}
+
+.editor input[type="checkbox"]:checked::after {
+  transform: translateX(1.05rem);
+}
+
+.editor input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-v);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor input[type="checkbox"],
+  .editor input[type="checkbox"]::after,
+  .ui-select-list {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ---------- number fields: no browser spinners ---------- */
+
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}

@@ -36,13 +36,18 @@ export function showLoading(label = "Loading portfolio…") {
   const app = document.getElementById("app");
   app.setAttribute("aria-busy", "true");
   app.replaceChildren(
-    h("main.status-page.is-loading", { id: "main", "aria-label": label },
-      h("div.skeleton",
-        h("div.skeleton-banner"),
-        h("div.skeleton-row", h("div.skeleton-avatar"), h("div.skeleton-lines", h("span"), h("span"))),
-        h("div.skeleton-block"),
-        h("div.skeleton-block"),
+    // Same classes as the real header/tabs/sections, so the layout doesn't jump
+    h("header.profile-header.is-skeleton", { "aria-hidden": "true" },
+      h("div.profile-banner.sk"),
+      h("div.profile-info",
+        h("div.profile-photo.sk"),
+        h("div.profile-details", h("span.sk.sk-line.sk-name"), h("span.sk.sk-line.sk-title"), h("span.sk.sk-line.sk-facts")),
+        h("div.profile-actions", h("span.sk.sk-btn"), h("span.sk.sk-btn")),
       ),
+    ),
+    h("nav.tabs", { "aria-hidden": "true" }, h("div.tabs-inner", h("span.sk.sk-tab"), h("span.sk.sk-tab"), h("span.sk.sk-tab"))),
+    h("main.portfolio", { id: "main", "aria-label": label },
+      [0, 1].map(() => h("section.section", { "aria-hidden": "true" }, h("span.sk.sk-line.sk-heading"), h("div.card.sk-card", h("span.sk.sk-line"), h("span.sk.sk-line"), h("span.sk.sk-line.sk-short")))),
       h("p.visually-hidden", { role: "status" }, label),
     ),
   );
@@ -62,6 +67,7 @@ export function showNotFound(id, reason) {
 export function showRateLimited(resetAt) {
   document.title = "Please wait";
   const countdown = h("div.status-countdown", { role: "timer", "aria-live": "off" });
+  if (!(resetAt > Date.now())) resetAt = Date.now() + 60_000; // unknown or past reset time: retry in a minute
   const at = new Date(resetAt);
   const page = statusPage({
     icon: "clock",
@@ -76,6 +82,8 @@ export function showRateLimited(resetAt) {
   });
   mount(page);
   const tick = () => {
+    // Left this page (an in-app link): stop, never reload somewhere else
+    if (!countdown.isConnected) return clearInterval(countdownTimer);
     const secs = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
     countdown.textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
     if (secs <= 0) {
@@ -95,14 +103,14 @@ export function showError(message, { reason } = {}) {
 }
 
 export function showInvalidResume(error, source) {
-  document.title = "Invalid resume.json";
+  document.title = "Portfolio data has an error";
   const extra = error.line
     ? h("p.status-text", "Open the file and look around ", h("strong", `line ${error.line}`), ". A missing comma or an extra trailing comma is the usual cause.")
     : null;
   const actions = [homeBtn()];
   if (source?.resumeUrl) actions.unshift(h("a.btn.btn-primary", { href: source.resumeUrl }, "Open the file"));
-  actions.unshift(h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Check it in Preview"));
-  mount(statusPage({ icon: "alert", tone: "error", title: "resume.json has an error", body: [error.message], extra, actions }));
+  actions.unshift(h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Check it"));
+  mount(statusPage({ icon: "alert", tone: "error", title: `${getResumeFilename()} has an error`, body: [error.message], extra, actions }));
 }
 
 export function showEmpty(id) {
@@ -115,9 +123,9 @@ export function showEmpty(id) {
       title: "No portfolio data yet",
       body: [
         `“${id}” exists, but has no public ${file} gist and no public repositories.`,
-        h("p.status-text", "Create a public gist named ", h("code", file), " using the ", h("a", { href: "https://jsonresume.org/schema/" }, "JSON Resume schema"), ", then reload."),
+        h("p.status-text", "If this is you, sign in and build it on the page. Publishing creates the ", h("code", file), " gist for you."),
       ],
-      actions: [h("a.btn.btn-primary", { href: "https://gist.github.com/" }, "Create a gist"), h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Try Preview"), homeBtn()],
+      actions: [h("a.btn.btn-primary", { href: `${BASE_PATH}edit` }, "Create your portfolio"), h("a.btn.btn-ghost", { href: `${BASE_PATH}preview` }, "Try it"), homeBtn()],
     }),
   );
 }

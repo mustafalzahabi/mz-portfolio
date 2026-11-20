@@ -39,6 +39,25 @@ export function safeUrl(url, { allowDataImage = false } = {}) {
   }
 }
 
+/**
+ * True when two URLs point to the same page, ignoring protocol (http/https),
+ * "www.", letter case, a trailing slash, query and #hash.
+ */
+export function isSamePage(a, b) {
+  const key = (u) => {
+    try {
+      const url = new URL(u);
+      if (!/^https?:$/.test(url.protocol)) return null;
+      const path = decodeURIComponent(url.pathname).replace(/\/+$/, "");
+      return `${url.host.replace(/^www\./, "")}${path}`.toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const [x, y] = [key(a), key(b)];
+  return x !== null && x === y;
+}
+
 export function isExternalUrl(url) {
   return /^https?:\/\//i.test(url || "");
 }
@@ -48,9 +67,37 @@ export function isExternalUrl(url) {
 // h("a.btn", { href, onclick }, "text", childNode, [more])
 // ============================================================================
 
+// While the dissolve intro is about to play, h() remembers the file and line
+// that created each element, so its wisp can show that exact line of code.
+let tracing = false;
+const origins = new WeakMap();
+const FRAME = /((?:https?|file):\/\/[^\s()]+?):(\d+):\d+/;
+
+/** Turns creation-site tracking on or off (off by default: it costs a stack trace per element). */
+export function traceSources(on) {
+  tracing = Boolean(on);
+}
+
+/** { url, line } of the h() call that created `el`, when it was tracked. */
+export function sourceOf(el) {
+  return origins.get(el) || null;
+}
+
+function callerOf(stack = "") {
+  for (const frame of stack.split("\n").slice(1)) {
+    const m = frame.match(FRAME);
+    if (m && !/\/utils\.js(\?|$)/.test(m[1])) return { url: m[1].split("?")[0], line: Number(m[2]) };
+  }
+  return null;
+}
+
 export function h(tag, props, ...children) {
   const [name, ...classes] = tag.split(".");
   const el = document.createElement(name || "div");
+  if (tracing) {
+    const where = callerOf(new Error().stack);
+    if (where) origins.set(el, where);
+  }
   if (classes.length) el.className = classes.join(" ");
 
   if (props && (typeof props !== "object" || props instanceof Node || Array.isArray(props))) {
@@ -193,17 +240,18 @@ function parseYamlValue(value) {
   if (value === "null" || value === "~") return null;
   if (/^-?\d+$/.test(value)) return parseInt(value, 10);
   if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
+  if (value.length > 1 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\(["\\])/g, "$1"); // YAML double-quoted escapes
+  }
+  if (value.length > 1 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'"); // YAML single-quoted escape
   }
   if (value.startsWith("[") && value.endsWith("]")) {
     return value
       .slice(1, -1)
       .split(",")
-      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .map((s) => parseYamlValue(s.trim()))
+      .map(String)
       .filter(Boolean);
   }
   return value;
@@ -290,9 +338,11 @@ export function toast(message, kind = "info") {
     el.setAttribute("aria-live", "polite");
     document.body.appendChild(el);
   }
+  el.setAttribute("role", kind === "error" ? "alert" : "status");
+  el.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
   el.textContent = message;
   el.dataset.kind = kind;
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => el.classList.remove("show"), kind === "error" ? 5000 : 2600);
 }
