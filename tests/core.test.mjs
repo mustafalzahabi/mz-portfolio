@@ -279,10 +279,26 @@ test("isSamePage: matches a portfolio's own address loosely", async () => {
   assert.ok(!isSamePage("not a url", own));
 });
 
-test("markdown: math-text blocks color numbers, variables and functions", () => {
-  const html = markdownToHtml("```math-text\nf(x) = 2x² + sin θ < π\n```");
-  assert.match(html, /<pre class="math-text">/);
-  assert.match(html, /<span class="mf">f<\/span>\(<span class="mv">x<\/span>\)/);
-  assert.match(html, /<span class="mn">2<\/span><span class="mv">x<\/span><span class="mn">²<\/span>/);
-  assert.match(html, /<span class="mf">sin<\/span> <span class="mv">θ<\/span> &lt; <span class="mn">π<\/span>/);
+test("markdown: LaTeX math becomes MathML", () => {
+  const block = markdownToHtml("```math\n" + String.raw`f(x) = \frac{2}{3}x^2 + \sin\theta` + "\n```");
+  assert.match(block, /<div class="math-block"><math display="block">/);
+  assert.match(block, /<mfrac><mn>2<\/mn><mn>3<\/mn><\/mfrac>/);
+  assert.match(block, /<msup><mi>x<\/mi><mn>2<\/mn><\/msup>/);
+  assert.match(block, /<mi class="fn">sin<\/mi><mo rspace="0.1667em">⁡<\/mo><mi>θ<\/mi>/);
+  assert.match(markdownToHtml("$\\sin(x)$"), /sin<\/mi><mo>⁡<\/mo><mo stretchy="false">\(/);
+  const inline = markdownToHtml(String.raw`Costs \$5 and \$4, while $y = mx + b$ is a line.`);
+  assert.match(inline, /Costs \$5 and \$4, while <math>/);
+  assert.equal((inline.match(/<math>/g) || []).length, 1);
+});
+
+test("latex: environments, roots, scripts and safety", async () => {
+  const { latexToMathml, unknownCommands } = await import("../public/scripts/latex.js");
+  const t = latexToMathml(String.raw`\begin{aligned} x &= \sqrt[3]{27} \ \sin^2 x &\le 1 \end{aligned}`, { display: true });
+  assert.match(t, /<mtable class="aligned"><mtr><mtd>/);
+  assert.match(t, /<mroot><mn>27<\/mn><mn>3<\/mn><\/mroot>/);
+  assert.match(t, /<msup><mi class="fn">sin<\/mi><mn>2<\/mn><\/msup><mo rspace="0.1667em">⁡<\/mo>/);
+  assert.match(latexToMathml(String.raw`\left( \frac{a}{b} \right)`), /<mo stretchy="true">\(<\/mo><mfrac>/);
+  assert.match(latexToMathml(String.raw`\lim_{x \to 0}`), /<munder><mi class="fn limits">lim<\/mi>/);
+  assert.doesNotMatch(latexToMathml(String.raw`\text{<script>}`), /<script>/);
+  assert.deepEqual(unknownCommands(String.raw`\foo + \alpha`), ["foo"]);
 });
