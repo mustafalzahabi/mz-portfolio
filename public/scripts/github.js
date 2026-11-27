@@ -36,7 +36,7 @@ export function cachedUser() {
 
 function rememberUser(user) {
   try {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify({ login: user.login, name: user.name || "", avatar_url: user.avatar_url || "" }));
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify({ login: user.login, id: user.id || null, name: user.name || "", avatar_url: user.avatar_url || "" }));
   } catch {
     /* ignore */
   }
@@ -114,6 +114,21 @@ export async function signIn(token) {
   } catch (e) {
     clearToken();
     throw e;
+  }
+}
+
+/**
+ * A token kept without its user (an older version, or storage partly
+ * cleared) would show "Sign in" forever: look the user up once, or drop a
+ * token GitHub no longer accepts. Returns true when the user was restored.
+ */
+export async function repairSession() {
+  if (!getToken() || cachedUser()) return false;
+  try {
+    return Boolean(await currentUser());
+  } catch (e) {
+    if (e.status === 401) clearToken();
+    return false;
   }
 }
 

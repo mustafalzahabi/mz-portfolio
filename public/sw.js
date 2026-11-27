@@ -64,6 +64,7 @@ const urlsToCache = [
   "/scripts/images.js",
   "/scripts/languages.js",
   "/scripts/log.js",
+  "/scripts/latex.js",
   "/scripts/markdown.js",
   "/scripts/merge.js",
   "/scripts/palette.js",

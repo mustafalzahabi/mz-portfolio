@@ -9,6 +9,7 @@ import { h, svgIcon, safeUrl, traceSources } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
 import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "./router.js";
+import { repairSession } from "./github.js";
 import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
 import { collectPortfolioData } from "./data.js";
@@ -534,6 +535,8 @@ function focusMain() {
 export function init() {
   rescueRedirect();
   initTheme();
+  // A stored GitHub token without its user: restore it, then redraw what shows the account
+  repairSession().then((ok) => ok && dispatchEvent(new CustomEvent("mz-auth", { detail: {} })));
   interceptLinks();
   setupEditing({
     state,
@@ -566,7 +569,13 @@ export function init() {
   addEventListener("mz-auth", () => {
     const view = parsePath().view;
     if (view === "edit" || view === "landing") route();
-    else if (view === "portfolio") afterRender();
+    else if (view === "portfolio" && state.vm) {
+      // The header shows the account (avatar or "Sign in"): rebuild the page around it
+      state.shell = null;
+      state.page = null;
+      renderSub(parsePath().sub);
+      afterRender();
+    }
   });
 
   // Back from a sign-in: store the token before the first render. Google
