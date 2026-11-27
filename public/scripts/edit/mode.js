@@ -21,7 +21,8 @@ import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
-import { photoEditor, imageMenu, stripInput, fieldStrip, itemTools, editIcon, addSectionMenu } from "./direct.js";
+import { editPostOnPage } from "./post-page.js";
+import { photoEditor, imageMenu, stripInput, fieldStrip, itemTools, editIcon, addSectionMenu, inlineDates, chipList } from "./direct.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
   renderPanel, openPost, loadPosts, openSignIn, showChanges,
@@ -266,9 +267,40 @@ const ITEM_SELECTOR = {
   skills: ".skill-group", projects: ".project-card",
 };
 
+// Links and buttons of the portfolio itself don't act while editing (the
+// edit controls, tabs and the editing bars still do)
+const INERT = [
+  ".profile-actions a", ".profile-actions button:not([class*='ed-'])", ".profile-links a", ".profile-facts a",
+  ".project-hero-actions a", ".glance-links a", ".entry-link", ".entry-subtitle a", ".contact-link",
+  ".post-card a", ".project-card a", ".prose a", ".detail a.btn",
+].map((s) => `#app ${s}`).join(", ");
+
+function markInert() {
+  for (const el of document.querySelectorAll(INERT)) {
+    if (el.closest(".ed-tools, .ed-strip, .ed-photo, .ed-chips, .account-menu")) continue;
+    el.classList.add("ed-inert");
+    el.setAttribute("aria-disabled", "true");
+    el.tabIndex = -1;
+  }
+}
+
+function blockInert(e) {
+  if (!editing) return;
+  const el = e.target.closest?.(".ed-inert");
+  if (!el) return;
+  e.preventDefault();
+  // Buttons do their work in their own click handler: stop it from getting there
+  if (el.tagName === "BUTTON") e.stopPropagation();
+}
+
 function decorate() {
   const page = api.state.page || "";
   document.body.classList.add("is-editing");
+  markInert();
+  if (!document.documentElement.dataset.edInert) {
+    document.documentElement.dataset.edInert = "1";
+    document.addEventListener("click", blockInert, true);
+  }
 
   decorateHeader();
   if (page === "profile") decorateProfile();
@@ -382,7 +414,7 @@ function decorateProfile() {
       } else {
         inlineItem(card, key, index);
         card.appendChild(itemTools(() => ed.resume[key], index, noun(key)));
-        const shownKeys = new Set([...card.querySelectorAll("[data-field]")].map((el) => el.dataset.field.split(".")[0]));
+        const shownKeys = shownFields(card);
         const strip = fieldStrip([key, index], SPEC[key].fields, shownKeys);
         if (strip) card.appendChild(strip);
       }
@@ -437,9 +469,24 @@ const PATH_HINTS = { "basics.name": "Your name", "basics.label": "What you do", 
 
 const FIELD_HINTS = { position: "Job title", name: "Name", company: "Company", organization: "Organization", summary: "A short summary", institution: "School", title: "Title", awarder: "Awarded by", issuer: "Issuer", publisher: "Publisher", language: "Language", fluency: "Fluency" };
 
+/** Fields already editable where they're shown (so the strip leaves them out). */
+function shownFields(root) {
+  const keys = new Set();
+  for (const el of root.querySelectorAll("[data-field]:not([data-source])")) keys.add(el.dataset.field.split(".")[0]);
+  for (const el of root.querySelectorAll("[data-dates]:not([data-source])")) el.dataset.dates.split(",").forEach((k) => keys.add(k));
+  for (const el of root.querySelectorAll("[data-list]:not([data-source])")) keys.add(el.dataset.list);
+  return keys;
+}
+
 /** The fields of one resume item (data-field="position", "highlights.2", …). */
 function inlineItem(card, key, index, base = `#view section[data-section="${key}"] [data-ed-index="${index}"]`) {
   card.dataset.edIndex = String(index);
+  for (const el of card.querySelectorAll("[data-dates]:not([data-source])")) inlineDates(el, [key, index], el.dataset.dates.split(","));
+  for (const el of card.querySelectorAll("[data-list]:not([data-source])")) {
+    const chips = chipList([key, index, el.dataset.list], { label: "", placeholder: "Add…" });
+    chips.dataset.list = el.dataset.list;
+    el.replaceWith(chips);
+  }
   for (const el of card.querySelectorAll("[data-field]:not([data-source])")) {
     const field = toPath(el.dataset.field);
     const path = [key, index, ...field];
@@ -533,8 +580,9 @@ function decorateProject(slug) {
         },
       })));
     }
-    const shownKeys = new Set([...page.querySelectorAll("[data-field]:not([data-source])")].map((el) => el.dataset.field.split(".")[0]));
-    const strip = fieldStrip(["projects", index], [...SPEC.projects.fields, ["images", "Gallery images (links)", "list", "https://…/screenshot.png"]], shownKeys, { skip: ["image"] });
+    const shownKeys = shownFields(page);
+    const strip = fieldStrip(["projects", index], SPEC.projects.fields, shownKeys, { skip: ["image"] });
+    editableGallery(page, index, p);
     if (strip && !page.querySelector(":scope > .ed-strip")) page.querySelector(".project-hero")?.after(strip);
     addPageAction("Delete project", "trash", () => {
       ed.resume.projects.splice(index, 1);
@@ -546,11 +594,54 @@ function decorateProject(slug) {
   }
   if (p.repo && canEditReadme(p)) {
     const onSaved = () => api.rerender(ed.resume);
-    const open = () => openReadmeEditor(p, { onSaved });
-    const block = page.querySelector(".project-readme");
-    if (block && !block.querySelector(".ed-tools")) block.appendChild(h("div.ed-tools", editIcon("Edit the README on GitHub", open)));
+    // Everything that came from the README is greyed out and carries the same edit icon
+    const mark = () => {
+      for (const el of page.querySelectorAll('[data-source="readme"]')) {
+        if (el.querySelector(":scope > .ed-tools")) continue;
+        el.classList.add("ed-card");
+        el.appendChild(h("div.ed-tools", editIcon(`Edit the README of ${p.repo.owner}/${p.repo.name}`, () => openReadmeEditor(p, { onSaved }))));
+      }
+    };
+    mark();
+    // The README loads after the page: mark what it fills in once it's there
+    if (!page.dataset.edReadmeWatch) {
+      page.dataset.edReadmeWatch = "1";
+      new MutationObserver(() => editing && mark()).observe(page, { subtree: true, attributes: true, attributeFilter: ["data-source", "hidden"] });
+    }
     resumeReadmeEdit(p, onSaved);
   }
+}
+
+/** The project's own gallery: remove any image, add by upload, link or drop. */
+function editableGallery(page, index, p) {
+  const slot = page.querySelector(".project-gallery-slot");
+  if (!slot) return;
+  const list = () => (Array.isArray(ed.resume.projects?.[index]?.images) ? ed.resume.projects[index].images : []);
+  const own = list();
+  const fromReadme = !own.length && p.sources?.images === "readme" ? p.images : [];
+  const add = h("div.ed-gallery-add");
+  add.appendChild(imageMenu(add, {
+    kind: `project-${index}-${own.length + 1}`, label: "Add an image", current: "",
+    onSet: (v) => {
+      if (!v) return;
+      setPath(ed.resume, ["projects", index, "images"], [...list(), v]);
+      changed();
+    },
+  }));
+  add.appendChild(h("span.ed-gallery-add-text", "Add image"));
+  slot.replaceChildren(h("section.project-block.ed-gallery", { "aria-labelledby": "p-gallery" },
+    h("h2.project-block-title", { id: "p-gallery" }, "Gallery"),
+    h("div.ed-gallery-grid",
+      ...own.map((src, i) => h("figure.ed-gallery-item.ed-card", h("img", { src, alt: "", loading: "lazy" }),
+        h("div.ed-tools", h("button.ed-tool.is-danger", { type: "button", "aria-label": "Remove this image", title: "Remove", onclick: () => {
+          const next = list().slice();
+          next.splice(i, 1);
+          setPath(ed.resume, ["projects", index, "images"], next.length ? next : undefined);
+          changed();
+        } }, svgIcon(ICONS.trash))))),
+      ...fromReadme.map((src) => h("figure.ed-gallery-item", { dataset: { source: "readme" } }, h("img", { src, alt: "", loading: "lazy" }))),
+      add,
+    )));
 }
 
 /** Copies a GitHub-only project into the resume, so all of it can be edited. */
@@ -594,7 +685,7 @@ function decoratePost(slug) {
   if (editKind() !== "own") return;
   const post = api.state.vm.posts.find((x) => x.slug === slug);
   const article = document.querySelector("#view .post-detail");
-  if (post && article && !article.querySelector(".ed-post-page")) mountPostEditor(article, post);
+  if (post && article && !article.classList.contains("ed-post-editing")) mountPostEditor(article, post);
 }
 
 /** "New blog post" from the menu: the blog page, with a new post open on it. */
@@ -604,21 +695,30 @@ function newPost() {
   navigate(`${api.state.base}/blog?edit`);
 }
 
-/** Puts the post editor (title, details, Markdown with preview, save) in place of `target`. */
+/** Turns `target` into the post itself, edited in place (a new post when `post` is null). */
 async function mountPostEditor(target, post) {
   if (!target) return;
-  const host = h("div.ed-post-page", h("div.ed-scroll", { id: "ed-panel" }));
-  target.replaceChildren(host);
-  ed.root = host;
-  ed.tab = "blog";
+  const base = api.state.base;
+  let stored = null;
   try {
-    if (!post) return await openPost(null);
-    if (!ed.posts) await loadPosts();
-    const match = ed.posts.find((p) => p.gistId === post.id) || ed.posts.find((p) => p.title === post.title);
-    await openPost(match || null);
+    if (post) {
+      if (!ed.posts) await loadPosts();
+      stored = ed.posts.find((p) => p.gistId === post.id) || ed.posts.find((p) => p.title === post.title) || null;
+    }
   } catch (e) {
     toast(e.message, "error");
+    return;
   }
+  const article = target.classList.contains("post-detail") ? target : h("article.detail.post-detail");
+  if (article !== target) target.replaceChildren(article);
+  editPostOnPage(article, stored, {
+    backHref: `${base}/blog`,
+    // A new or renamed post has a new address: load it fresh there
+    onSaved: (p) => {
+      if (!post || p.slug !== post.slug) location.assign(`${base}/blog/${encodeURIComponent(p.slug)}?edit`);
+    },
+    onDeleted: () => location.assign(`${base}/blog?edit`),
+  });
 }
 
 /** Index of a view-model item in the draft resume (same object), or -1. */

@@ -450,53 +450,24 @@ body.has-sheet .ed-bar {
   display: none;
 }
 
-/* ---------- content synced from GitHub: locked while editing ---------- */
+/* ---------- content synced from GitHub: greyed out while editing ---------- */
 
 .is-editing [data-source] {
   position: relative;
   border-radius: calc(var(--radius) * 0.6);
   outline: 1.5px dashed var(--line-strong);
   outline-offset: 4px;
-  opacity: 0.6;
-  filter: grayscale(0.6);
+  color: var(--ink-muted);
   user-select: none;
 }
 
-.is-editing [data-source]::before {
-  content: "Synced from GitHub";
-  position: absolute;
-  top: -0.65rem;
-  left: 0.5rem;
-  z-index: 2;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: var(--color-s);
-  color: var(--ink-muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1.3rem;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+.is-editing [data-source] :is(img, .prose, .tags, .frame-bar) {
+  opacity: 0.55;
+  filter: grayscale(0.7);
 }
 
-.is-editing [data-source="readme"]::before {
-  content: "From the repo's README";
-}
-
-/* the README block keeps its own Edit README button fully visible */
-.is-editing .project-readme[data-source] {
-  opacity: 1;
-  filter: none;
-}
-
-.is-editing .project-readme[data-source] > .prose {
-  opacity: 0.6;
-  filter: grayscale(0.6);
-}
-
-.ed-edit.ed-edit-readme {
-  top: 0;
-  right: 0;
+.is-editing .ed-gallery-item[data-source] img {
+  opacity: 0.55;
 }
 
 /* ---------- Markdown editor (write + preview) ---------- */
@@ -1205,4 +1176,204 @@ body.has-sheet .ed-bar {
 
 .is-editing .project-hero-media.ed-media:not(:has(img)) .ed-media-tools {
   position: static;
+}
+
+/* ---------- dates and lists edited where they're shown ---------- */
+
+.ed-dates {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ed-date-input {
+  width: 6.5rem;
+  min-height: 32px;
+  padding: 0.15rem 0.45rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: calc(var(--radius) * 0.5);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88em;
+}
+
+.ed-date-input:focus {
+  outline: 2px solid var(--color-a);
+  border-style: solid;
+}
+
+.ed-date-input[aria-invalid="true"] {
+  border-color: var(--color-f);
+}
+
+.ed-date-sep {
+  color: var(--ink-muted);
+}
+
+.ed-card .ed-chips[data-list] {
+  margin-top: 0.6rem;
+}
+
+/* ---------- project gallery ---------- */
+
+.ed-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ed-gallery-item {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--well);
+}
+
+.ed-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ed-gallery-item > .ed-tools {
+  opacity: 1;
+}
+
+.ed-gallery-add {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  aspect-ratio: 4 / 3;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.ed-gallery-add .ed-image-menu .account-menu {
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* ---------- links and buttons rest while editing ---------- */
+
+.is-editing .ed-inert {
+  cursor: default;
+  opacity: 0.75;
+}
+
+/* ---------- a post edited on its own page ---------- */
+
+.ed-post-editing .detail-title {
+  margin-bottom: 0.35rem;
+}
+
+.ed-post-editing .detail-lead {
+  margin: 0 0 0.5rem;
+  color: var(--ink-muted);
+  font-size: 1.1rem;
+}
+
+.ed-post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ed-inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ed-post-cover {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.ed-post-cover:not(.has-image) {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  min-height: 9rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+}
+
+.ed-post-cover:not(.has-image) .ed-media-tools {
+  position: static;
+}
+
+.ed-post-cover .post-cover {
+  margin: 0;
+}
+
+.ed-post-body .ed-md-text {
+  min-height: 24rem;
+  font-size: 0.95rem;
+}
+
+.ed-post-bar {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-s);
+}
+
+.ed-post-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.ed-check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 36px;
+  font-size: 0.9rem;
+}
+
+.ed-check-inline input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-a);
+}
+
+.ed-post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.ed-post-status {
+  margin-right: auto;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+@media (min-width: 900px) {
+  .ed-post-editing {
+    max-width: min(78rem, 100%);
+  }
+}
+
+/* README-sourced content always shows its edit icon */
+.is-editing [data-source] > .ed-tools {
+  opacity: 1;
 }

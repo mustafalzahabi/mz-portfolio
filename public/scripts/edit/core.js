@@ -987,7 +987,8 @@ function takePostDraft(p) {
   } else if (differs) store.remove(POST_DRAFT_KEY);
 }
 
-async function openPost(post) {
+/** Reads a post's file (once) and fills in its fields; a new, empty post without one. */
+async function loadPost(post) {
   if (post && !post.loaded) {
     const { text, createdAt, updatedAt } = await storage().readPost(post);
     const { metadata, body } = parseFrontmatter(text);
@@ -995,10 +996,15 @@ async function openPost(post) {
     // The slug is written back on save, so a later title change keeps the post's URL
     Object.assign(post, { loaded: true, ...fields, date: fields.date.slice(0, 10), body, updatedAt });
   }
-  ed.post = post || {
-    gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", draft: false, body: "", isPublic: true, loaded: true,
+  const p = post || {
+    gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", canonical: "", draft: false, body: "", isPublic: true, loaded: true,
   };
-  takePostDraft(ed.post);
+  takePostDraft(p);
+  return p;
+}
+
+async function openPost(post) {
+  ed.post = await loadPost(post);
   renderPanel();
 }
 
@@ -1430,7 +1436,7 @@ export function bindControls(controls) {
 
 export {
   ed, store, ago, begin, changed, undo, redo, save, saveDraft, readDraft, computeDirty, updateStatus,
-  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPosts,
+  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPost, loadPosts, savePostDraft, POST_DRAFT_KEY,
   photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
   fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL, MD_ACTIONS,
 };

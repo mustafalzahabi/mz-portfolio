@@ -39,10 +39,10 @@ function iconLabel(icon, label) {
   return [svgIcon(ICONS[icon] || icon), h("span", label)];
 }
 
-function tagList(items, className = "tag") {
+function tagList(items, className = "tag", field = null) {
   const list = (items || []).filter(Boolean);
   if (!list.length) return null;
-  return h("ul.tags", { role: "list" }, list.map((t) => {
+  return h("ul.tags", { role: "list", dataset: { list: field } }, list.map((t) => {
     const li = h(`li.${className}`, t);
     return colorLanguageTags ? paintLanguageTag(li, t) : li;
   }));
@@ -59,14 +59,17 @@ function entryCard({ title, subtitle, subtitleUrl, when, location, summary, high
       h("p.entry-subtitle", { dataset: { field: fields.subtitle || null } }, subtitleUrl ? h("a", { href: subtitleUrl }, subtitle) : subtitle),
     );
   }
-  const meta = [when && h("span.entry-when", when), location && h("span.entry-where", svgIcon(ICONS.pin), location)].filter(Boolean);
+  const meta = [
+    when && h("span.entry-when", { dataset: { dates: fields.dates || null } }, when),
+    location && h("span.entry-where", svgIcon(ICONS.pin), h("span", { dataset: { field: fields.location || null } }, location)),
+  ].filter(Boolean);
   if (meta.length) head.appendChild(h("p.entry-meta", meta));
   card.appendChild(head);
 
   if (summary) card.appendChild(h("p.entry-summary", { dataset: { field: fields.summary || null } }, summary));
   if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x, i) => h("li", { dataset: { field: fields.highlights ? `${fields.highlights}.${i}` : null } }, x))));
   if (extra) card.appendChild(extra);
-  const tl = tagList(tags);
+  const tl = tagList(tags, "tag", fields.tags || null);
   if (tl) card.appendChild(tl);
   if (link) card.appendChild(h("a.entry-link", { href: link }, linkLabel || "View", svgIcon(ICONS.external)));
   return card;
@@ -310,7 +313,7 @@ export function buildWork(vm, cfg, ctx) {
         location: job.location,
         summary: job.summary || job.description,
         highlights: job.highlights,
-        fields: { title: "position", subtitle: job.name ? "name" : "company", summary: job.summary || !job.description ? "summary" : "description", highlights: "highlights" },
+        fields: { title: "position", subtitle: job.name ? "name" : "company", summary: job.summary || !job.description ? "summary" : "description", highlights: "highlights", dates: "startDate,endDate", location: "location" },
       }),
     );
   }
@@ -331,7 +334,7 @@ export function buildVolunteer(vm, cfg, ctx) {
         when: formatDateRange(v.startDate, v.endDate, ctx.locale, ctx.present),
         summary: v.summary,
         highlights: v.highlights,
-        fields: { title: "position", subtitle: "organization", summary: "summary", highlights: "highlights" },
+        fields: { title: "position", subtitle: "organization", summary: "summary", highlights: "highlights", dates: "startDate,endDate" },
       }),
     );
   }
@@ -355,7 +358,7 @@ export function buildEducation(vm, cfg, ctx) {
         location: typeof edu.location === "string" ? edu.location : edu.location?.city,
         tags: edu.courses,
         extra,
-        fields: { title: degree ? null : "institution", subtitle: "institution" },
+        fields: { title: degree ? null : "institution", subtitle: "institution", dates: "startDate,endDate", tags: "courses" },
       }),
     );
   }
@@ -475,10 +478,10 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   const chips = [
     (project.type || project.entity) && [ICONS.folder, [project.type, project.entity].filter(Boolean).join(" · ")],
     project.roles.length && [ICONS.contact, project.roles.join(", ")],
-    when && [ICONS.clock, when],
+    when && [ICONS.clock, when, "startDate,endDate"],
     project.stars && [ICONS.star, plural(project.stars, "star")],
   ].filter(Boolean);
-  if (chips.length) intro.appendChild(h("ul.project-hero-chips", { role: "list" }, chips.map(([icon, text]) => h("li", svgIcon(icon), text))));
+  if (chips.length) intro.appendChild(h("ul.project-hero-chips", { role: "list" }, chips.map(([icon, text, dates]) => h("li", svgIcon(icon), h("span", { dataset: { dates: dates || null } }, text)))));
   hero.appendChild(intro);
 
   const media = h("figure.project-hero-media");
@@ -505,7 +508,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
     );
   }
 
-  const gallerySlot = h("div");
+  const gallerySlot = h("div.project-gallery-slot");
   main.appendChild(gallerySlot);
   const renderGallery = () => {
     if (images.length > 1) {
@@ -535,7 +538,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
     factRow("Last update", project.updatedAt ? formatDate(project.updatedAt.slice(0, 10), ctx.locale, { long: true }) : ""),
   );
   if (facts.children.length) glance.appendChild(facts);
-  const tl = tagList(project.keywords);
+  const tl = tagList(project.keywords, "tag", "keywords");
   if (tl) glance.append(h("h3.glance-sub", "Built with"), tl);
   const links = [live && [ICONS.external, "Live site", live], project.github && [ICONS.github, "Repository", project.github]].filter(Boolean);
   if (links.length) {
@@ -553,7 +556,10 @@ export function buildProjectPage(project, vm, cfg, ctx) {
       readmeBlock.hidden = false;
       if (!images.length) {
         images = extractReadmeImages(text, project.repo.owner, project.repo.name, project.repo.branch);
-        if (images[0]) showCover(images[0]);
+        if (images[0]) {
+          showCover(images[0]);
+          media.dataset.source = "readme"; // the cover came from the README
+        }
         renderGallery();
       }
     };
@@ -623,7 +629,7 @@ export function buildSkills(vm, cfg) {
     if (display === "progress" && (group.percent !== null || group.weights)) {
       if (group.percent !== null) {
         card.appendChild(h("div.meter", { role: "meter", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(Math.round(group.percent)), "aria-label": `${group.name}: ${group.level}` }, h("span.meter-fill", { style: { width: `${group.percent}%` } })));
-        const tl = tagList(group.keywords);
+        const tl = tagList(group.keywords, "tag", "keywords");
         if (tl) card.appendChild(tl);
       } else {
         const list = h("ul.meter-list");
@@ -634,9 +640,9 @@ export function buildSkills(vm, cfg) {
         card.appendChild(list);
       }
     } else if (display === "list") {
-      card.appendChild(h("ul.plain-list", group.keywords.map((k) => h("li", k))));
+      card.appendChild(h("ul.plain-list", { dataset: { list: "keywords" } }, group.keywords.map((k) => h("li", k))));
     } else {
-      const tl = tagList(group.keywords);
+      const tl = tagList(group.keywords, "tag", "keywords");
       if (tl) card.appendChild(tl);
     }
     grid.appendChild(card);
@@ -661,7 +667,7 @@ export function buildInterests(vm, cfg) {
   const section = createSection("interests", "Interests", cfg);
   const grid = h("div.card-grid");
   for (const it of vm.interests) {
-    grid.appendChild(h("article.card", h("h3.entry-title", { dataset: { field: "name" } }, it.name || ""), tagList(it.keywords)));
+    grid.appendChild(h("article.card", h("h3.entry-title", { dataset: { field: "name" } }, it.name || ""), tagList(it.keywords, "tag", "keywords")));
   }
   section.appendChild(grid);
   return section;
@@ -676,7 +682,7 @@ export function buildAwards(vm, cfg, ctx) {
   const section = createSection("awards", "Awards", cfg);
   const grid = h("div.card-grid");
   for (const a of vm.awards) {
-    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary, fields: { title: "title", subtitle: "awarder", summary: "summary" } }));
+    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary, fields: { title: "title", subtitle: "awarder", summary: "summary", dates: "date" } }));
   }
   section.appendChild(grid);
   return section;
@@ -687,7 +693,7 @@ export function buildCertificates(vm, cfg, ctx) {
   const section = createSection("certificates", "Certificates", cfg);
   const grid = h("div.card-grid");
   for (const c of vm.certificates) {
-    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate", fields: { title: "name", subtitle: "issuer" } }));
+    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate", fields: { title: "name", subtitle: "issuer", dates: "date" } }));
   }
   section.appendChild(grid);
   return section;
@@ -698,7 +704,7 @@ export function buildPublications(vm, cfg, ctx) {
   const section = createSection("publications", "Publications", cfg);
   const grid = h("div.card-grid");
   for (const p of vm.publications) {
-    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read", fields: { title: "name", subtitle: "publisher", summary: "summary" } }));
+    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read", fields: { title: "name", subtitle: "publisher", summary: "summary", dates: "releaseDate" } }));
   }
   section.appendChild(grid);
   return section;

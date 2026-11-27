@@ -49,7 +49,8 @@ export async function openReadmeEditor(project, { restore = null, autoSave = fal
 
   const status = h("p.readme-status", { "aria-live": "polite" }, restore ? "" : "Loading the README from GitHub…");
   const message = h("input.input.readme-message", { type: "text", "aria-label": "Commit message", placeholder: DEFAULT_MESSAGE, value: state.message });
-  const saveBtn = h("button.btn.btn-primary", { type: "button", disabled: restore ? null : true }, svgIcon(ICONS.github), "Save to GitHub");
+  const branchName = branch || "the default branch";
+  const saveBtn = h("button.btn.btn-primary", { type: "button", disabled: restore ? null : true }, svgIcon(ICONS.github), "Commit and push");
   const close = () => dialog.close();
   const editorSlot = h("div.readme-body");
 
@@ -57,8 +58,9 @@ export async function openReadmeEditor(project, { restore = null, autoSave = fal
     h("header.readme-head",
       h("div.readme-titles",
         h("h2#readme-title", "Edit README"),
-        h("p.muted", "Saving changes ", h("code", state.path), " in your GitHub repository ",
-          h("a", { href: `https://github.com/${owner}/${name}`, target: "_blank", rel: "noopener" }, repoLabel(project)), "."),
+        h("p.muted", "Saving commits ", h("code", state.path), " and pushes it to ", h("strong", branchName), " of ",
+          h("a", { href: `https://github.com/${owner}/${name}`, target: "_blank", rel: "noopener" }, repoLabel(project)),
+          " on GitHub. The change is public right away and stays in the repository's history."),
       ),
       h("button.readme-close", { type: "button", "aria-label": "Close", onclick: close }, "×"),
     ),
@@ -96,9 +98,11 @@ export async function openReadmeEditor(project, { restore = null, autoSave = fal
   const save = async () => {
     state.message = message.value.trim() || DEFAULT_MESSAGE;
     if (!canWriteRepos()) {
-      const choice = await choiceDialog("Allow editing your repository?", [
-        h("p", "This saves the README of ", h("strong", repoLabel(project)), " on GitHub. To do that, mz-portfolio needs permission to change your public repositories."),
-        h("p.muted", "Allow once: the permission is used for this save only. Always allow: later README saves won't ask again (sign out any time to remove it)."),
+      const choice = await choiceDialog(`Push a commit to ${repoLabel(project)}?`, [
+        h("p", "Saving creates a commit that changes ", h("code", state.path), " on ", h("strong", branchName), " of ", h("strong", repoLabel(project)),
+          ", and pushes it to GitHub under your name. It's public as soon as it's pushed, and it can only be undone with another commit."),
+        h("p", "To push, mz-portfolio needs GitHub's permission to write to your public repositories (all of them, not just this one)."),
+        h("p.muted", "Allow once: the permission is used for this push only, then dropped. Always allow: later README pushes won't ask for permission again (sign out to remove it)."),
       ], [[null, "Cancel"], ["once", "Allow once"], ["always", "Always allow", "primary"]]);
       if (!choice) return;
       const returnPath = location.pathname + location.search;
@@ -107,7 +111,7 @@ export async function openReadmeEditor(project, { restore = null, autoSave = fal
       return;
     }
     saveBtn.disabled = true;
-    status.textContent = "Saving to GitHub…";
+    status.textContent = `Pushing a commit to ${branchName}…`;
     try {
       state.sha = await putRepoFile(owner, name, { path: state.path, text: state.text, sha: state.sha, message: state.message, branch });
     } catch (e) {
@@ -120,7 +124,7 @@ export async function openReadmeEditor(project, { restore = null, autoSave = fal
     dropOnceToken();
     forgetReadme(project);
     project.readme = state.text;
-    toast(`README saved to ${repoLabel(project)}.`);
+    toast(`Commit pushed to ${repoLabel(project)} (${branchName}).`);
     close();
     onSaved(state.text);
   };

@@ -43,39 +43,67 @@ export function stripInput(path, [key, label, kind = "text", placeholder = ""], 
   return h("label.ed-strip-field", { "data-key": key }, h("span.ed-strip-label", label), input);
 }
 
-/** A list of short values as chips: × removes, typing + Enter adds. */
-export function chipList(path, { label, placeholder = "Add…" } = {}) {
-  const list = () => (Array.isArray(getPath(ed.resume, path)) ? getPath(ed.resume, path) : []);
-  const box = h("div.ed-chips", { role: "group", "aria-label": label });
+/** Dates typed where they're shown: one date, or a start – end range (empty end = present). */
+export function inlineDates(el, basePath, keys) {
+  const input = (key, placeholder) => {
+    const i = h("input.ed-date-input", { type: "text", inputmode: "numeric", placeholder, "aria-label": key === "endDate" ? "End date (empty = present)" : key === "startDate" ? "Start date" : "Date", title: "YYYY, YYYY-MM or YYYY-MM-DD" });
+    i.value = String(getPath(ed.resume, [...basePath, key]) ?? "");
+    i.size = 8;
+    i.addEventListener("change", () => {
+      const v = i.value.trim();
+      const err = validateField("date", v);
+      i.setAttribute("aria-invalid", err ? "true" : "false");
+      if (err) return toast(err, "error");
+      setPath(ed.resume, [...basePath, key], v);
+      changed();
+    });
+    i.addEventListener("keydown", (e) => e.key === "Enter" && i.blur());
+    return i;
+  };
+  const parts = keys.length === 2
+    ? [input(keys[0], "YYYY-MM"), h("span.ed-date-sep", "–"), input(keys[1], "Present")]
+    : [input(keys[0], "YYYY-MM")];
+  el.classList.add("ed-dates");
+  el.replaceChildren(...parts);
+}
+
+/** A list of short values as chips bound to a resume path: × removes, typing + Enter adds. */
+export function chipList(path, opts = {}) {
+  return chips(() => getPath(ed.resume, path), (v) => {
+    setPath(ed.resume, path, v);
+    changed();
+  }, opts);
+}
+
+/** Chips over any list: get() returns it, set(next) stores it. */
+export function chips(get, set, { label, placeholder = "Add…" } = {}) {
+  const list = () => (Array.isArray(get()) ? get() : []);
+  const box = h("div.ed-chips", { role: "group", "aria-label": label || "List" });
   const draw = () => {
-    const input = h("input.ed-chip-input", { type: "text", placeholder, "aria-label": `Add to ${label}` });
+    const input = h("input.ed-chip-input", { type: "text", placeholder, "aria-label": `Add to ${label || "the list"}` });
     input.addEventListener("keydown", (e) => {
       if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
         e.preventDefault();
-        const values = input.value.split(",").map((s) => s.trim()).filter(Boolean);
-        setPath(ed.resume, path, [...list(), ...values]);
-        changed();
+        set([...list(), ...input.value.split(",").map((s) => s.trim()).filter(Boolean)]);
         draw();
         box.querySelector(".ed-chip-input")?.focus();
       } else if (e.key === "Backspace" && !input.value && list().length) {
-        setPath(ed.resume, path, list().slice(0, -1));
-        changed();
+        set(list().slice(0, -1));
         draw();
         box.querySelector(".ed-chip-input")?.focus();
       }
     });
-    box.replaceChildren(
+    box.replaceChildren(...[
       label ? h("span.ed-strip-label", label) : null,
       ...list().map((v, i) => h("span.ed-chip", h("span", String(v)),
         h("button.ed-chip-x", { type: "button", "aria-label": `Remove ${v}`, title: "Remove", onclick: () => {
           const next = list().slice();
           next.splice(i, 1);
-          setPath(ed.resume, path, next);
-          changed();
+          set(next);
           draw();
         } }, svgIcon(ICONS.close)))),
       input,
-    );
+    ].filter(Boolean));
   };
   draw();
   return box;
