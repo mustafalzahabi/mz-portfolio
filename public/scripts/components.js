@@ -11,9 +11,9 @@ import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
-import { findProfile } from "./merge.js";
+import { findProfile, isRepoHidden } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
-import { fetchReadme, extractReadmeImages, extractReadmeSummary } from "./api.js";
+import { fetchReadme, extractReadmeImages, extractReadmeSummary, extractReadmeAbout } from "./api.js";
 import { paintLanguageTag } from "./languages.js";
 import { tokenizeJs, tokenizeHtml } from "./animations/code-reveal.js";
 
@@ -67,7 +67,7 @@ function entryCard({ title, subtitle, subtitleUrl, when, location, summary, high
   card.appendChild(head);
 
   if (summary) card.appendChild(h("p.entry-summary", { dataset: { field: fields.summary || null } }, summary));
-  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x, i) => h("li", { dataset: { field: fields.highlights ? `${fields.highlights}.${i}` : null } }, x))));
+  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x, i) => h("li", h("span", { dataset: { field: fields.highlights ? `${fields.highlights}.${i}` : null } }, x)))));
   if (extra) card.appendChild(extra);
   const tl = tagList(tags, "tag", fields.tags || null);
   if (tl) card.appendChild(tl);
@@ -403,14 +403,14 @@ export function buildProjects(vm, cfg, ctx) {
 }
 
 /** Loads README covers for GitHub-backed projects that have no image yet. */
-export async function enrichProjectCovers(projects, max = 8) {
+export async function enrichProjectCovers(projects, max = 8, projectsCfg = {}) {
   const targets = projects.filter((p) => p.repo && !p.image && !p.images.length).slice(0, max);
   await Promise.all(
     targets.map(async (p) => {
       const readme = await fetchReadme(p.repo.owner, p.repo.name, p.repo.branch);
       if (!readme) return;
       p.readme = readme;
-      p.images = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch);
+      p.images = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch).filter((src) => !isRepoHidden(projectsCfg, p.repo.name, "image", src));
       p.sources = { ...p.sources, images: "readme" };
       if (!p.description) {
         p.description = extractReadmeSummary(readme);
@@ -464,9 +464,27 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   const page = h("article.project-page");
   const when = formatDateRange(project.startDate, project.endDate, ctx.locale, ctx.present);
   const live = project.demo || project.url;
-  let images = [...new Set([project.image, ...project.images].filter(Boolean))];
+  const repoName = project.repo?.name || "";
+  const hidden = (kind, value) => Boolean(repoName) && isRepoHidden(cfg.projects, repoName, kind, value);
 
-  // ---- Hero
+  // ---- Images first: one slider, every image fitted to the same frame
+  const sliderSlot = h("div.project-slider-slot");
+  page.appendChild(sliderSlot);
+  let images = [...new Set([project.image, ...project.images].filter(Boolean))];
+  // The project cards may already have taken images from the README
+  let imagesFromReadme = project.sources?.images === "readme";
+  if (imagesFromReadme) {
+    project.readmeImages = images;
+    images = images.filter((src) => !hidden("image", src));
+  }
+  const renderSlider = () => {
+    sliderSlot.replaceChildren(...(images.length ? [buildSlider(images, project.name, { source: imagesFromReadme ? "readme" : null })] : []));
+  };
+  renderSlider();
+  // Edit mode puts the image editor here
+  page.appendChild(h("div.project-gallery-slot"));
+
+  // ---- Text
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
   intro.appendChild(h("h1.project-hero-title", { dataset: { field: "name", source: project.sources?.name || null } }, project.name));
@@ -483,45 +501,20 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   ].filter(Boolean);
   if (chips.length) intro.appendChild(h("ul.project-hero-chips", { role: "list" }, chips.map(([icon, text, dates]) => h("li", svgIcon(icon), h("span", { dataset: { dates: dates || null } }, text)))));
   hero.appendChild(intro);
-
-  const media = h("figure.project-hero-media");
-  const showCover = (src) => {
-    media.replaceChildren(
-      h("div.frame-bar", { "aria-hidden": "true" }, h("span"), h("span"), h("span")),
-      h("img", { src, alt: `${project.name} preview`, decoding: "async", onerror: () => media.remove() }),
-    );
-    hero.classList.add("has-media");
-  };
-  if (images[0]) showCover(images[0]);
-  hero.appendChild(media);
   page.appendChild(hero);
 
   // ---- Body: content + "at a glance" sidebar
   const layout = h("div.project-layout");
   const main = h("div.project-main");
 
-  if (project.highlights.length) {
-    main.appendChild(
-      h("section.project-block", { "aria-labelledby": "p-highlights" },
-        h("h2.project-block-title", { id: "p-highlights" }, "Highlights"),
-        h("ul.highlight-grid", { role: "list" }, project.highlights.map((x, i) => h("li.card", svgIcon(ICONS.check), h("span", { dataset: { field: `highlights.${i}` } }, x))))),
-    );
-  }
+  main.appendChild(h("section.project-block.project-highlights", { "aria-labelledby": "p-highlights", hidden: project.highlights.length ? null : true },
+    h("h2.project-block-title", { id: "p-highlights" }, "Highlights"),
+    h("ul.highlight-grid", { role: "list" }, project.highlights.map((x, i) => h("li.card", svgIcon(ICONS.check), h("span", { dataset: { field: `highlights.${i}` } }, x))))));
 
-  const gallerySlot = h("div.project-gallery-slot");
-  main.appendChild(gallerySlot);
-  const renderGallery = () => {
-    if (images.length > 1) {
-      gallerySlot.replaceChildren(
-        h("section.project-block", { "aria-labelledby": "p-gallery" }, h("h2.project-block-title", { id: "p-gallery" }, "Gallery"), buildGallery(images, project.name)),
-      );
-    }
-  };
-  renderGallery();
-
+  // The README's description only: no images, setup steps, badges or code
   const readmeBlock = h("section.project-block.project-readme", { "aria-labelledby": "p-readme", hidden: true, dataset: { source: "readme" } },
     h("h2.project-block-title", { id: "p-readme" }, "About this project"));
-  const readmeBox = h("div.prose.card");
+  const readmeBox = h("div.prose");
   readmeBlock.appendChild(readmeBox);
   main.appendChild(readmeBlock);
   layout.appendChild(main);
@@ -552,23 +545,24 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   if (project.repo) {
     const render = (text) => {
       if (!text) return;
-      readmeBox.innerHTML = readmeHtml(project, text);
-      readmeBlock.hidden = false;
-      if (!images.length) {
-        images = extractReadmeImages(text, project.repo.owner, project.repo.name, project.repo.branch);
-        if (images[0]) {
-          showCover(images[0]);
-          media.dataset.source = "readme"; // the cover came from the README
-        }
-        renderGallery();
+      project.readme = text;
+      const about = hidden("readme") ? "" : extractReadmeAbout(text);
+      if (about) {
+        readmeBox.innerHTML = readmeHtml(project, about);
+        readmeBlock.hidden = false;
       }
+      if (!images.length) {
+        project.readmeImages = extractReadmeImages(text, project.repo.owner, project.repo.name, project.repo.branch);
+        images = project.readmeImages.filter((src) => !hidden("image", src));
+        imagesFromReadme = true;
+        renderSlider();
+      }
+      page.dispatchEvent(new CustomEvent("mz:readme", { bubbles: true }));
     };
     if (project.readme) render(project.readme);
-    else fetchReadme(project.repo.owner, project.repo.name, project.repo.branch).then((text) => {
-      project.readme = text;
-      render(text);
-    });
+    else fetchReadme(project.repo.owner, project.repo.name, project.repo.branch).then(render);
   }
+
 
   // ---- More projects
   const others = [vm.projects[index - 1], vm.projects[index + 1]].filter(Boolean);
@@ -591,21 +585,37 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   return page;
 }
 
-/** Scroll-snap gallery with buttons (swipe on touch, arrows on desktop). */
-export function buildGallery(images, label) {
-  const wrap = h("div.gallery", { role: "region", "aria-roledescription": "carousel", "aria-label": `${label} images` });
-  const track = h("div.gallery-track", { tabindex: "0" });
+/**
+ * Project images as one slider: each image is shown whole (contained) in the
+ * same frame over a soft blur of itself, so portrait and landscape shots sit
+ * side by side without cropping or jumping. Swipe, arrows, dots or keys.
+ */
+export function buildSlider(images, label, { source = null } = {}) {
+  const wrap = h("section.slider", { "aria-roledescription": "carousel", "aria-label": `${label} images`, dataset: { source } });
+  const track = h("div.slider-track", { tabindex: "0" });
   images.forEach((src, i) => {
-    track.appendChild(
-      h("figure.gallery-slide", { "aria-label": `${i + 1} of ${images.length}` },
-        h("img", { src, alt: i === 0 ? `${label} preview` : "", loading: i ? "lazy" : "eager", decoding: "async", onerror: (e) => e.target.closest("figure").remove() })),
-    );
+    const slide = h("figure.slide", { "aria-roledescription": "slide", "aria-label": `${i + 1} of ${images.length}` },
+      h("img", { src, alt: i === 0 ? `${label} preview` : "", loading: i ? "lazy" : "eager", decoding: "async", onerror: (e) => e.target.closest("figure").remove() }));
+    slide.style.setProperty("--slide-bg", `url("${src.replace(/["\\]/g, "")}")`);
+    track.appendChild(slide);
   });
   wrap.appendChild(track);
   if (images.length > 1) {
-    const go = (dir) => track.scrollBy({ left: dir * track.clientWidth, behavior: "smooth" });
-    wrap.appendChild(h("button.gallery-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(-1) }, svgIcon(ICONS.arrowLeft)));
-    wrap.appendChild(h("button.gallery-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(1) }, svgIcon(ICONS.arrowRight)));
+    const current = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+    const go = (i) => track.scrollTo({ left: Math.max(0, Math.min(images.length - 1, i)) * track.clientWidth, behavior: "smooth" });
+    const dots = h("div.slider-dots", images.map((_, i) => h("button.slider-dot", { type: "button", "aria-label": `Show image ${i + 1}`, onclick: () => go(i) })));
+    const sync = () => [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === current())));
+    track.addEventListener("scroll", () => requestAnimationFrame(sync), { passive: true });
+    track.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") go(current() + 1);
+      if (e.key === "ArrowLeft") go(current() - 1);
+    });
+    wrap.append(
+      h("button.slider-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(current() - 1) }, svgIcon(ICONS.arrowLeft)),
+      h("button.slider-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(current() + 1) }, svgIcon(ICONS.arrowRight)),
+      dots,
+    );
+    sync();
   }
   return wrap;
 }

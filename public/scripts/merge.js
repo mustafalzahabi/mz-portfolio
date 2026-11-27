@@ -188,7 +188,7 @@ function projectFromResume(p, index) {
   return {
     name: str(p.name) || `Project ${index + 1}`,
     description: str(p.description),
-    highlights: arr(p.highlights).map(str).filter(Boolean),
+    highlights: arr(p.highlights).map(str), // empty ones stay while editing (dropped on publish)
     keywords: arr(p.keywords).map(str).filter(Boolean),
     roles: arr(p.roles).map(str).filter(Boolean),
     entity: str(p.entity),
@@ -235,8 +235,29 @@ function projectFromRepo(r) {
   };
 }
 
+/** "repo|kind|value": one thing from a GitHub repo the owner chose to leave out. */
+export function repoHideKey(repo, kind, value = "") {
+  return `${String(repo).toLowerCase()}|${kind}|${value}`;
+}
+
+export function isRepoHidden(cfg, repo, kind, value = "") {
+  return arr(cfg?.hideFromRepos).includes(repoHideKey(repo, kind, value));
+}
+
 export function mergeProjects(resumeProjects, repos, cfg = {}) {
   const { github = "all", showForks = false, exclude = [], sort = "resume", limit = 0 } = cfg;
+  // Leaves out the repo's own keywords / language / description the owner hid
+  const fromRepo = (repo) => {
+    const name = repo.repo?.name || repo.name;
+    return {
+      ...repo,
+      repoKeywords: repo.keywords, // all of them, so hidden ones can be shown again
+      repoLanguage: repo.language,
+      keywords: repo.keywords.filter((k) => !isRepoHidden(cfg, name, "keyword", k)),
+      language: isRepoHidden(cfg, name, "language") ? "" : repo.language,
+      description: isRepoHidden(cfg, name, "description") ? "" : repo.description,
+    };
+  };
   const pool = github === "none" ? [] : arr(repos).filter((r) => (showForks || !r.fork) && !r.archived);
   const taken = new Set();
 
@@ -245,7 +266,7 @@ export function mergeProjects(resumeProjects, repos, cfg = {}) {
     const i = pool.length ? findMatchingRepo(p, pool, taken) : -1;
     if (i >= 0) {
       taken.add(i);
-      const repo = projectFromRepo(pool[i]);
+      const repo = fromRepo(projectFromRepo(pool[i]));
       project.sources = {};
       if (!project.description && repo.description) project.sources.description = "repo";
       project.description ||= repo.description;
@@ -256,13 +277,15 @@ export function mergeProjects(resumeProjects, repos, cfg = {}) {
       project.language = repo.language;
       project.updatedAt = repo.updatedAt;
       project.repo = repo.repo;
+      project.repoKeywords = repo.repoKeywords;
+      project.repoLanguage = pool[i].language || "";
     }
     return project;
   });
 
   if (github === "all") {
     pool.forEach((r, i) => {
-      if (!taken.has(i)) merged.push(projectFromRepo(r));
+      if (!taken.has(i)) merged.push(fromRepo(projectFromRepo(r)));
     });
   }
 

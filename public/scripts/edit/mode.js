@@ -17,6 +17,7 @@ import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResum
 import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
 import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
+import { repoHideKey } from "../merge.js";
 import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
@@ -302,6 +303,7 @@ function decorate() {
     document.addEventListener("click", blockInert, true);
   }
 
+  shortcutsInAccountMenu();
   decorateHeader();
   if (page === "profile") decorateProfile();
   else if (page.startsWith("project:")) decorateProject(decodeURIComponent(page.slice(8)));
@@ -311,6 +313,20 @@ function decorate() {
 }
 
 /** Header: name and title typed in place, photo and banner on themselves, contact details in a strip. */
+/** Adds "Keyboard shortcuts" to the account menu in the header while editing. */
+function shortcutsInAccountMenu() {
+  for (const menu of document.querySelectorAll("#app .account-menu")) {
+    if (menu.querySelector(".ed-shortcuts-item") || !menu.querySelector(".account-item")) continue;
+    const item = h("button.account-item.ed-shortcuts-item", { role: "menuitem", type: "button", onclick: () => {
+      menu.hidden = true;
+      showShortcuts();
+    } }, svgIcon(ICONS.keyboard), "Keyboard shortcuts");
+    const sep = [...menu.querySelectorAll(".account-sep")].pop();
+    if (sep) sep.before(item);
+    else menu.appendChild(item);
+  }
+}
+
 function decorateHeader() {
   const info = document.querySelector(".profile-info");
   if (!info) return;
@@ -415,7 +431,7 @@ function decorateProfile() {
         inlineItem(card, key, index);
         card.appendChild(itemTools(() => ed.resume[key], index, noun(key)));
         const shownKeys = shownFields(card);
-        const strip = fieldStrip([key, index], SPEC[key].fields, shownKeys);
+        const strip = fieldStrip([key, index], SPEC[key].fields, shownKeys, { skip: ["highlights"] });
         if (strip) card.appendChild(strip);
       }
     });
@@ -469,6 +485,44 @@ const PATH_HINTS = { "basics.name": "Your name", "basics.label": "What you do", 
 
 const FIELD_HINTS = { position: "Job title", name: "Name", company: "Company", organization: "Organization", summary: "A short summary", institution: "School", title: "Title", awarder: "Awarded by", issuer: "Issuer", publisher: "Publisher", language: "Language", fluency: "Fluency" };
 
+/** Highlights: a remove button on each, and "Add highlight" after the list. */
+function highlightControls(card, key, index, base) {
+  if (!SPEC[key]?.fields.some(([k]) => k === "highlights") || card.querySelector(".ed-add-line")) return;
+  const path = [key, index, "highlights"];
+  const list = () => (Array.isArray(getPath(ed.resume, path)) ? getPath(ed.resume, path) : []);
+  const els = [...card.querySelectorAll('[data-field^="highlights."]:not([data-source])')];
+  for (const el of els) {
+    const i = Number(el.dataset.field.split(".")[1]);
+    el.closest("li")?.appendChild(h("button.ed-line-x", {
+      type: "button", "aria-label": "Remove this highlight", title: "Remove",
+      onclick: (e) => {
+        e.stopPropagation();
+        const next = list().slice();
+        next.splice(i, 1);
+        setPath(ed.resume, path, next.length ? next : undefined);
+        changed();
+      },
+    }, svgIcon(ICONS.close)));
+  }
+  const add = h("button.ed-add-line", {
+    type: "button", onclick: () => {
+      setPath(ed.resume, path, [...list(), ""]);
+      changed();
+      focusLater(`${base} [data-field="highlights.${list().length - 1}"]`);
+    },
+  }, svgIcon(ICONS.plus), "Add highlight");
+  const ul = els[0]?.closest("ul");
+  if (ul) ul.after(add);
+  else {
+    // None yet: the project page has a (hidden) block for them; cards get the button at the end
+    const block = card.querySelector(".project-highlights");
+    if (block) {
+      block.hidden = false;
+      block.appendChild(add);
+    } else card.appendChild(add);
+  }
+}
+
 /** Fields already editable where they're shown (so the strip leaves them out). */
 function shownFields(root) {
   const keys = new Set();
@@ -481,6 +535,7 @@ function shownFields(root) {
 /** The fields of one resume item (data-field="position", "highlights.2", …). */
 function inlineItem(card, key, index, base = `#view section[data-section="${key}"] [data-ed-index="${index}"]`) {
   card.dataset.edIndex = String(index);
+  highlightControls(card, key, index, base);
   for (const el of card.querySelectorAll("[data-dates]:not([data-source])")) inlineDates(el, [key, index], el.dataset.dates.split(","));
   for (const el of card.querySelectorAll("[data-list]:not([data-source])")) {
     const chips = chipList([key, index, el.dataset.list], { label: "", placeholder: "Add…" });
@@ -555,7 +610,8 @@ function decorateProject(slug) {
   if (!p) return;
   const page = document.querySelector("#view .project-page");
   if (!page) return;
-  if (p.fromResume === false) {
+  const index = p.fromResume === false ? -1 : p.order;
+  if (index < 0) {
     // Only on GitHub: shown locked, with the two ways to take it over
     page.querySelector(".project-hero-title")?.setAttribute("data-source", "repo");
     addPageAction("Add to my resume", "plus", () => adoptRepoProject(p));
@@ -566,23 +622,9 @@ function decorateProject(slug) {
       toast(`"${p.name}" is hidden. Show it again in Customize → Projects.`);
     }, "ghost");
   } else {
-    const index = p.order;
     ed.projectIndex = index; // a rename changes the URL: followRenamedProject keeps us on it
     inlineItem(page, "projects", index, "#view .project-page");
-    const media = page.querySelector(".project-hero-media");
-    if (media && !media.querySelector(".ed-image-menu")) {
-      media.classList.add("ed-media");
-      media.appendChild(h("div.ed-media-tools", imageMenu(media, {
-        kind: `project-${index}`, label: "Change cover image", current: String(ed.resume.projects?.[index]?.image || ""),
-        onSet: (v) => {
-          setPath(ed.resume, ["projects", index, "image"], v || undefined);
-          changed();
-        },
-      })));
-    }
-    const shownKeys = shownFields(page);
-    const strip = fieldStrip(["projects", index], SPEC.projects.fields, shownKeys, { skip: ["image"] });
-    editableGallery(page, index, p);
+    const strip = fieldStrip(["projects", index], SPEC.projects.fields, shownFields(page), { skip: ["image", "highlights"] });
     if (strip && !page.querySelector(":scope > .ed-strip")) page.querySelector(".project-hero")?.after(strip);
     addPageAction("Delete project", "trash", () => {
       ed.resume.projects.splice(index, 1);
@@ -592,56 +634,114 @@ function decorateProject(slug) {
       toast("Project deleted. Undo with Ctrl+Z or the bottom bar.");
     }, "ghost");
   }
-  if (p.repo && canEditReadme(p)) {
-    const onSaved = () => api.rerender(ed.resume);
-    // Everything that came from the README is greyed out and carries the same edit icon
-    const mark = () => {
-      for (const el of page.querySelectorAll('[data-source="readme"]')) {
-        if (el.querySelector(":scope > .ed-tools")) continue;
-        el.classList.add("ed-card");
-        el.appendChild(h("div.ed-tools", editIcon(`Edit the README of ${p.repo.owner}/${p.repo.name}`, () => openReadmeEditor(p, { onSaved }))));
-      }
-    };
-    mark();
-    // The README loads after the page: mark what it fills in once it's there
-    if (!page.dataset.edReadmeWatch) {
-      page.dataset.edReadmeWatch = "1";
-      new MutationObserver(() => editing && mark()).observe(page, { subtree: true, attributes: true, attributeFilter: ["data-source", "hidden"] });
-    }
-    resumeReadmeEdit(p, onSaved);
+  const draw = () => {
+    if (!editing) return;
+    editableImages(page, index, p);
+    repoToggles(page, p);
+    readmeIcons(page, p);
+  };
+  draw();
+  // The README loads after the page: redraw what depends on it once it's there
+  if (!page.dataset.edReadmeWatch) {
+    page.dataset.edReadmeWatch = "1";
+    page.addEventListener("mz:readme", draw);
+  }
+  if (p.repo && canEditReadme(p)) resumeReadmeEdit(p, () => api.rerender(ed.resume));
+}
+
+/** Turns one thing from a project's GitHub repo off (or back on) for this portfolio. */
+function toggleRepoThing(p, kind, value = "") {
+  const key = repoHideKey(p.repo.name, kind, value);
+  const now = cfg().projects.hideFromRepos;
+  setCfg(["projects", "hideFromRepos"], now.includes(key) ? now.filter((k) => k !== key) : [...now, key]);
+  changed();
+}
+
+const repoIsHidden = (p, kind, value = "") => cfg().projects.hideFromRepos.includes(repoHideKey(p.repo.name, kind, value));
+
+/** Greyed README content gets one edit icon each (the owner's repos only). */
+function readmeIcons(page, p) {
+  if (!p.repo || !canEditReadme(p)) return;
+  const open = () => openReadmeEditor(p, { onSaved: () => api.rerender(ed.resume) });
+  for (const el of page.querySelectorAll('[data-source="readme"]:not(.slider)')) {
+    if (el.querySelector(":scope > .ed-tools")) continue;
+    el.classList.add("ed-card");
+    el.appendChild(h("div.ed-tools", editIcon(`Edit the README of ${p.repo.owner}/${p.repo.name}`, open)));
   }
 }
 
-/** The project's own gallery: remove any image, add by upload, link or drop. */
-function editableGallery(page, index, p) {
+/**
+ * What the project shows from its GitHub repo, each with an on/off switch:
+ * the description, the README text, the language and every keyword.
+ */
+function repoToggles(page, p) {
+  page.querySelector(":scope > .ed-repo-strip")?.remove();
+  if (!p.repo) return;
+  const things = [
+    p.sources?.description === "repo" || repoIsHidden(p, "description") ? ["description", "", "Repo description"] : null,
+    p.readme || repoIsHidden(p, "readme") ? ["readme", "", "README text"] : null,
+    p.repoLanguage ? ["language", "", `Language: ${p.repoLanguage}`] : null,
+    ...(p.repoKeywords || []).filter((k) => k !== p.repoLanguage).map((k) => ["keyword", k, k]),
+  ].filter(Boolean);
+  if (!things.length) return;
+  const strip = h("div.ed-strip.ed-repo-strip",
+    h("span.ed-strip-label", svgIcon(ICONS.github), `From ${p.repo.owner}/${p.repo.name} — click to show or hide on this portfolio`),
+    h("div.ed-chips", things.map(([kind, value, label]) => {
+      const off = repoIsHidden(p, kind, value);
+      return h("button.ed-toggle-chip", {
+        type: "button", "aria-pressed": String(!off), title: off ? "Hidden. Click to show it." : "Shown. Click to hide it.",
+        onclick: () => toggleRepoThing(p, kind, value),
+      }, svgIcon(ICONS.eye), h("span", label));
+    })),
+  );
+  const after = page.querySelector(":scope > .ed-strip") || page.querySelector(".project-hero");
+  after?.after(strip);
+}
+
+/**
+ * The project's images, in order (the first is the cover): remove, make
+ * first, or add by upload, link or drop. Images taken from the README can be
+ * hidden or shown again.
+ */
+function editableImages(page, index, p) {
   const slot = page.querySelector(".project-gallery-slot");
   if (!slot) return;
-  const list = () => (Array.isArray(ed.resume.projects?.[index]?.images) ? ed.resume.projects[index].images : []);
-  const own = list();
-  const fromReadme = !own.length && p.sources?.images === "readme" ? p.images : [];
-  const add = h("div.ed-gallery-add");
-  add.appendChild(imageMenu(add, {
-    kind: `project-${index}-${own.length + 1}`, label: "Add an image", current: "",
-    onSet: (v) => {
-      if (!v) return;
-      setPath(ed.resume, ["projects", index, "images"], [...list(), v]);
-      changed();
-    },
-  }));
-  add.appendChild(h("span.ed-gallery-add-text", "Add image"));
-  slot.replaceChildren(h("section.project-block.ed-gallery", { "aria-labelledby": "p-gallery" },
-    h("h2.project-block-title", { id: "p-gallery" }, "Gallery"),
-    h("div.ed-gallery-grid",
-      ...own.map((src, i) => h("figure.ed-gallery-item.ed-card", h("img", { src, alt: "", loading: "lazy" }),
-        h("div.ed-tools", h("button.ed-tool.is-danger", { type: "button", "aria-label": "Remove this image", title: "Remove", onclick: () => {
-          const next = list().slice();
-          next.splice(i, 1);
-          setPath(ed.resume, ["projects", index, "images"], next.length ? next : undefined);
-          changed();
-        } }, svgIcon(ICONS.trash))))),
-      ...fromReadme.map((src) => h("figure.ed-gallery-item", { dataset: { source: "readme" } }, h("img", { src, alt: "", loading: "lazy" }))),
-      add,
-    )));
+  const item = () => ed.resume.projects?.[index] || {};
+  const own = () => [...new Set([item().image, ...(Array.isArray(item().images) ? item().images : [])].filter(Boolean))];
+  const store = (list) => {
+    setPath(ed.resume, ["projects", index, "image"], list[0] || undefined);
+    setPath(ed.resume, ["projects", index, "images"], list.length > 1 ? list.slice(1) : undefined);
+    changed();
+  };
+  const mine = index >= 0 ? own() : [];
+  const readme = !mine.length && p.repo ? (p.readmeImages || []) : [];
+  const tool = (icon, label, onclick, extra = "") => h(`button.ed-tool${extra}`, { type: "button", "aria-label": label, title: label, onclick }, svgIcon(ICONS[icon]));
+  const tiles = [
+    ...mine.map((src, i) => h("figure.ed-thumb-item", h("img", { src, alt: "", loading: "lazy" }),
+      i === 0 ? h("span.ed-thumb-badge", "Cover") : null,
+      h("div.ed-tools",
+        i > 0 ? tool("arrowLeft", "Move earlier", () => {
+          const l = own();
+          [l[i - 1], l[i]] = [l[i], l[i - 1]];
+          store(l);
+        }) : null,
+        tool("trash", "Remove this image", () => store(own().filter((x) => x !== src)), ".is-danger")))),
+    ...readme.map((src) => {
+      const off = repoIsHidden(p, "image", src);
+      return h("figure.ed-thumb-item", { dataset: { source: "readme" }, class: off ? "is-off" : "" }, h("img", { src, alt: "", loading: "lazy" }),
+        h("div.ed-tools", tool("eye", off ? "Show this README image" : "Hide this README image", () => toggleRepoThing(p, "image", src))));
+    }),
+  ];
+  let add = null;
+  if (index >= 0) {
+    add = h("div.ed-thumb-add");
+    add.appendChild(imageMenu(add, {
+      kind: `project-${index}-${mine.length + 1}`, label: "Add an image", current: "",
+      onSet: (v) => v && store([...own(), v]),
+    }));
+    add.appendChild(h("span", readme.length ? "Add your own (replaces the README's)" : "Add image"));
+  }
+  slot.replaceChildren(h("div.ed-thumbs", { role: "list", "aria-label": "Project images" }, ...tiles, ...(add ? [add] : [])));
 }
 
 /** Copies a GitHub-only project into the resume, so all of it can be edited. */
@@ -686,13 +786,6 @@ function decoratePost(slug) {
   const post = api.state.vm.posts.find((x) => x.slug === slug);
   const article = document.querySelector("#view .post-detail");
   if (post && article && !article.classList.contains("ed-post-editing")) mountPostEditor(article, post);
-}
-
-/** "New blog post" from the menu: the blog page, with a new post open on it. */
-function newPost() {
-  if (parsePath().sub?.name === "blog") return mountPostEditor(document.querySelector("#view .blog-results")?.parentElement, null);
-  ed.newPost = true;
-  navigate(`${api.state.base}/blog?edit`);
 }
 
 /** Turns `target` into the post itself, edited in place (a new post when `post` is null). */
@@ -890,12 +983,9 @@ function mountUi(kind) {
     className: ".ed-more",
     items: [
       kind === "own" ? { label: `Save draft to ${storage()?.label || "your account"}`, icon: "upload", onclick: saveDraftToAccount } : null,
-      kind === "own" ? { label: "New blog post", icon: "plus", onclick: newPost } : null,
-      { label: "Discard changes", icon: "undo", onclick: discardChanges },
-      "sep",
-      { label: "Copy JSON", icon: "copy", onclick: async () => toast((await copyText(json())) ? "JSON copied" : "Couldn't copy") },
       { label: "Download resume.json", icon: "download", onclick: () => downloadFile("resume.json", json(), "application/json") },
-      { label: "Keyboard shortcuts", icon: "keyboard", onclick: showShortcuts },
+      "sep",
+      { label: "Discard changes", icon: "undo", onclick: discardChanges },
     ],
   });
 

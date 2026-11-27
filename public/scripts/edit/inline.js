@@ -91,10 +91,11 @@ export function editInPlace(el, { read, write, placeholder = "", multiline = fal
 }
 
 /** Focuses the editable element matching `selector` once the page has re-rendered. */
-export function focusLater(selector, { atEnd = true, tries = 20 } = {}) {
+export function focusLater(selector, { atEnd = true, tries = 90 } = {}) {
   const attempt = (n) => {
     const el = document.querySelector(selector);
-    if (el) {
+    // Wait until edit mode has made it editable, not just until it's rendered
+    if (el?.isContentEditable) {
       el.focus();
       if (atEnd) {
         const range = document.createRange();
@@ -104,6 +105,10 @@ export function focusLater(selector, { atEnd = true, tries = 20 } = {}) {
         sel.removeAllRanges();
         sel.addRange(range);
       }
+      // The page may move focus to <main> right after rendering: take it back
+      setTimeout(() => {
+        if (n > 0 && document.activeElement !== document.querySelector(selector)) attempt(n - 1);
+      }, 80);
     } else if (n > 0) requestAnimationFrame(() => attempt(n - 1));
   };
   requestAnimationFrame(() => attempt(tries));

@@ -476,3 +476,143 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ============================================================================
+   PROJECT IMAGES — one slider at the top: every image whole, in the same
+   frame, over a soft blur of itself (portrait and landscape look even)
+   ============================================================================ */
+
+.project-slider-slot:not(:empty) {
+  margin-bottom: 1.75rem;
+}
+
+.slider {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 1.4);
+  background: var(--color-s);
+  box-shadow: var(--shadow);
+}
+
+.slider-track {
+  display: flex;
+  aspect-ratio: 4 / 3;
+  max-height: min(60vh, 30rem);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.slider-track::-webkit-scrollbar {
+  display: none;
+}
+
+.slider-track:focus-visible {
+  outline: 3px solid var(--color-a);
+  outline-offset: -3px;
+}
+
+.slide {
+  position: relative;
+  display: grid;
+  flex: 0 0 100%;
+  place-items: center;
+  margin: 0;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.slide::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background: var(--slide-bg) center / cover no-repeat;
+  filter: blur(28px) saturate(1.15);
+  opacity: 0.5;
+}
+
+.slide img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.slider-btn {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  color: var(--color-c);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  translate: 0 -50%;
+}
+
+.slider-btn.prev {
+  left: 0.75rem;
+}
+
+.slider-btn.next {
+  right: 0.75rem;
+}
+
+.slider-dots {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-b) 80%, transparent);
+  translate: -50% 0;
+}
+
+.slider-dot {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider-dot::after {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--ink-muted);
+  opacity: 0.5;
+  transition: width 0.2s, opacity 0.2s;
+}
+
+.slider-dot[aria-current="true"]::after {
+  width: 18px;
+  border-radius: 999px;
+  background: var(--color-a);
+  opacity: 1;
+}
+
+@media (min-width: 700px) {
+  .slider-track {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+@media (hover: none) {
+  .slider-btn {
+    display: none;
+  }
+}

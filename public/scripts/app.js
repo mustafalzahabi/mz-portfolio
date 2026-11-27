@@ -218,7 +218,7 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   const vm = buildViewModel(data, config);
   // README covers (raw host) and GitHub language colors, with a capped wait
   await Promise.race([
-    Promise.all([enrichProjectCovers(vm.projects), config.tags.languageColors ? loadLanguageColors() : null]),
+    Promise.all([enrichProjectCovers(vm.projects, 8, config.projects), config.tags.languageColors ? loadLanguageColors() : null]),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
   if (loadId !== state.loadId) return false;

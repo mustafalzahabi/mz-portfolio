@@ -117,6 +117,7 @@ export const CONFIG_SCHEMA = {
     sort: oneOf(["resume", "stars", "name", "recent"], "resume", "Sort order. \"resume\" keeps your resume order, then GitHub repos by stars."),
     github: oneOf(["all", "matched", "none"], "all", "Which GitHub repos to include: all public repos, only those matching a resume project, or none."),
     exclude: list("Repo or project names to hide."),
+    hideFromRepos: list("Single things from GitHub to leave out, each as \"repo|kind|value\": kind is image (value = its link), keyword, language, readme or description."),
     limit: num("Maximum number of projects (0 = no limit).", 0, 0, 200),
     showStars: bool("Show GitHub star counts.", true),
     showForks: bool("Include forked repositories.", false),

@@ -1377,3 +1377,174 @@ body.has-sheet .ed-bar {
 .is-editing [data-source] > .ed-tools {
   opacity: 1;
 }
+
+/* ---------- project images while editing: thumbnails in order ---------- */
+
+.ed-thumbs {
+  display: flex;
+  gap: 0.75rem;
+  margin: -0.75rem 0 1.75rem;
+  padding: 0.25rem 0.1rem 0.5rem;
+  overflow-x: auto;
+}
+
+.ed-thumb-item,
+.ed-thumb-add {
+  position: relative;
+  flex: 0 0 9rem;
+  aspect-ratio: 4 / 3;
+  margin: 0;
+  border-radius: var(--radius);
+}
+
+.ed-thumb-item {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--well);
+}
+
+.ed-thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ed-thumb-item.is-off img {
+  opacity: 0.2;
+}
+
+.ed-thumb-item > .ed-tools {
+  top: auto;
+  bottom: 0.35rem;
+  opacity: 1;
+}
+
+.ed-thumb-badge {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-c);
+  color: var(--color-b);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ed-thumb-add {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.ed-thumb-add .ed-image-menu .account-menu {
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* ---------- what a repo adds, switched on or off ---------- */
+
+.ed-repo-strip .ed-strip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ed-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-toggle-chip[aria-pressed="false"] {
+  background: transparent;
+  border-style: dashed;
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+.ed-toggle-chip .icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- highlights: remove one, add one ---------- */
+
+.is-editing li:has(> .ed-line-x) {
+  position: relative;
+}
+
+.ed-line-x {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-inline-start: 0.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.ed-line-x:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-line-x .icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (hover: hover) {
+  .ed-line-x {
+    opacity: 0;
+  }
+
+  li:hover > .ed-line-x,
+  li:focus-within > .ed-line-x,
+  .ed-line-x:focus-visible {
+    opacity: 1;
+  }
+}
+
+.ed-add-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  margin-top: 0.4rem;
+  padding: 0 0.6rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-add-line:hover {
+  border-style: solid;
+  color: var(--color-c);
+}
