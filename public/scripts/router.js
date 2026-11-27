@@ -67,7 +67,6 @@ export function detectSource(input) {
  *                   /:id/project/:slug   project page
  *                   /:id/tab/:slug       custom tab
  *                   /:id/resume          profile with the resume viewer open
- *                   /:id/settings        site settings (edit mode only)
  * Preview uses the same sub-pages under /preview/view.
  */
 export function parsePath(pathname = location.pathname, base = BASE_PATH) {
@@ -104,7 +103,6 @@ function parseSub(parts) {
   if (kind === "project" && slug) return { name: "project", param: slug };
   if (kind === "tab" && slug) return { name: "tab", param: slug };
   if (kind === "resume" && !slug) return { name: "resume" };
-  if (kind === "settings" && !slug) return { name: "settings" };
   return { name: "missing" };
 }
 

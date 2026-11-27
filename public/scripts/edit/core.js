@@ -942,6 +942,16 @@ function settingsPanel() {
   };
 
   const main = h("div.ed-set-main");
+  let pinnedUntil = 0;
+  const markCurrent = (id) => {
+    let active = null;
+    nav.querySelectorAll(".ed-set-link").forEach((a) => {
+      a.toggleAttribute("aria-current", a.dataset.group === id);
+      if (a.dataset.group === id) active = a;
+    });
+    // Phones: the chip row scrolls sideways to keep the current group in sight
+    if (active && nav.scrollWidth > nav.clientWidth) nav.scrollTo({ left: active.offsetLeft - nav.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
+  };
   const nav = h("nav.ed-set-nav", { "aria-label": "Setting groups" });
   for (const [id, title, names] of SETTING_GROUPS) {
     const cards = names.map((name) => {
@@ -954,6 +964,9 @@ function settingsPanel() {
     main.appendChild(h("section.ed-set-group", { id: `setg-${id}`, dataset: { group: id } }, h("h2.ed-set-title", title), ...cards));
     nav.appendChild(h("a.ed-set-link", { href: `#setg-${id}`, dataset: { group: id }, onclick: (e) => {
       e.preventDefault();
+      // The chosen group stays marked while the scroll gets there (short last groups never reach the top)
+      markCurrent(id);
+      pinnedUntil = Date.now() + 1200;
       document.getElementById(`setg-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     } }, title));
   }
@@ -982,16 +995,22 @@ function settingsPanel() {
   };
   search.addEventListener("input", filter);
 
-  // The side list follows the scroll
+  // The side list follows the scroll of the settings (the overlay scrolls, not the page)
   queueMicrotask(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        nav.querySelectorAll(".ed-set-link").forEach((a) => a.toggleAttribute("aria-current", a.dataset.group === e.target.dataset.group));
-      }
-    }, { rootMargin: "-20% 0px -70% 0px" });
-    main.querySelectorAll(".ed-set-group").forEach((g) => io.observe(g));
+    const scroller = main.closest(".ed-settings");
+    if (!scroller) return;
+    const follow = () => {
+      if (Date.now() < pinnedUntil) return;
+      const top = scroller.getBoundingClientRect().top;
+      const groups = [...main.querySelectorAll(".ed-set-group:not([hidden])")];
+      const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+      let cur = groups[0];
+      for (const g of groups) if (g.getBoundingClientRect().top - top < scroller.clientHeight * 0.3) cur = g;
+      if (atEnd) cur = groups[groups.length - 1];
+      if (cur) markCurrent(cur.dataset.group);
+    };
+    scroller.addEventListener("scroll", () => requestAnimationFrame(follow), { passive: true });
+    follow();
   });
 
   const panel = h("div.ed-panel.ed-set-layout",

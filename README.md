@@ -67,7 +67,7 @@ Everything is edited where it's shown; there are no editing panels. Text is type
 - **Projects** are edited on their own page: name, description, links, keywords, highlights and a cover image (upload or link). A repo that comes from GitHub can be added to your resume (then it's editable) or hidden.
 - **Blog posts:** *New post* on the blog page, *Edit post* on each post. Posts publish on their own.
 - **Resume:** the header button opens the resume viewer. Changing its theme in edit mode saves it to your portfolio; its content comes from your sections.
-- **Site settings** (sliders icon in the top bar): a page with colors (dark-mode previews and a contrast report), section order, animations and every other setting from `/docs`, plus the raw JSON.
+- **Site settings** (sliders icon in the top bar): opens over the page, grouped with a side menu: colors (dark-mode previews and a contrast report), section order, animations and every other setting from `/docs`, plus the raw JSON.
 - **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to publish, **?** for shortcuts. The bottom bar shows what changed; click it for the details. Its ⋯ menu has *Save draft to GitHub*, *Discard changes* and *Copy / Download JSON*.
 
 **Drafts.** Edits are a draft until you click **Publish**. The draft is kept in this browser automatically. **Save draft** also stores it on GitHub in a *secret* gist (`mz-portfolio-draft.json`) so you can continue on another device: the next time you open edit mode, you're offered the newest draft. Secret gists are unlisted (only reachable by their link) and never shown on your portfolio; the draft gist is deleted when you publish.

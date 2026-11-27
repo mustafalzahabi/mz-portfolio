@@ -200,13 +200,11 @@ async function offerDraft(local, own) {
 
 /** Done: like Back, when edit mode was entered from this page. */
 function exitEdit() {
-  if (history.state?.mzEdit && api.state.page !== "settings") {
+  if (history.state?.mzEdit) {
     history.back(); // the popstate leaves edit mode (afterRender)
     return;
   }
-  const settings = api.state.page === "settings";
   stopEditing();
-  if (settings) navigate(api.state.base, { replace: true });
 }
 
 function stopEditing() {
@@ -227,7 +225,7 @@ function leaveUi() {
   ui = null;
   ed.root = null;
   ed.sheetRender = null;
-  settingsEl = null;
+  document.querySelector(".ed-settings-dialog")?.close();
   document.body.classList.remove("is-editing");
   bindControls({});
 }
@@ -255,8 +253,8 @@ function scheduleRerender() {
     // re-render once they leave it
     const active = document.activeElement;
     if (active?.closest?.(".ed-inline, .ed-keep")) active.addEventListener("blur", scheduleRerender, { once: true });
-    else if (api.state.page === "settings") {
-      // Nothing on this page shows the content: restyle now, redraw the rest when leaving
+    else if (settingsDialog) {
+      // Settings open over the page: restyle it now, redraw the rest when they close
       api.restyle(ed.resume);
       staleSinceSettings = true;
     } else rerenderNow();
@@ -343,15 +341,6 @@ function decorate() {
     document.addEventListener("click", blockInert, true);
   }
 
-  if (page !== "settings" && settingsEl) {
-    settingsEl = null;
-    ed.root = null;
-    if (staleSinceSettings) {
-      staleSinceSettings = false;
-      rerenderNow();
-      return;
-    }
-  }
   shortcutsInAccountMenu();
   decorateHeader();
   decorateTabsNav();
@@ -360,31 +349,39 @@ function decorate() {
   else if (page === "blog") decorateBlog();
   else if (page.startsWith("post:")) decoratePost(decodeURIComponent(page.slice(5)));
   else if (page.startsWith("tab:")) decorateTab(decodeURIComponent(page.slice(4)));
-  else if (page === "settings") decorateSettings();
 }
 
-// ---------- site settings: a page of their own ----------
+// ---------- site settings: an overlay over the page ----------
 
-let settingsEl = null; // kept across re-renders so focus and scroll stay
+let settingsDialog = null;
 let staleSinceSettings = false;
 
-function decorateSettings() {
-  const page = document.querySelector("#view .settings-page");
-  if (!page) return;
-  page.querySelector(".settings-off")?.remove();
-  ed.tab = "settings";
-  if (!settingsEl) {
-    settingsEl = h("div.ed-settings", h("div", { id: "ed-panel" }));
-    ed.root = settingsEl;
-    renderPanel();
-  }
-  ed.root = settingsEl;
-  if (settingsEl.parentElement !== page) page.appendChild(settingsEl);
-}
-
+/** Full screen on phones; a large panel with the groups in a side menu on desktop. */
 function openSettings() {
-  if (api.state.page === "settings") return;
-  navigate(`${api.state.base}/settings?edit`);
+  if (settingsDialog) return;
+  const content = h("div.ed-settings", h("div", { id: "ed-panel" }));
+  const dialog = h("dialog.ed-settings-dialog", { "aria-labelledby": "ed-settings-title" },
+    h("header.ed-settings-head",
+      h("h2", { id: "ed-settings-title" }, "Site settings"),
+      iconButton("close", "Close settings", () => dialog.close())),
+    content);
+  dialog.addEventListener("click", (e) => e.target === dialog && dialog.close()); // the backdrop
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    settingsDialog = null;
+    if (ed.root === content) ed.root = null;
+    if (staleSinceSettings && editing) {
+      staleSinceSettings = false;
+      rerenderNow();
+    }
+  });
+  document.body.appendChild(dialog);
+  settingsDialog = dialog;
+  ed.tab = "settings";
+  ed.root = content;
+  renderPanel();
+  dialog.showModal();
+  content.querySelector(".ed-search")?.focus();
 }
 
 // ---------- custom pages (tabs): edited on the page itself ----------

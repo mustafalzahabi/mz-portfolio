@@ -93,7 +93,7 @@ const GUIDE = [
           [h("strong", "From GitHub."), " Text that comes from a repo (its description or README) is shown greyed out while editing. Edit the README from the project page: saving it asks for permission to change your public repositories, once or always."],
           [h("strong", "Sections."), " Each section title has Add, move up/down and Hide. Hidden and empty sections can be brought back at the bottom of the page."],
           [h("strong", "Pages."), " The + at the end of the tabs (or Add section → Page) adds a page. Its name, kind (text, code, HTML demo, embedded site or link) and content are edited on the page itself."],
-          [h("strong", "Site settings"), " (the sliders icon in the top bar) is a page with colors, layout, animations, SEO, every setting in the ", link("#reference", "reference"), " below, and the raw JSON."],
+          [h("strong", "Site settings"), " (the sliders icon in the top bar) opens over the page, grouped into Look, Layout, Content, Motion, Sharing and Advanced: colors, layout, animations, SEO, every setting in the ", link("#reference", "reference"), " below, and the raw JSON."],
           [h("strong", "Undo and redo"), " with Ctrl+Z and Ctrl+Shift+Z; Ctrl+S publishes; ? lists all shortcuts."],
         ),
       ] },

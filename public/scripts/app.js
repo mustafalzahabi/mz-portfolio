@@ -284,14 +284,14 @@ function ensureShell(kind, active) {
   const top =
     kind === "profile"
       ? [buildHeader(vm, config, c), buildTabs(vm, config, c, active)]
-      : [buildPageBar(vm, config, c, kind === "settings" ? { backHref: state.base, backLabel: "Portfolio" } : { backHref: `${state.base}#projects`, backLabel: "Projects" })];
+      : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
 
   app.replaceChildren(
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
       vm.source.type === "preview" && !EMBEDDED ? buildPreviewBar() : null,
       ...top,
-      h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind === "settings" ? "page" : kind } }, h("div.view", { id: "view" })),
+      h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
       buildFooter(vm, config, c),
     ].filter(Boolean),
   );
@@ -326,16 +326,6 @@ function renderSub(sub) {
       project ? buildProjectPage(project, vm, config, ctx()) : notFoundInline("That project doesn't exist.", `${state.base}#projects`, "All projects"),
       project ? `${project.name} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`,
     );
-    return;
-  }
-
-  // Site settings: a page of its own while editing (edit/mode.js fills it)
-  if (sub.name === "settings") {
-    ensureShell("settings");
-    teardownAnimations();
-    showView("settings", h("section.settings-page", { "aria-labelledby": "settings-title" },
-      h("h1.section-title", { id: "settings-title" }, "Site settings"),
-      h("p.muted.settings-off", "Site settings open while you edit your portfolio.")), `Site settings — ${vm.basics.name}`);
     return;
   }
 
@@ -548,7 +538,7 @@ export function init() {
   setupEditing({
     state,
     rerender: rerenderPortfolio,
-    // Colors, fonts and theme only (the settings page: nothing else to redraw)
+    // Colors, fonts and theme only (while site settings are open over the page)
     restyle: (resume) => {
       const { config } = normalizeConfig(resume?.meta || {});
       resetStyleConfig();

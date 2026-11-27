@@ -1546,13 +1546,49 @@ body.has-sheet .ed-bar {
 
 /* ---------- site settings: side list of groups, cards of settings ---------- */
 
-.settings-page {
-  max-width: 68rem;
-  margin: 0 auto;
+/* The overlay: full screen on phones, a large panel on desktop */
+.ed-settings-dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-b);
+  color: var(--color-c);
 }
 
-.settings-page > .section-title {
-  margin-bottom: 1rem;
+.ed-settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ed-settings-dialog::backdrop {
+  background: color-mix(in oklab, var(--color-c) 40%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.ed-settings-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0.5rem;
+}
+
+.ed-settings-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+/* The one scrolling area: the side list sticks to its top */
+.ed-settings {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 1rem 2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ed-set-layout {
@@ -1561,7 +1597,7 @@ body.has-sheet .ed-bar {
 
 .ed-set-side {
   position: sticky;
-  top: calc(var(--page-bar-h, 64px) + 0.25rem);
+  top: 0;
   z-index: 5;
   display: grid;
   gap: 0.6rem;
@@ -1615,7 +1651,7 @@ body.has-sheet .ed-bar {
   display: grid;
   gap: 1rem;
   margin-bottom: 2.25rem;
-  scroll-margin-top: 9rem;
+  scroll-margin-top: 8rem;
 }
 
 .ed-set-title {
@@ -1688,8 +1724,9 @@ body.has-sheet .ed-bar {
   }
 
   .ed-set-side {
-    top: calc(var(--page-bar-h, 64px) + 1rem);
+    top: 0;
     margin: 0;
+    padding-top: 0.25rem;
     padding: 0;
     background: none;
     backdrop-filter: none;
@@ -1719,7 +1756,25 @@ body.has-sheet .ed-bar {
   }
 
   .ed-set-group {
-    scroll-margin-top: 6rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .ed-settings-dialog {
+    width: min(72rem, calc(100vw - 4rem));
+    height: min(52rem, calc(100dvh - 4rem));
+    margin: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: calc(var(--radius) * 1.6);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .ed-settings-head {
+    padding: 1.25rem 1.75rem 0.75rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .ed-settings {
+    padding: 1.25rem 1.75rem 2rem;
   }
 }
 
@@ -1808,7 +1863,7 @@ body.has-sheet .ed-bar {
   tab-size: 2;
 }
 
-.settings-page .ed-panel.ed-set-layout {
+.ed-settings .ed-panel.ed-set-layout {
   max-width: none;
   width: 100%;
 }
