@@ -372,7 +372,7 @@ function normalizeTabs(items, path, warnings) {
       const u = httpsUrl(item.url);
       if (!u) return warnings.push(`${p}.url: needs an https:// address.`);
       tab.url = u.href;
-    } else if (typeof item.content === "string" && item.content.trim()) {
+    } else if (typeof item.content === "string" && (item.content.trim() || !item.url)) {
       tab.content = item.content.slice(0, MAX_TAB_CONTENT);
     } else {
       const u = httpsUrl(item.url);
@@ -391,6 +391,7 @@ function normalizeTabs(items, path, warnings) {
     for (let n = 2; used.has(slug); n++) slug = `${tabSlug(label)}-${n}`;
     used.add(slug);
     tab.slug = slug;
+    tab.index = i; // where it sits in the resume's list (edit mode)
     out.push(tab);
   });
   if (items.length > 8) warnings.push(`${path}: only the first 8 tabs are used.`);

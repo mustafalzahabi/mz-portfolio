@@ -56,17 +56,18 @@ So the id alone tells the sources apart, and you can also paste a full `drive.go
 
 ## Editing your portfolio
 
-There's no separate editor: you edit your portfolio right on the page. Sign in with GitHub, open your own portfolio (or click *Edit my portfolio* in the account menu, or go to `/edit`), then click **Edit portfolio**.
+There's no separate editor: you edit your portfolio right on the page. Sign in with GitHub, open your own portfolio (or click *Edit my portfolio* in the account menu, or go to `/edit`), then click the pencil button. Edit mode is its own page: Back or *Done* leaves it.
 
-Every object has its own **Edit** button. It opens a panel with that object's fields (a bottom sheet on phones, a side panel on desktop), and the page updates live behind it. Nothing is read-only:
+Everything is edited where it's shown; there are no editing panels. Text is typed in place, other details sit in a small strip inside each item, and images change from the image itself:
 
 - **Profile:** name, title, contact details, location, profile links, photo (your GitHub photo, an upload, a link, or none) and header options. **Banner:** gradient or image. The photo and banner choices change only the portfolio, never your resume's photo or your GitHub avatar.
 - **Sections:** each title row has *Add*, move up/down and *Hide*. Empty sections can be added, and hidden ones shown again, at the bottom of the page.
-- **Items:** every job, school, skill group, award, certificate, language and so on opens its full form, with move, duplicate and delete.
+- **Items:** every job, school, skill group, award, certificate, language and so on is edited in place, with move, duplicate and delete.
+- **Pages:** the + at the end of the tabs adds a page (text, code, HTML demo, embedded site or link), edited on the page itself.
 - **Projects** are edited on their own page: name, description, links, keywords, highlights and a cover image (upload or link). A repo that comes from GitHub can be added to your resume (then it's editable) or hidden.
 - **Blog posts:** *New post* on the blog page, *Edit post* on each post. Posts publish on their own.
 - **Resume:** the header button opens the resume viewer. Changing its theme in edit mode saves it to your portfolio; its content comes from your sections.
-- **Customize** (top bar): colors with dark-mode previews and a contrast report, section order, tabs, animations and every other setting from `/docs`, plus all content as forms, blog posts and the raw JSON.
+- **Site settings** (sliders icon in the top bar): a page with colors (dark-mode previews and a contrast report), section order, animations and every other setting from `/docs`, plus the raw JSON.
 - **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to publish, **?** for shortcuts. The bottom bar shows what changed; click it for the details. Its ⋯ menu has *Save draft to GitHub*, *Discard changes* and *Copy / Download JSON*.
 
 **Drafts.** Edits are a draft until you click **Publish**. The draft is kept in this browser automatically. **Save draft** also stores it on GitHub in a *secret* gist (`mz-portfolio-draft.json`) so you can continue on another device: the next time you open edit mode, you're offered the newest draft. Secret gists are unlisted (only reachable by their link) and never shown on your portfolio; the draft gist is deleted when you publish.

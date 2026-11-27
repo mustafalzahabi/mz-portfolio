@@ -67,6 +67,7 @@ export function detectSource(input) {
  *                   /:id/project/:slug   project page
  *                   /:id/tab/:slug       custom tab
  *                   /:id/resume          profile with the resume viewer open
+ *                   /:id/settings        site settings (edit mode only)
  * Preview uses the same sub-pages under /preview/view.
  */
 export function parsePath(pathname = location.pathname, base = BASE_PATH) {
@@ -103,6 +104,7 @@ function parseSub(parts) {
   if (kind === "project" && slug) return { name: "project", param: slug };
   if (kind === "tab" && slug) return { name: "tab", param: slug };
   if (kind === "resume" && !slug) return { name: "resume" };
+  if (kind === "settings" && !slug) return { name: "settings" };
   return { name: "missing" };
 }
 
@@ -138,6 +140,12 @@ export function navigate(path, { replace = false } = {}) {
   dispatchEvent(new PopStateEvent("popstate"));
 }
 
+/** Two paths of the same portfolio (same first segment, or both under preview/view). */
+function sameSite(a, b) {
+  const head = (p) => p.slice(BASE_PATH.length).split("/").slice(0, p.slice(BASE_PATH.length).startsWith("preview/") ? 2 : 1).join("/");
+  return head(a) !== "" && head(a) === head(b);
+}
+
 /** Intercepts same-origin <a> clicks that point inside the app. */
 export function interceptLinks(root = document) {
   root.addEventListener("click", (e) => {
@@ -147,6 +155,10 @@ export function interceptLinks(root = document) {
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(BASE_PATH)) return;
     if (url.pathname.startsWith("/api/") || /^\/privacy(\.html)?$/.test(url.pathname)) return; // server routes and static pages → real navigation
+    // While editing, pages of the same portfolio open in edit mode too
+    if (new URLSearchParams(location.search).has("edit") && !url.searchParams.has("edit") && sameSite(url.pathname, location.pathname)) {
+      url.search = url.search ? `${url.search}&edit` : "?edit";
+    }
     const samePage = url.pathname === location.pathname && url.search === location.search;
     if (samePage && url.hash) return; // in-page anchor → native
     e.preventDefault();

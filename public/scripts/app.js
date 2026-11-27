@@ -32,7 +32,7 @@ import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
 import { renderDocs } from "./views/docs.js";
-import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme } from "./edit/mode.js";
+import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme, isEditing } from "./edit/mode.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -265,7 +265,7 @@ function ctx() {
     bannerImage: state.banner,
     homeHref: BASE_PATH,
     embedded: EMBEDDED,
-    openResume: () => navigate(`${state.base}/resume`),
+    openResume: () => navigate(`${state.base}/resume${isEditing() ? "?edit" : ""}`),
   };
 }
 
@@ -284,14 +284,14 @@ function ensureShell(kind, active) {
   const top =
     kind === "profile"
       ? [buildHeader(vm, config, c), buildTabs(vm, config, c, active)]
-      : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
+      : [buildPageBar(vm, config, c, kind === "settings" ? { backHref: state.base, backLabel: "Portfolio" } : { backHref: `${state.base}#projects`, backLabel: "Projects" })];
 
   app.replaceChildren(
     ...[
       h("a.skip-link", { href: "#main" }, "Skip to content"),
       vm.source.type === "preview" && !EMBEDDED ? buildPreviewBar() : null,
       ...top,
-      h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind } }, h("div.view", { id: "view" })),
+      h("main.portfolio", { id: "main", tabindex: "-1", dataset: { shell: kind === "settings" ? "page" : kind } }, h("div.view", { id: "view" })),
       buildFooter(vm, config, c),
     ].filter(Boolean),
   );
@@ -329,6 +329,16 @@ function renderSub(sub) {
     return;
   }
 
+  // Site settings: a page of its own while editing (edit/mode.js fills it)
+  if (sub.name === "settings") {
+    ensureShell("settings");
+    teardownAnimations();
+    showView("settings", h("section.settings-page", { "aria-labelledby": "settings-title" },
+      h("h1.section-title", { id: "settings-title" }, "Site settings"),
+      h("p.muted.settings-off", "Site settings open while you edit your portfolio.")), `Site settings — ${vm.basics.name}`);
+    return;
+  }
+
   const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" || sub.name === "post" ? "blog" : "profile";
   ensureShell("profile", tabKey);
   setActiveTab(tabKey);
@@ -357,7 +367,8 @@ function renderSub(sub) {
     const post = vm.posts.find((p) => p.slug === sub.param);
     showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else if (sub.name === "tab") {
-    const tab = config.tabs.find((t) => t.slug === sub.param && t.type !== "link");
+    // Link tabs have no page, except while editing (where they're set up)
+    const tab = config.tabs.find((t) => t.slug === sub.param && (t.type !== "link" || isEditing()));
     showView(`tab:${sub.param}`, tab ? buildTabPage(tab, vm, config, ctx()) : back("That page doesn't exist."), tab ? `${tab.label} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else {
     showView("missing", back("That page doesn't exist."), `Not found — ${vm.basics.name}`);
@@ -537,6 +548,13 @@ export function init() {
   setupEditing({
     state,
     rerender: rerenderPortfolio,
+    // Colors, fonts and theme only (the settings page: nothing else to redraw)
+    restyle: (resume) => {
+      const { config } = normalizeConfig(resume?.meta || {});
+      resetStyleConfig();
+      applyStyleConfig(config);
+      setOwnerDefault(config.theme.mode);
+    },
     setPublished: (resume) => {
       state.data = { ...state.data, resume };
     },

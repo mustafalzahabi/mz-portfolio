@@ -1,25 +1,26 @@
 // ============================================================================
-// EDIT MODE — edit a portfolio on the page, one object at a time.
-// Your own portfolio (signed in, GitHub source) and preview pages get an
-// "Edit portfolio" button. In edit mode every object has an Edit button that
-// opens a panel (bottom sheet on phones, side panel on desktop) with its
-// fields; the page updates live behind it. Projects and blog posts are edited
-// on their own pages. Nothing is read-only: GitHub-derived items offer
-// "Add to my resume" or "Hide". Drafts stay in this browser and can be saved
-// to a secret gist (mz-portfolio-draft.json) to continue on another device.
+// EDIT MODE — edit a portfolio right on its pages. Your own portfolio and
+// preview pages get a pencil button. Edit mode is a page of its own (?edit):
+// entering it adds a history entry, so Back (or Done) leaves it, and links
+// inside the portfolio stay in it. Text is typed in place; projects, posts and
+// custom pages are edited on their own pages; site settings have their own
+// page (/settings). There are no editing panels. Drafts stay in this browser
+// and can be saved to your account to continue on another device.
 // ============================================================================
 
 import { h, svgIcon, toast, copyText, downloadFile } from "../utils.js";
 import { ICONS } from "../icons.js";
 import { BASE_PATH, parsePath, navigate } from "../router.js";
 import { setPath, prune, getPath, validateField } from "../editor-core.js";
+import { markdownToHtml } from "../markdown.js";
+import { markdownEditor } from "./markdown-editor.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResume, blankScaffold } from "../template.js";
 import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
 import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
 import { repoHideKey } from "../merge.js";
 import { getResumeFilename } from "../data.js";
-import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
+import { closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
 import { editPostOnPage } from "./post-page.js";
@@ -28,7 +29,7 @@ import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
   renderPanel, openPost, loadPosts, openSignIn, showChanges,
   showShortcuts, choiceDialog, fetchOwnResume, beforeUnload, iconButton, setCfg,
-  cfgFields, tabsGroup,
+  cfgFields, cfgRoot,
 } from "./core.js";
 
 export const DRAFT_FILE = SHARED_DRAFT_FILE;
@@ -55,6 +56,10 @@ export function setupEditing(appApi) {
   hooks.onSaved = onPublished;
   addEventListener("keydown", onKeydown);
   addEventListener("beforeunload", beforeUnload);
+  // Back to the page as it was before editing: leave edit mode (runs before the app routes)
+  addEventListener("popstate", () => {
+    if (editing && !new URLSearchParams(location.search).has("edit")) stopEditing();
+  });
 }
 
 export const isEditing = () => editing;
@@ -84,18 +89,32 @@ export function afterRender() {
     if (editing) leaveEditing();
     return;
   }
+  const wantsEdit = new URLSearchParams(location.search).has("edit");
   if (editing) {
-    if (followRenamedProject()) return;
+    // Back to a page without ?edit: that's leaving edit mode
+    if (!wantsEdit) return stopEditing();
+    if (followRenamedProject() || followRenamedTab()) return;
     decorate();
     return;
   }
-  if (new URLSearchParams(location.search).has("edit")) {
+  if (wantsEdit) {
     enterEdit(kind);
     return;
   }
+  const label = fabLabel();
   document.body.appendChild(
-    h("button.btn.btn-primary.ed-fab", { type: "button", onclick: () => enterEdit(kind) }, svgIcon(ICONS.pencil), "Edit portfolio"),
+    h("button.btn.btn-primary.ed-fab", { type: "button", "aria-label": label, title: label, onclick: () => enterEdit(kind) }, svgIcon(ICONS.pencil)),
   );
+}
+
+/** What the pencil edits here. */
+function fabLabel() {
+  const page = api.state.page || "";
+  if (page.startsWith("project:")) return "Edit project";
+  if (page.startsWith("post:")) return "Edit post";
+  if (page.startsWith("tab:")) return "Edit page";
+  if (page === "blog") return "Edit blog";
+  return "Edit portfolio";
 }
 
 /** Called by app.js when navigating away from a portfolio: no edit UI may stay behind. */
@@ -150,7 +169,7 @@ async function enterEditNow(kind) {
   }
   if (stale()) return;
   editing = true;
-  setEditParam(true);
+  setEditParam(true, { push: true });
   mountUi(kind);
   await rerenderNow();
 }
@@ -178,8 +197,19 @@ async function offerDraft(local, own) {
   }
 }
 
+/** Done: like Back, when edit mode was entered from this page. */
 function exitEdit() {
-  if (ed.dirty) toast("Your unpublished changes are kept as a draft. Click Edit portfolio to continue.");
+  if (history.state?.mzEdit && api.state.page !== "settings") {
+    history.back(); // the popstate leaves edit mode (afterRender)
+    return;
+  }
+  const settings = api.state.page === "settings";
+  stopEditing();
+  if (settings) navigate(api.state.base, { replace: true });
+}
+
+function stopEditing() {
+  if (ed.dirty) toast("Your unpublished changes are kept as a draft. Click the pencil to continue.");
   editing = false;
   leaveUi();
   setEditParam(false);
@@ -196,15 +226,20 @@ function leaveUi() {
   ui = null;
   ed.root = null;
   ed.sheetRender = null;
+  settingsEl = null;
   document.body.classList.remove("is-editing");
   bindControls({});
 }
 
-function setEditParam(on) {
+/** ?edit in the address. Entering from a normal page adds a history entry, so Back leaves. */
+function setEditParam(on, { push = false } = {}) {
   const url = new URL(location.href);
+  if (on === url.searchParams.has("edit")) return;
   if (on) url.searchParams.set("edit", "");
   else url.searchParams.delete("edit");
-  history.replaceState(history.state, "", url.pathname + url.search.replace(/=(&|$)/, "$1") + url.hash);
+  const href = url.pathname + url.search.replace(/=(&|$)/, "$1") + url.hash;
+  if (on && push) history.pushState({ mzEdit: true }, "", href);
+  else history.replaceState(history.state, "", href);
 }
 
 // ============================================================================
@@ -217,9 +252,13 @@ function scheduleRerender() {
   rerenderTimer = setTimeout(() => {
     // Don't rebuild the page under someone typing in another field on it;
     // re-render once they leave it
-    const typing = document.activeElement?.closest?.(".ed-inline");
-    if (typing) typing.addEventListener("blur", scheduleRerender, { once: true });
-    else rerenderNow();
+    const active = document.activeElement;
+    if (active?.closest?.(".ed-inline, .ed-keep")) active.addEventListener("blur", scheduleRerender, { once: true });
+    else if (api.state.page === "settings") {
+      // Nothing on this page shows the content: restyle now, redraw the rest when leaving
+      api.restyle(ed.resume);
+      staleSinceSettings = true;
+    } else rerenderNow();
   }, 220);
 }
 
@@ -303,13 +342,214 @@ function decorate() {
     document.addEventListener("click", blockInert, true);
   }
 
+  if (page !== "settings" && settingsEl) {
+    settingsEl = null;
+    ed.root = null;
+    if (staleSinceSettings) {
+      staleSinceSettings = false;
+      rerenderNow();
+      return;
+    }
+  }
   shortcutsInAccountMenu();
   decorateHeader();
+  decorateTabsNav();
   if (page === "profile") decorateProfile();
   else if (page.startsWith("project:")) decorateProject(decodeURIComponent(page.slice(8)));
   else if (page === "blog") decorateBlog();
   else if (page.startsWith("post:")) decoratePost(decodeURIComponent(page.slice(5)));
-  else if (page.startsWith("tab:")) addPageAction("Edit tabs", "pencil", openTabs);
+  else if (page.startsWith("tab:")) decorateTab(decodeURIComponent(page.slice(4)));
+  else if (page === "settings") decorateSettings();
+}
+
+// ---------- site settings: a page of their own ----------
+
+let settingsEl = null; // kept across re-renders so focus and scroll stay
+let staleSinceSettings = false;
+
+function decorateSettings() {
+  const page = document.querySelector("#view .settings-page");
+  if (!page) return;
+  page.querySelector(".settings-off")?.remove();
+  ed.tab = "settings";
+  if (!settingsEl) {
+    settingsEl = h("div.ed-settings", h("div", { id: "ed-panel" }));
+    ed.root = settingsEl;
+    renderPanel();
+  }
+  ed.root = settingsEl;
+  if (settingsEl.parentElement !== page) page.appendChild(settingsEl);
+}
+
+function openSettings() {
+  if (api.state.page === "settings") return;
+  navigate(`${api.state.base}/settings?edit`);
+}
+
+// ---------- custom pages (tabs): edited on the page itself ----------
+
+const TAB_KINDS = [
+  ["markdown", "Text", "doc"],
+  ["code", "Code", "code"],
+  ["html", "HTML demo", "layers"],
+  ["embed", "Embedded site", "globe"],
+  ["link", "Link", "external"],
+];
+
+/** The resume's list of custom pages (created when missing). */
+function tabsList() {
+  const root = cfgRoot(true);
+  if (!Array.isArray(root.tabs)) root.tabs = [];
+  return root.tabs;
+}
+
+const tabPath = (i) => {
+  const c = ed.resume.meta["mz-portfolio-config"];
+  return ["meta", "mz-portfolio-config", ...(Array.isArray(c) ? [0] : []), "tabs", i];
+};
+
+async function addTab() {
+  const list = tabsList();
+  if (list.length >= 8) return toast("A portfolio can have up to 8 extra pages.", "error");
+  const labels = new Set(list.map((t) => t?.label));
+  let label = "New page";
+  for (let n = 2; labels.has(label); n++) label = `New page ${n}`;
+  list.push({ label, type: "markdown", content: "" });
+  ed.tabIndex = list.length - 1;
+  changed();
+  await rerenderNow();
+  const t = cfg().tabs.find((x) => x.index === ed.tabIndex);
+  if (t) navigate(`${api.state.base}/tab/${encodeURIComponent(t.slug)}?edit`);
+  focusLater("#view .tab-page #tab-title", { atEnd: false });
+}
+
+/** Page tabs in the header: link tabs open their settings page, and "+" adds a page. */
+function decorateTabsNav() {
+  const inner = document.querySelector("#app .tabs .tabs-inner");
+  if (!inner || inner.querySelector(".ed-tab-add")) return;
+  for (const t of cfg().tabs.filter((x) => x.type === "link")) {
+    const a = inner.querySelector(`a.tab[data-tab="${CSS.escape(t.slug)}"]`);
+    if (a) a.href = `${api.state.base}/tab/${encodeURIComponent(t.slug)}?edit`;
+  }
+  inner.appendChild(h("button.tab.ed-tab-add", { type: "button", "aria-label": "Add a page", title: "Add a page", onclick: addTab }, svgIcon(ICONS.plus)));
+}
+
+function decorateTab(slug) {
+  const tab = cfg().tabs.find((t) => t.slug === slug);
+  const page = document.querySelector("#view .tab-page");
+  if (!tab || !page || page.dataset.edTab) return;
+  page.dataset.edTab = "1";
+  const i = tab.index;
+  ed.tabIndex = i;
+  const raw = () => tabsList()[i] || {};
+  const base = tabPath(i);
+
+  editInPlace(page.querySelector("#tab-title"), {
+    placeholder: "Page name",
+    read: () => raw().label || "",
+    write: (v) => {
+      if (!v.trim()) return toast("A page needs a name.", "error");
+      raw().label = v.slice(0, 24);
+      changed();
+    },
+  });
+
+  // Kind of page, its address and options, move / delete
+  const setType = (type) => {
+    const t = raw();
+    if (type === t.type) return;
+    // Embeds and links need an address first: ask for it, switch once it's there
+    if ((type === "link" || type === "embed") && !/^https:\/\//.test(t.url || "")) {
+      pendingType = type;
+      draw();
+      strip.querySelector('[data-key="url"] input')?.focus();
+      return;
+    }
+    t.type = type;
+    if (type !== "link" && type !== "embed" && typeof t.content !== "string") t.content = "";
+    changed();
+  };
+  let pendingType = null;
+  const strip = h("div.ed-strip.ed-tab-strip");
+  const move = (d) => {
+    const list = tabsList();
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    ed.tabIndex = j;
+    changed();
+  };
+  const remove = async () => {
+    const choice = await choiceDialog(`Delete "${raw().label}"?`, h("p", "The page and its content are removed when you publish. You can undo this until then."),
+      [["cancel", "Keep it"], ["delete", "Delete page", "primary"]]);
+    if (choice !== "delete") return;
+    tabsList().splice(i, 1);
+    ed.tabIndex = null;
+    changed();
+    navigate(`${api.state.base}?edit`);
+  };
+  const draw = () => {
+    const t = raw();
+    const type = pendingType || t.type;
+    const kinds = h("div.ed-seg", { role: "group", "aria-label": "Kind of page" },
+      TAB_KINDS.map(([k, label, icon]) => h("button.ed-seg-btn", { type: "button", "aria-pressed": String(k === type), onclick: () => setType(k) }, svgIcon(ICONS[icon] || ICONS.doc), label)));
+    const needsUrl = type === "link" || type === "embed" || (t.url && !t.content);
+    strip.replaceChildren(...[
+      kinds,
+      needsUrl ? stripInput([...base, "url"], ["url", type === "link" || type === "embed" ? "Address" : "Load from", "url", "https://…"], {
+        onCommit: () => {
+          if (pendingType && /^https:\/\//.test(raw().url || "")) {
+            raw().type = pendingType;
+            pendingType = null;
+          }
+          changed();
+        },
+      }) : null,
+      type === "code" ? stripInput([...base, "language"], ["language", "Language", "text", "e.g. js"]) : null,
+      type === "embed" || type === "html" ? stripInput([...base, "height"], ["height", "Height (px)", "text", "640"]) : null,
+      h("div.ed-tools.ed-tab-tools", { role: "toolbar", "aria-label": "Page actions" },
+        iconButton("arrowLeft", "Move page left", () => move(-1)),
+        iconButton("arrowRight", "Move page right", () => move(1)),
+        iconButton("trash", "Delete page", remove, ".is-danger")),
+      pendingType ? h("p.ed-hint", `Paste an https:// address to make this ${pendingType === "link" ? "a link" : "an embedded site"}.`) : null,
+    ].filter(Boolean));
+  };
+  draw();
+  page.querySelector(".tab-page-head")?.after(strip);
+
+  // The content itself, written where it shows
+  const t = raw();
+  if (t.type === "link" || t.type === "embed" || (t.url && !t.content)) return;
+  const body = page.querySelector(".tab-page-body");
+  const write = (v) => {
+    raw().content = v;
+    changed({ key: `tab.${i}.content` });
+  };
+  if (t.type === "markdown") {
+    const md = markdownEditor({ value: t.content || "", toHtml: (s) => markdownToHtml(s), onInput: write, label: "Page content (Markdown)" });
+    body.hidden = true;
+    body.after(h("div.ed-keep.ed-tab-editor", md.el));
+  } else {
+    const area = h("textarea.input.ed-code-text", { spellcheck: "false", autocapitalize: "off", "aria-label": t.type === "html" ? "HTML, CSS and JavaScript" : "Code", placeholder: t.type === "html" ? "<h1>Hello</h1>" : "// your code" });
+    area.value = t.content || "";
+    area.addEventListener("input", () => write(area.value));
+    const editor = h("div.ed-keep.ed-tab-editor", area, t.type === "html" ? h("p.ed-hint", "The demo below updates when you leave the editor.") : null);
+    if (t.type === "code") body.hidden = true;
+    body.before(editor);
+  }
+}
+
+/** A renamed page changes its address: follow it. */
+function followRenamedTab() {
+  const sub = parsePath().sub;
+  if (sub?.name !== "tab" || ed.tabIndex == null) return false;
+  const tabs = cfg().tabs;
+  if (tabs.some((x) => x.slug === sub.param)) return false;
+  const t = tabs.find((x) => x.index === ed.tabIndex);
+  if (!t) return false;
+  history.replaceState(history.state, "", `${api.state.base}/tab/${encodeURIComponent(t.slug)}${location.search}`);
+  api.rerender(ed.resume);
+  return true;
 }
 
 /** Header: name and title typed in place, photo and banner on themselves, contact details in a strip. */
@@ -443,11 +683,12 @@ function decorateProfile() {
   const addable = [
     ...(!shown.has("about") && !hidden.includes("about") ? [{ key: "about", label: "About" }] : []),
     ...SECTIONS.filter((s) => !shown.has(s.key) && !hidden.includes(s.key)),
+    ...(document.querySelector("#app .tabs") ? [] : [{ key: "page", label: "Page (its own tab)" }]),
   ];
   const sections = document.querySelector("#view .sections");
   if (sections && (addable.length || hidden.length)) {
     sections.appendChild(addSectionMenu(addable, hidden.map((key) => ({ key, label: SPEC[key]?.label || cap(key) })), {
-      onAdd: (k) => (k === "projects" ? addProject() : k === "about" ? addAbout() : addItem(k)),
+      onAdd: (k) => (k === "page" ? addTab() : k === "projects" ? addProject() : k === "about" ? addAbout() : addItem(k)),
       onShow: (k) => toggleSection(k, false),
     }));
   }
@@ -619,7 +860,7 @@ function decorateProject(slug) {
       setCfg(["projects", "exclude"], [...new Set([...cfg().projects.exclude, p.name])]);
       changed();
       navigate(`${api.state.base}#projects`);
-      toast(`"${p.name}" is hidden. Show it again in Customize → Projects.`);
+      toast(`"${p.name}" is hidden. Show it again in Site settings → Projects.`);
     }, "ghost");
   } else {
     ed.projectIndex = index; // a rename changes the URL: followRenamedProject keeps us on it
@@ -835,37 +1076,6 @@ function addPageAction(label, icon, onclick, kind = "primary") {
   bar.appendChild(h(`button.btn.btn-${kind}`, { type: "button", onclick }, svgIcon(ICONS[icon]), label));
 }
 
-// ============================================================================
-// PANELS
-// ============================================================================
-
-/** A panel built from forms; edits re-render the page, list changes re-render the panel. */
-function formSheet(title, render, opts = {}) {
-  ed.root = null;
-  const sheet = openSheet({
-    title, render, ...opts,
-    onClose: () => {
-      ed.sheetRender = null;
-      opts.onClose?.();
-    },
-  });
-  ed.sheetRender = sheet.refresh;
-  return sheet;
-}
-
-const doneBtn = () => h("button.btn.btn-primary", { type: "button", onclick: closeSheet }, "Done");
-
-
-
-
-
-
-function openTabs() {
-  formSheet("Tabs", () => [h("p.ed-hint", "Extra pages next to Profile and Blog: links, Markdown, code, HTML demos or embeds."), tabsGroup()], { actions: doneBtn() });
-}
-
-
-
 function addAbout() {
   ed.resume.basics ||= {};
   ed.resume.basics.summary = "A few sentences about you and your work.";
@@ -915,42 +1125,6 @@ function addProject() {
 }
 
 
-// ---------- panels that reuse the editor's tabbed panels ----------
-
-/** A panel showing one of core.js's tab panels (settings, resume, blog, json). */
-function panelSheet(title, tab, { tabs = null, then = null } = {}) {
-  ed.sheetRender = null;
-  ed.tab = tab;
-  const nav = tabs
-    ? h("nav.ed-tabs", { "aria-label": `${title} sections` },
-        tabs.map(([key, label]) => h("button.tab", { type: "button", "aria-current": key === ed.tab ? "page" : null, onclick: (e) => {
-          ed.tab = key;
-          ed.post = null;
-          nav.querySelectorAll(".tab").forEach((t) => t.removeAttribute("aria-current"));
-          e.currentTarget.setAttribute("aria-current", "page");
-          renderPanel();
-        } }, label)))
-    : null;
-  const sheet = openSheet({
-    title, wide: true,
-    render: () => [nav, h("div.ed-scroll", { id: "ed-panel" })],
-    onClose: () => {
-      ed.root = null;
-      ed.post = null;
-    },
-  });
-  ed.root = sheet.el;
-  renderPanel();
-  then?.();
-  return sheet;
-}
-
-function openCustomize() {
-  panelSheet("Customize", ed.tab === "json" ? "json" : "settings", {
-    tabs: [["settings", "Design & settings"], ["resume", "All content"], ...(editKind() === "own" ? [["blog", "Blog"]] : []), ["json", "JSON"]],
-  });
-}
-
 /** Goes to the post's own page in edit mode, where its editor opens. */
 function editPost(post) {
   const sub = parsePath().sub;
@@ -973,7 +1147,7 @@ function mountUi(kind) {
 
   const toolbar = h("div.ed-toolbar", { role: "toolbar", "aria-label": "Edit mode" },
     h("span.ed-toolbar-label", h("span.ed-dot"), "Editing"),
-    h("button.btn.btn-ghost", { type: "button", onclick: openCustomize }, svgIcon(ICONS.sliders), h("span.ed-btn-text", "Customize")),
+    h("button.ed-icon-btn", { type: "button", "aria-label": "Site settings", title: "Site settings: colors, fonts, layout, SEO", onclick: openSettings }, svgIcon(ICONS.sliders)),
     h("button.btn.btn-ghost", { type: "button", onclick: exitEdit }, "Done"),
   );
 

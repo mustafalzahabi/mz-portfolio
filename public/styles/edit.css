@@ -3,17 +3,26 @@
    Mobile first: bottom sheet + one-row bar; desktop: side panel.
    ============================================================================ */
 
-/* ---------- "Edit portfolio" (owner / preview) ---------- */
+/* ---------- the pencil (owner / preview) ---------- */
 
 .ed-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right));
   bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 60;
-  min-height: 52px;
-  padding: 0 1.25rem;
-  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  border-radius: 50%;
   box-shadow: var(--shadow-lg);
+}
+
+.ed-fab .icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 /* ---------- top pill ---------- */
@@ -1547,4 +1556,115 @@ body.has-sheet .ed-bar {
 .ed-add-line:hover {
   border-style: solid;
   color: var(--color-c);
+}
+
+/* ---------- site settings: a page of their own ---------- */
+
+.settings-page {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.settings-page .section-title {
+  margin-bottom: 1.25rem;
+}
+
+.ed-settings .ed-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ed-settings .ed-group {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-s);
+}
+
+.ed-settings .ed-json {
+  min-height: 24rem;
+}
+
+/* ---------- custom pages: add one from the tabs, edit it on the page ---------- */
+
+.tabs .ed-tab-add {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs .ed-tab-add:hover {
+  border-style: solid;
+  color: var(--color-c);
+}
+
+.ed-tab-strip {
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.ed-tab-strip .ed-tools {
+  position: static;
+  margin-inline-start: auto;
+  opacity: 1;
+}
+
+.ed-tab-strip > .ed-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.ed-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+}
+
+.ed-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-seg-btn[aria-pressed="true"] {
+  background: var(--color-b);
+  color: var(--color-c);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.ed-seg-btn .icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ed-tab-editor {
+  margin-bottom: 1.25rem;
+}
+
+.ed-code-text {
+  width: 100%;
+  min-height: 22rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  tab-size: 2;
 }

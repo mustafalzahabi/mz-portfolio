@@ -888,6 +888,7 @@ function settingsPanel() {
   for (const [name, node] of Object.entries(CONFIG_SCHEMA)) {
     const body = h("div.ed-group-body");
     const details = group(`settings:${name}`, [h("strong", name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())), node._desc ? h("span.muted", node._desc) : null], body);
+    if (name === "tabs") continue; // pages are added and edited on the portfolio itself
     if (name === "colors") body.appendChild(colorsGroup(config));
     else if (name === "sections") body.appendChild(sectionsGroup(config));
     else if (name === "tabs") body.appendChild(tabsGroup());
@@ -909,6 +910,7 @@ function settingsPanel() {
     }
     panel.appendChild(details);
   }
+  panel.appendChild(group("settings:json", [h("strong", "resume.json"), h("span.muted", "Everything above, as raw JSON")], h("div.ed-group-body", jsonPanel())));
   if (ed.query.settings) queueMicrotask(() => filterPanel(panel, ed.query.settings));
   return panel;
 }
@@ -1450,4 +1452,4 @@ export function cfgFields(groupName, keys = null) {
     .map(([k, child]) => cfgInput([groupName, k], child, getPath(config, [groupName, k])));
 }
 
-export { boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };
+export { cfgRoot, boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };

@@ -478,27 +478,28 @@
 }
 
 /* ============================================================================
-   PROJECT IMAGES — one slider at the top: every image whole, in the same
-   frame, over a soft blur of itself (portrait and landscape look even)
+   PROJECT IMAGES — a filmstrip at the top: every image at one height and its
+   own shape (nothing cropped, no empty bars), centred when they all fit,
+   swiped / stepped when they don't. Click opens the image full size.
    ============================================================================ */
 
-.project-slider-slot:not(:empty) {
-  margin-bottom: 1.75rem;
+/* The page's own gap spaces it; slots with nothing in them take no room */
+.project-slider-slot:empty,
+.project-gallery-slot:empty {
+  display: none;
 }
 
 .slider {
+  --strip-h: clamp(12rem, 52vw, 24rem);
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--line-soft);
-  border-radius: calc(var(--radius) * 1.4);
-  background: var(--color-s);
-  box-shadow: var(--shadow);
 }
 
 .slider-track {
+  position: relative;
   display: flex;
-  aspect-ratio: 4 / 3;
-  max-height: min(60vh, 30rem);
+  gap: 0.75rem;
+  height: var(--strip-h);
+  padding: 0.25rem 0.1rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
@@ -511,70 +512,113 @@
 
 .slider-track:focus-visible {
   outline: 3px solid var(--color-a);
-  outline-offset: -3px;
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 .slide {
-  position: relative;
-  display: grid;
-  flex: 0 0 100%;
-  place-items: center;
+  flex: 0 0 auto;
+  max-width: 100%;
+  height: 100%;
   margin: 0;
-  overflow: hidden;
-  scroll-snap-align: start;
+  scroll-snap-align: center;
 }
 
-.slide::before {
-  content: "";
-  position: absolute;
-  inset: -12%;
-  background: var(--slide-bg) center / cover no-repeat;
-  filter: blur(28px) saturate(1.15);
-  opacity: 0.5;
+/* Auto margins centre the strip when it fits, and never cut it off when it doesn't */
+.slide:first-child {
+  margin-inline-start: auto;
+}
+
+.slide:last-child {
+  margin-inline-end: auto;
+}
+
+.slide-open {
+  display: block;
+  height: 100%;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 1.2);
+  overflow: hidden;
+  background: var(--well);
+  box-shadow: var(--shadow);
+  cursor: zoom-in;
 }
 
 .slide img {
-  position: relative;
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* One landscape image: as wide as the page, at its own shape */
+.slider[data-count="1"] .slide:not([data-shape="tall"]) {
+  flex-basis: 100%;
+}
+
+.slider[data-count="1"] .slide:not([data-shape="tall"]) .slide-open {
+  width: 100%;
+  height: auto;
+  max-height: var(--strip-h);
+}
+
+.slider[data-count="1"] .slide:not([data-shape="tall"]) img {
+  width: 100%;
+  height: auto;
+  max-height: calc(var(--strip-h) - 2px);
+}
+
+.slider[data-count="1"] .slider-track {
+  height: auto;
+  max-height: var(--strip-h);
 }
 
 .slider-btn {
   position: absolute;
   top: 50%;
-  display: grid;
+  z-index: 1;
+  display: none;
   place-items: center;
   width: 44px;
   height: 44px;
   padding: 0;
   border: 1px solid var(--line-soft);
   border-radius: 50%;
-  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  background: color-mix(in oklab, var(--color-b) 90%, transparent);
   color: var(--color-c);
   box-shadow: var(--shadow);
   cursor: pointer;
   translate: 0 -50%;
 }
 
+.slider-btn:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .slider-btn.prev {
-  left: 0.75rem;
+  left: 0.5rem;
 }
 
 .slider-btn.next {
-  right: 0.75rem;
+  right: 0.5rem;
+}
+
+.slider.is-scrollable .slider-btn {
+  display: grid;
 }
 
 .slider-dots {
-  position: absolute;
-  bottom: 0.75rem;
-  left: 50%;
+  display: none;
+  justify-content: center;
+  gap: 0.1rem;
+  margin-top: 0.4rem;
+}
+
+.slider.is-scrollable .slider-dots {
   display: flex;
-  gap: 0.15rem;
-  padding: 0.2rem 0.4rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-b) 80%, transparent);
-  translate: -50% 0;
 }
 
 .slider-dot {
@@ -589,12 +633,12 @@
 .slider-dot::after {
   content: "";
   display: block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   margin: auto;
   border-radius: 50%;
   background: var(--ink-muted);
-  opacity: 0.5;
+  opacity: 0.45;
   transition: width 0.2s, opacity 0.2s;
 }
 
@@ -605,14 +649,85 @@
   opacity: 1;
 }
 
-@media (min-width: 700px) {
-  .slider-track {
-    aspect-ratio: 16 / 9;
+@media (hover: none) {
+  .slider.is-scrollable .slider-btn {
+    display: none;
   }
 }
 
-@media (hover: none) {
-  .slider-btn {
-    display: none;
-  }
+/* While editing, images aren't opened (the thumbnails below edit them) */
+.is-editing .slide-open {
+  cursor: default;
+}
+
+/* ---------- full-size viewer ---------- */
+
+.lightbox {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-c);
+}
+
+.lightbox::backdrop {
+  background: color-mix(in oklab, var(--color-b) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.lightbox[open] {
+  display: grid;
+  place-items: center;
+}
+
+.lightbox-img {
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 6rem);
+  object-fit: contain;
+  border-radius: var(--radius);
+  user-select: none;
+}
+
+.lightbox-bar {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  right: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.lightbox-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--color-b);
+  color: var(--color-c);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.lightbox-prev,
+.lightbox-next {
+  position: fixed;
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.lightbox-prev {
+  left: 0.75rem;
+}
+
+.lightbox-next {
+  right: 0.75rem;
 }

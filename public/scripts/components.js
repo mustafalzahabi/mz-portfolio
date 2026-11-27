@@ -586,37 +586,121 @@ export function buildProjectPage(project, vm, cfg, ctx) {
 }
 
 /**
- * Project images as one slider: each image is shown whole (contained) in the
- * same frame over a soft blur of itself, so portrait and landscape shots sit
- * side by side without cropping or jumping. Swipe, arrows, dots or keys.
+ * Project images as a filmstrip: every image at the same height and its own
+ * shape (portrait, landscape, square: nothing cropped, no empty bars), side
+ * by side, centred when they all fit, swiped or stepped through when not.
+ * Clicking one opens it full size (arrows / swipe / Escape).
  */
 export function buildSlider(images, label, { source = null } = {}) {
-  const wrap = h("section.slider", { "aria-roledescription": "carousel", "aria-label": `${label} images`, dataset: { source } });
-  const track = h("div.slider-track", { tabindex: "0" });
-  images.forEach((src, i) => {
-    const slide = h("figure.slide", { "aria-roledescription": "slide", "aria-label": `${i + 1} of ${images.length}` },
-      h("img", { src, alt: i === 0 ? `${label} preview` : "", loading: i ? "lazy" : "eager", decoding: "async", onerror: (e) => e.target.closest("figure").remove() }));
-    slide.style.setProperty("--slide-bg", `url("${src.replace(/["\\]/g, "")}")`);
-    track.appendChild(slide);
-  });
-  wrap.appendChild(track);
-  if (images.length > 1) {
-    const current = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
-    const go = (i) => track.scrollTo({ left: Math.max(0, Math.min(images.length - 1, i)) * track.clientWidth, behavior: "smooth" });
-    const dots = h("div.slider-dots", images.map((_, i) => h("button.slider-dot", { type: "button", "aria-label": `Show image ${i + 1}`, onclick: () => go(i) })));
-    const sync = () => [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === current())));
-    track.addEventListener("scroll", () => requestAnimationFrame(sync), { passive: true });
-    track.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowRight") go(current() + 1);
-      if (e.key === "ArrowLeft") go(current() - 1);
+  const wrap = h("section.slider", { "aria-roledescription": "carousel", "aria-label": `${label} images`, dataset: { source, count: String(images.length) } });
+  const track = h("div.slider-track", { tabindex: "0", "aria-label": `${label} images, use the arrow keys to move` });
+  const slides = images.map((src, i) => {
+    const img = h("img", {
+      src, alt: i === 0 ? `${label} preview` : `${label}, image ${i + 1}`, loading: i < 3 ? "eager" : "lazy", decoding: "async",
+      onerror: (e) => {
+        e.target.closest("figure")?.remove();
+        update();
+      },
+      onload: (e) => {
+        // Very tall or very wide images get a gentler frame (CSS)
+        const r = e.target.naturalWidth / Math.max(1, e.target.naturalHeight);
+        e.target.closest("figure").dataset.shape = r < 0.7 ? "tall" : r > 2.2 ? "wide" : "";
+        update();
+      },
     });
-    wrap.append(
-      h("button.slider-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(current() - 1) }, svgIcon(ICONS.arrowLeft)),
-      h("button.slider-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(current() + 1) }, svgIcon(ICONS.arrowRight)),
-      dots,
+    return h("figure.slide", { "aria-roledescription": "slide", "aria-label": `${i + 1} of ${images.length}` },
+      h("button.slide-open", { type: "button", "aria-label": `Open image ${i + 1} full size`, onclick: () => openLightbox(i) }, img));
+  });
+  track.append(...slides);
+  wrap.appendChild(track);
+
+  const live = () => [...track.querySelectorAll(".slide")];
+  // The slide nearest the middle of the track
+  const current = () => {
+    const mid = track.scrollLeft + track.clientWidth / 2;
+    let best = 0;
+    let dist = Infinity;
+    live().forEach((s, i) => {
+      const d = Math.abs(s.offsetLeft + s.offsetWidth / 2 - mid);
+      if (d < dist) [best, dist] = [i, d];
+    });
+    return best;
+  };
+  const go = (i) => {
+    const all = live();
+    const s = all[Math.max(0, Math.min(all.length - 1, i))];
+    if (s) track.scrollTo({ left: s.offsetLeft - (track.clientWidth - s.offsetWidth) / 2, behavior: "smooth" });
+  };
+  const prev = h("button.slider-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(current() - 1) }, svgIcon(ICONS.arrowLeft));
+  const next = h("button.slider-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(current() + 1) }, svgIcon(ICONS.arrowRight));
+  const dots = h("div.slider-dots");
+  wrap.append(prev, next, dots);
+
+  // Controls only when the strip is wider than the page
+  const update = () => {
+    const all = live();
+    const overflows = track.scrollWidth > track.clientWidth + 2;
+    wrap.classList.toggle("is-scrollable", overflows);
+    if (dots.children.length !== all.length) {
+      dots.replaceChildren(...all.map((_, i) => h("button.slider-dot", { type: "button", "aria-label": `Show image ${i + 1}`, onclick: () => go(i) })));
+    }
+    const at = current();
+    [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === at)));
+    prev.disabled = track.scrollLeft <= 2;
+    next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+  };
+  track.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  track.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") go(current() + 1);
+    else if (e.key === "ArrowLeft") go(current() - 1);
+    else return;
+    e.preventDefault();
+  });
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => update()).observe(track);
+  requestAnimationFrame(update);
+
+  function openLightbox(start) {
+    if (document.body.classList.contains("is-editing")) return;
+    const srcs = live().map((s) => s.querySelector("img").src);
+    let at = Math.min(start, srcs.length - 1);
+    const img = h("img.lightbox-img", { alt: "" });
+    const count = h("span.lightbox-count");
+    const show = (i) => {
+      at = (i + srcs.length) % srcs.length;
+      img.src = srcs[at];
+      img.alt = `${label}, image ${at + 1} of ${srcs.length}`;
+      count.textContent = srcs.length > 1 ? `${at + 1} / ${srcs.length}` : "";
+    };
+    const many = srcs.length > 1;
+    const dialog = h("dialog.lightbox", { "aria-label": `${label} images` },
+      img,
+      h("div.lightbox-bar",
+        count,
+        h("button.lightbox-btn", { type: "button", "aria-label": "Close", onclick: () => dialog.close() }, svgIcon(ICONS.close))),
+      many ? h("button.lightbox-btn.lightbox-prev", { type: "button", "aria-label": "Previous image", onclick: () => show(at - 1) }, svgIcon(ICONS.arrowLeft)) : null,
+      many ? h("button.lightbox-btn.lightbox-next", { type: "button", "aria-label": "Next image", onclick: () => show(at + 1) }, svgIcon(ICONS.arrowRight)) : null,
     );
-    sync();
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && many) show(at + 1);
+      if (e.key === "ArrowLeft" && many) show(at - 1);
+    });
+    // Click outside the image closes; swipe steps
+    dialog.addEventListener("click", (e) => e.target === dialog && dialog.close());
+    let x0 = null;
+    dialog.addEventListener("pointerdown", (e) => (x0 = e.clientX));
+    dialog.addEventListener("pointerup", (e) => {
+      if (x0 !== null && many && Math.abs(e.clientX - x0) > 50) show(at + (e.clientX < x0 ? 1 : -1));
+      x0 = null;
+    });
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      go(at);
+    });
+    show(at);
+    document.body.appendChild(dialog);
+    dialog.showModal();
   }
+
   return wrap;
 }
 
@@ -922,7 +1006,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
 const SANDBOX_URL = new URL("../markup/sandbox.html", import.meta.url).href;
 
 async function loadTabText(tab) {
-  if (tab.content) return tab.content;
+  if (typeof tab.content === "string") return tab.content;
   const res = await fetch(tab.url);
   if (!res.ok) throw new Error(`Couldn't load ${tab.url} (${res.status}).`);
   const text = await res.text();
@@ -944,6 +1028,11 @@ export function buildTabPage(tab, vm, cfg, ctx) {
   page.appendChild(head);
   const body = h("div.tab-page-body");
   page.appendChild(body);
+
+  if (tab.type === "link") {
+    body.appendChild(h("p.muted", "Visitors who click this tab go straight to ", h("a", { href: tab.url, target: "_blank", rel: "noopener" }, tab.url), "."));
+    return page;
+  }
 
   if (tab.type === "embed") {
     if (new URL(tab.url).origin === location.origin) {

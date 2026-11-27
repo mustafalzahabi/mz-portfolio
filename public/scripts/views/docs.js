@@ -85,14 +85,15 @@ const GUIDE = [
     group: "Editing",
     pages: [
       { id: "edit-mode", title: "Edit mode", body: () => [
-        p("Open your own portfolio while signed in and click ", h("strong", "Edit portfolio"), ". Other people's portfolios never show edit controls."),
+        p("Open your own portfolio while signed in and click the pencil button (bottom right). Edit mode is a page of its own: links inside your portfolio stay in it, and Back or ", h("strong", "Done"), " leaves it. Other people's portfolios never show edit controls."),
         ul(
           [h("strong", "Type on the page."), " Your name, title, section headings, job titles, companies, summaries and highlights are edited right where they are. Enter starts the next highlight, Backspace in an empty one removes it, Escape undoes what you just typed."],
-          [h("strong", "More details."), " The button on each item, the profile and the banner opens the rest (dates, links, location, photo): a bottom sheet on phones, a side panel on desktop."],
+          [h("strong", "Everything else in place too."), " Dates, links, locations and lists sit in a small strip inside each item; the photo, banner and project images change from the image itself. There are no editing panels."],
           [h("strong", "Projects and posts"), " have their own pages, and that's where they're edited. On the profile and the blog list they only show an Edit button that takes you there."],
           [h("strong", "From GitHub."), " Text that comes from a repo (its description or README) is shown greyed out while editing. Edit the README from the project page: saving it asks for permission to change your public repositories, once or always."],
           [h("strong", "Sections."), " Each section title has Add, move up/down and Hide. Hidden and empty sections can be brought back at the bottom of the page."],
-          [h("strong", "Customize"), " (top bar) holds colors, layout, animations, tabs and every setting in the ", link("#reference", "reference"), " below."],
+          [h("strong", "Pages."), " The + at the end of the tabs (or Add section → Page) adds a page. Its name, kind (text, code, HTML demo, embedded site or link) and content are edited on the page itself."],
+          [h("strong", "Site settings"), " (the sliders icon in the top bar) is a page with colors, layout, animations, SEO, every setting in the ", link("#reference", "reference"), " below, and the raw JSON."],
           [h("strong", "Undo and redo"), " with Ctrl+Z and Ctrl+Shift+Z; Ctrl+S publishes; ? lists all shortcuts."],
         ),
       ] },
@@ -218,7 +219,7 @@ const THEMES = ["even", "elegant", "flat", "kendall", "stackoverflow", "macchiat
 
 function referencePages() {
   const intro = { id: "reference", title: "Settings reference", body: () => [
-    p("Everything here can be changed from ", h("strong", "Customize"), " while editing, so you rarely need this page. It's the full list, for when you want to know exactly what an option does or edit the JSON by hand. Every option is optional."),
+    p("Everything here can be changed from ", h("strong", "Site settings"), " while editing, so you rarely need this page. It's the full list, for when you want to know exactly what an option does or edit the JSON by hand. Every option is optional."),
     codeBlock(EXAMPLE, "resume.json"),
     p("Resume themes: ", THEMES.map((t, i) => [i ? ", " : "", code(t)]), ". Any other name is looked up in the JSON Resume theme registry, falling back to ", code("even"), "."),
   ] };
