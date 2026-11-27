@@ -20,6 +20,7 @@ import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
 import { repoHideKey } from "../merge.js";
 import { getResumeFilename } from "../data.js";
+import { buildSlider } from "../components.js";
 import { closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
@@ -946,7 +947,8 @@ function repoToggles(page, p) {
  */
 function editableImages(page, index, p) {
   const slot = page.querySelector(".project-gallery-slot");
-  if (!slot) return;
+  const sliderSlot = page.querySelector(".project-slider-slot");
+  if (!slot || !sliderSlot) return;
   const item = () => ed.resume.projects?.[index] || {};
   const own = () => [...new Set([item().image, ...(Array.isArray(item().images) ? item().images : [])].filter(Boolean))];
   const store = (list) => {
@@ -956,33 +958,63 @@ function editableImages(page, index, p) {
   };
   const mine = index >= 0 ? own() : [];
   const readme = !mine.length && p.repo ? (p.readmeImages || []) : [];
-  const tool = (icon, label, onclick, extra = "") => h(`button.ed-tool${extra}`, { type: "button", "aria-label": label, title: label, onclick }, svgIcon(ICONS[icon]));
-  const tiles = [
-    ...mine.map((src, i) => h("figure.ed-thumb-item", h("img", { src, alt: "", loading: "lazy" }),
-      i === 0 ? h("span.ed-thumb-badge", "Cover") : null,
-      h("div.ed-tools",
-        i > 0 ? tool("arrowLeft", "Move earlier", () => {
+  // The same slider as the page, each image with a ⋯ menu
+  const images = mine.length ? mine : readme;
+  const slider = images.length ? buildSlider(images, p.name, { source: mine.length ? null : "readme" }) : null;
+  sliderSlot.replaceChildren(...(slider ? [slider] : []));
+  slider?.querySelectorAll(".slide").forEach((fig, i) => {
+    const src = images[i];
+    fig.classList.add("ed-slide");
+    let menu;
+    if (mine.length) {
+      const move = (d) => {
+        const l = own();
+        const j = i + d;
+        if (j < 0 || j >= l.length) return;
+        [l[i], l[j]] = [l[j], l[i]];
+        store(l);
+      };
+      menu = imageMenu(slot, {
+        kind: `project-${index}-${i + 1}`, label: `Image ${i + 1} options`, icon: "more", current: src, dropOn: fig,
+        uploadLabel: "Replace with an upload…", linkLabel: "Replace with a link…", removeLabel: "Remove",
+        onSet: (v) => {
           const l = own();
-          [l[i - 1], l[i]] = [l[i], l[i - 1]];
+          if (v) l[i] = v;
+          else l.splice(i, 1);
           store(l);
-        }) : null,
-        tool("trash", "Remove this image", () => store(own().filter((x) => x !== src)), ".is-danger")))),
-    ...readme.map((src) => {
+        },
+        extra: [
+          i > 0 ? { label: "Make it the cover", icon: "star", onclick: () => {
+            const l = own();
+            l.unshift(...l.splice(i, 1));
+            store(l);
+          } } : null,
+          i > 0 ? { label: "Move earlier", icon: "arrowLeft", onclick: () => move(-1) } : null,
+          i < mine.length - 1 ? { label: "Move later", icon: "arrowRight", onclick: () => move(1) } : null,
+        ].filter(Boolean),
+      });
+      if (i === 0) fig.appendChild(h("span.ed-slide-badge", "Cover"));
+    } else {
       const off = repoIsHidden(p, "image", src);
-      return h("figure.ed-thumb-item", { dataset: { source: "readme" }, class: off ? "is-off" : "" }, h("img", { src, alt: "", loading: "lazy" }),
-        h("div.ed-tools", tool("eye", off ? "Show this README image" : "Hide this README image", () => toggleRepoThing(p, "image", src))));
-    }),
-  ];
-  let add = null;
-  if (index >= 0) {
-    add = h("div.ed-thumb-add");
-    add.appendChild(imageMenu(add, {
-      kind: `project-${index}-${mine.length + 1}`, label: "Add an image", current: "",
-      onSet: (v) => v && store([...own(), v]),
-    }));
-    add.appendChild(h("span", readme.length ? "Add your own (replaces the README's)" : "Add image"));
-  }
-  slot.replaceChildren(h("div.ed-thumbs", { role: "list", "aria-label": "Project images" }, ...tiles, ...(add ? [add] : [])));
+      fig.classList.toggle("is-off", off);
+      if (off) fig.appendChild(h("span.ed-slide-badge", "Hidden"));
+      menu = dropdown({
+        button: h("button.ed-tool.ed-image-btn", { type: "button", title: `Image ${i + 1} options`, "aria-label": `Image ${i + 1} options` }, svgIcon(ICONS.more)),
+        label: `Image ${i + 1} options`,
+        className: ".ed-image-menu",
+        items: [{ label: off ? "Show this README image" : "Hide this README image", icon: "eye", onclick: () => toggleRepoThing(p, "image", src) }],
+      });
+    }
+    fig.appendChild(h("div.ed-slide-menu", menu));
+  });
+  if (index < 0) return slot.replaceChildren();
+  const add = h("div.ed-image-add");
+  add.appendChild(imageMenu(add, {
+    kind: `project-${index}-${mine.length + 1}`, label: "Add an image", current: "",
+    buttonText: readme.length ? "Add your own image (replaces the README's)" : "Add image",
+    onSet: (v) => v && store([...own(), v]),
+  }));
+  slot.replaceChildren(add);
 }
 
 /** Copies a GitHub-only project into the resume, so all of it can be edited. */

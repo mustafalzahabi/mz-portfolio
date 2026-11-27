@@ -153,7 +153,9 @@ function fitInViewport(menu, button) {
   const b = button.getBoundingClientRect();
   const w = menu.offsetWidth;
   const r = menu.getBoundingClientRect();
-  if (r.left >= edge && r.right <= vw - edge) return; // fits where it is
+  // Inside a scrolling strip (the image slider) the menu would be cut off: pin it to the screen
+  const clipped = button.closest(".slider-track");
+  if (!clipped && r.left >= edge && r.right <= vw - edge) return; // fits where it is
   // Pinned to the screen instead, so it never sticks out or adds a sideways scroll
   const left = Math.min(Math.max(edge, b.right - w), vw - w - edge);
   Object.assign(menu.style, { position: "fixed", top: `${Math.round(b.bottom + 6)}px`, left: `${Math.round(left)}px`, right: "auto" });

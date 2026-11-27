@@ -15,6 +15,7 @@ import { ed, store, loadPost, savePostDraft, POST_DRAFT_KEY } from "./core.js";
 import { editInPlace } from "./inline.js";
 import { chips, imageMenu } from "./direct.js";
 import { markdownEditor } from "./markdown-editor.js";
+import { attachDatePicker } from "./datepicker.js";
 
 /**
  * Turns `article` (the post's page, or the blog page for a new post) into the post's editor.
@@ -50,6 +51,7 @@ export async function editPostOnPage(article, post, { onSaved, onDeleted, backHr
   editInPlace(lead, { placeholder: "A one-line description (shown on the blog list and in link previews)", read: () => p.description, write: (v) => { p.description = v; touch(); } });
 
   const date = h("input.ed-date-input", { type: "text", inputmode: "numeric", placeholder: "YYYY-MM-DD", "aria-label": "Date", value: p.date || "" });
+  attachDatePicker(date, { day: true });
   date.addEventListener("change", () => {
     const err = validateField("date", date.value.trim());
     date.setAttribute("aria-invalid", err ? "true" : "false");

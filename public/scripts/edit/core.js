@@ -856,8 +856,41 @@ function tabsGroup() {
   );
 }
 
+// Site settings, grouped by what they change. Each group is a card with a
+// plain title and a line about it; a side list (a chip row on phones) jumps
+// between categories, and the search narrows everything down.
+const SETTING_CARDS = {
+  resumeTheme: ["Resume theme", "How the printable resume looks."],
+  colors: ["Colors", "Your palette. Dark mode is generated from it."],
+  theme: ["Light and dark", "Which mode visitors see first, and the switch."],
+  typography: ["Fonts", "Typefaces and text size."],
+  shape: ["Corners and depth", "Roundness and shadows."],
+  header: ["Header", "What the top of your portfolio shows."],
+  profile: ["Profile photo", "Its shape and size. Change the photo itself on the page."],
+  banner: ["Banner", "Behind your name. Change the image on the page."],
+  sections: ["Sections", "Their order, and which are shown."],
+  navbar: ["Section menu", "The quick menu to jump between sections."],
+  footer: ["Footer", "The line at the bottom of every page."],
+  text: ["Wording", "Labels, date format and language."],
+  projects: ["Projects", "Which GitHub repos show, and how."],
+  skills: ["Skills", "How skill groups are shown."],
+  tags: ["Tags", "The small labels on projects and skills."],
+  blog: ["Blog", "Whether and how posts are listed."],
+  resume: ["Resume", "Downloading and printing."],
+  animation: ["Animations", "The intro and scroll effects."],
+  seo: ["Search and sharing", "How your portfolio appears in search results and link previews."],
+  json: ["resume.json", "Everything, as raw JSON. For bulk edits."],
+};
+const SETTING_GROUPS = [
+  ["look", "Look", ["colors", "theme", "typography", "shape", "resumeTheme"]],
+  ["layout", "Layout", ["header", "profile", "banner", "sections", "navbar", "footer"]],
+  ["content", "Content", ["text", "projects", "skills", "tags", "blog", "resume"]],
+  ["motion", "Motion", ["animation"]],
+  ["sharing", "Sharing", ["seo"]],
+  ["advanced", "Advanced", ["json"]],
+];
+
 function settingsPanel() {
-  const panel = h("div.ed-panel");
   // Migrate legacy config shapes once, so edits land where the app reads them
   const raw = cfgRoot();
   if (raw && Object.keys(raw).length) {
@@ -868,50 +901,105 @@ function settingsPanel() {
     }
   }
   const { config, warnings } = normalizeConfig(ed.resume.meta || {});
-  panel.appendChild(panelTools("settings", panel));
-  if (warnings.length) panel.appendChild(warningsBox(warnings, `${warnings.length} setting(s) need attention`));
 
-  // Resume theme (JSON Resume standard meta.theme)
-  const themeSel = selectMenu({
-    options: [
-      ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
-      ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
-    ],
-    value: config.resume.theme,
-    onChange: (v) => {
-      setPath(ed.resume, ["meta", "theme"], v);
-      changed();
-    },
-  });
-  panel.appendChild(group("settings:theme", [h("strong", "Resume theme"), h("span.muted", "meta.theme")], h("div.ed-group-body", field("Theme for the resume viewer", themeSel))));
-
-  for (const [name, node] of Object.entries(CONFIG_SCHEMA)) {
-    const body = h("div.ed-group-body");
-    const details = group(`settings:${name}`, [h("strong", name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())), node._desc ? h("span.muted", node._desc) : null], body);
-    if (name === "tabs") continue; // pages are added and edited on the portfolio itself
-    if (name === "colors") body.appendChild(colorsGroup(config));
+  const bodyFor = (name) => {
+    const body = h("div.ed-set-body");
+    if (name === "json") body.appendChild(jsonPanel());
+    else if (name === "resumeTheme") {
+      body.appendChild(field("Theme", selectMenu({
+        options: [
+          ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
+          ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
+        ],
+        value: config.resume.theme,
+        onChange: (v) => {
+          setPath(ed.resume, ["meta", "theme"], v);
+          changed();
+        },
+      })));
+    } else if (name === "colors") body.appendChild(colorsGroup(config));
     else if (name === "sections") body.appendChild(sectionsGroup(config));
-    else if (name === "tabs") body.appendChild(tabsGroup());
-    else if (isLeaf(node)) body.appendChild(cfgInput([name], node, getPath(config, [name])));
     else {
-      const walk = (n, path) => {
-        for (const [k, child] of Object.entries(n)) {
-          if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
-          if (name === "profile" && k === "photo") body.appendChild(photoPicker());
-          else if (name === "banner" && k === "image") body.appendChild(bannerPicker());
-          else if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
-          else {
-            body.appendChild(h("h3.ed-sub", k));
-            walk(child, [...path, k]);
+      const node = CONFIG_SCHEMA[name];
+      if (!node) return null;
+      if (isLeaf(node)) body.appendChild(cfgInput([name], node, getPath(config, [name])));
+      else {
+        const walk = (n, path) => {
+          for (const [k, child] of Object.entries(n)) {
+            if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
+            if ((name === "profile" && k === "photo") || (name === "banner" && k === "image")) continue; // edited on the page
+            if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
+            else {
+              body.appendChild(h("h4.ed-sub", humanize(k)));
+              walk(child, [...path, k]);
+            }
           }
-        }
-      };
-      walk(node, [name]);
+        };
+        walk(node, [name]);
+      }
     }
-    panel.appendChild(details);
+    return body.children.length ? body : null;
+  };
+
+  const main = h("div.ed-set-main");
+  const nav = h("nav.ed-set-nav", { "aria-label": "Setting groups" });
+  for (const [id, title, names] of SETTING_GROUPS) {
+    const cards = names.map((name) => {
+      const body = bodyFor(name);
+      if (!body) return null;
+      const [t, d] = SETTING_CARDS[name];
+      return h("section.ed-set-card", { id: `set-${name}`, dataset: { name } }, h("header.ed-set-head", h("h3", t), h("p", d)), body);
+    }).filter(Boolean);
+    if (!cards.length) continue;
+    main.appendChild(h("section.ed-set-group", { id: `setg-${id}`, dataset: { group: id } }, h("h2.ed-set-title", title), ...cards));
+    nav.appendChild(h("a.ed-set-link", { href: `#setg-${id}`, dataset: { group: id }, onclick: (e) => {
+      e.preventDefault();
+      document.getElementById(`setg-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } }, title));
   }
-  panel.appendChild(group("settings:json", [h("strong", "resume.json"), h("span.muted", "Everything above, as raw JSON")], h("div.ed-group-body", jsonPanel())));
-  if (ed.query.settings) queueMicrotask(() => filterPanel(panel, ed.query.settings));
+
+  const search = h("input.input.ed-search", { type: "search", placeholder: "Find a setting", "aria-label": "Find a setting", value: ed.query.settings || "" });
+  const empty = h("p.muted.ed-no-match", { hidden: true });
+  const filter = () => {
+    const q = search.value.trim().toLowerCase();
+    ed.query.settings = search.value;
+    let any = 0;
+    for (const card of main.querySelectorAll(".ed-set-card")) {
+      const head = card.querySelector(".ed-set-head").textContent.toLowerCase();
+      const hitCard = !q || head.includes(q);
+      let hits = 0;
+      for (const f of card.querySelectorAll(".ed-field")) {
+        const hit = hitCard || f.textContent.toLowerCase().includes(q);
+        f.hidden = !hit;
+        hits += hit;
+      }
+      card.hidden = !(hitCard || hits);
+      any += !card.hidden;
+    }
+    for (const g of main.querySelectorAll(".ed-set-group")) g.hidden = !g.querySelector(".ed-set-card:not([hidden])");
+    empty.hidden = !q || any > 0;
+    empty.textContent = `Nothing matches “${search.value}”.`;
+  };
+  search.addEventListener("input", filter);
+
+  // The side list follows the scroll
+  queueMicrotask(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        nav.querySelectorAll(".ed-set-link").forEach((a) => a.toggleAttribute("aria-current", a.dataset.group === e.target.dataset.group));
+      }
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    main.querySelectorAll(".ed-set-group").forEach((g) => io.observe(g));
+  });
+
+  const panel = h("div.ed-panel.ed-set-layout",
+    h("aside.ed-set-side", h("span.ed-search-wrap", svgIcon(ICONS.search), search), nav),
+    h("div.ed-set-content",
+      warnings.length ? warningsBox(warnings, `${warnings.length} setting(s) need attention`) : null,
+      empty, main));
+  if (search.value) queueMicrotask(filter);
   return panel;
 }
 

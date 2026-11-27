@@ -12,6 +12,7 @@ import { getPath, setPath, validateField } from "../editor-core.js";
 import { dropdown } from "../account.js";
 import { ed, changed, uploadImage, githubForPreview } from "./core.js";
 import { editInPlace } from "./inline.js";
+import { attachDatePicker } from "./datepicker.js";
 
 const ACCEPT = "image/png,image/jpeg,image/webp,image/gif,image/avif";
 
@@ -40,6 +41,7 @@ export function stripInput(path, [key, label, kind = "text", placeholder = ""], 
     onCommit();
   });
   input.addEventListener("keydown", (e) => e.key === "Enter" && input.blur());
+  if (kind === "date") attachDatePicker(input, { present: key === "endDate" });
   return h("label.ed-strip-field", { "data-key": key }, h("span.ed-strip-label", label), input);
 }
 
@@ -58,6 +60,7 @@ export function inlineDates(el, basePath, keys) {
       changed();
     });
     i.addEventListener("keydown", (e) => e.key === "Enter" && i.blur());
+    attachDatePicker(i, { present: key === "endDate" });
     return i;
   };
   const parts = keys.length === 2
@@ -184,7 +187,7 @@ export function addSectionMenu(addable, hidden, { onAdd, onShow }) {
     ...hidden.map((s) => ({ label: `Show ${s.label}`, icon: "eye", onclick: () => onShow(s.key) })),
   ];
   const menu = dropdown({
-    button: h("button.btn.btn-ghost.ed-add-section", { type: "button" }, svgIcon(ICONS.plus), h("span", "Add section")),
+    button: h("button.btn.btn-ghost.ed-add-section", { type: "button" }, h("span", "Add section"), svgIcon(ICONS.plus)),
     label: "Add section",
     className: ".ed-add-section-menu",
     items,
@@ -260,21 +263,26 @@ async function storeImage(kind, file, busyEl) {
  * A camera button on an image (banner, project cover) with a short menu:
  * upload, paste a link, remove. Images can also be dropped on `target`.
  */
-export function imageMenu(target, { kind, label, current, onSet, removeLabel = "Remove image", extra = [] }) {
+export function imageMenu(target, {
+  kind, label, current, onSet, removeLabel = "Remove image", extra = [],
+  icon = "camera", buttonText = "", uploadLabel = "Upload an image…", linkLabel = "Paste an image link…", dropOn = target,
+}) {
   const set = async (file) => {
     const url = await storeImage(kind, file, target);
     if (url) onSet(url);
   };
   const menu = dropdown({
-    button: h("button.ed-tool.ed-image-btn", { type: "button", title: label }, svgIcon(ICONS.camera)),
+    button: buttonText
+      ? h("button.btn.btn-ghost.ed-image-add-btn", { type: "button" }, svgIcon(ICONS.plus), h("span", buttonText))
+      : h("button.ed-tool.ed-image-btn", { type: "button", title: label, "aria-label": label }, svgIcon(ICONS[icon])),
     label,
     className: ".ed-image-menu",
     items: [
-      { label: "Upload an image…", icon: "upload", onclick: async () => {
+      { label: uploadLabel, icon: "upload", onclick: async () => {
         const f = await pickFile();
         if (f) set(f);
       } },
-      { label: "Paste an image link…", icon: "link", onclick: async () => {
+      { label: linkLabel, icon: "link", onclick: async () => {
         const v = await linkRow(target, "https://…/image.jpg");
         if (v) onSet(v);
       } },
@@ -282,7 +290,7 @@ export function imageMenu(target, { kind, label, current, onSet, removeLabel = "
       current ? { label: removeLabel, icon: "trash", onclick: () => onSet("") } : null,
     ].filter(Boolean),
   });
-  dropTarget(target, set);
+  if (dropOn) dropTarget(dropOn, set);
   return menu;
 }
 

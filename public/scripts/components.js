@@ -410,7 +410,8 @@ export async function enrichProjectCovers(projects, max = 8, projectsCfg = {}) {
       const readme = await fetchReadme(p.repo.owner, p.repo.name, p.repo.branch);
       if (!readme) return;
       p.readme = readme;
-      p.images = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch).filter((src) => !isRepoHidden(projectsCfg, p.repo.name, "image", src));
+      p.readmeImages = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch); // all of them, hidden too (edit mode)
+      p.images = p.readmeImages.filter((src) => !isRepoHidden(projectsCfg, p.repo.name, "image", src));
       p.sources = { ...p.sources, images: "readme" };
       if (!p.description) {
         p.description = extractReadmeSummary(readme);
@@ -474,7 +475,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   // The project cards may already have taken images from the README
   let imagesFromReadme = project.sources?.images === "readme";
   if (imagesFromReadme) {
-    project.readmeImages = images;
+    project.readmeImages ||= images;
     images = images.filter((src) => !hidden("image", src));
   }
   const renderSlider = () => {
