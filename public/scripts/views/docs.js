@@ -87,7 +87,10 @@ const GUIDE = [
       { id: "edit-mode", title: "Edit mode", body: () => [
         p("Open your own portfolio while signed in and click ", h("strong", "Edit portfolio"), ". Other people's portfolios never show edit controls."),
         ul(
-          [h("strong", "Edit buttons."), " Every object (your profile, the banner, each job, school, skill group, project and post) has one. It opens a panel: a bottom sheet on phones, a side panel on desktop, with the page updating live beside it."],
+          [h("strong", "Type on the page."), " Your name, title, section headings, job titles, companies, summaries and highlights are edited right where they are. Enter starts the next highlight, Backspace in an empty one removes it, Escape undoes what you just typed."],
+          [h("strong", "More details."), " The button on each item, the profile and the banner opens the rest (dates, links, location, photo): a bottom sheet on phones, a side panel on desktop."],
+          [h("strong", "Projects and posts"), " have their own pages, and that's where they're edited. On the profile and the blog list they only show an Edit button that takes you there."],
+          [h("strong", "From GitHub."), " Text that comes from a repo (its description or README) is shown greyed out while editing. Edit the README from the project page: saving it asks for permission to change your public repositories, once or always."],
           [h("strong", "Sections."), " Each section title has Add, move up/down and Hide. Hidden and empty sections can be brought back at the bottom of the page."],
           [h("strong", "Customize"), " (top bar) holds colors, layout, animations, tabs and every setting in the ", link("#reference", "reference"), " below."],
           [h("strong", "Undo and redo"), " with Ctrl+Z and Ctrl+Shift+Z; Ctrl+S publishes; ? lists all shortcuts."],

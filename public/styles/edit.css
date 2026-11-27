@@ -691,3 +691,47 @@ body.has-sheet .ed-bar {
 .readme-fallback {
   color: var(--ink-muted);
 }
+
+/* ---------- typing on the page ---------- */
+
+.is-editing .ed-inline {
+  border-radius: 0.3em;
+  outline: 1.5px dashed transparent;
+  outline-offset: 3px;
+  cursor: text;
+  transition: outline-color 0.15s, background 0.15s;
+}
+
+.is-editing .ed-inline:hover {
+  outline-color: color-mix(in oklab, var(--color-a) 55%, transparent);
+}
+
+.is-editing .ed-inline:focus {
+  outline: 2px solid var(--color-a);
+  background: color-mix(in oklab, var(--color-a) 8%, transparent);
+}
+
+/* touch screens: show what's editable without hover */
+@media (hover: none) {
+  .is-editing .ed-inline {
+    outline-color: color-mix(in oklab, var(--color-a) 35%, transparent);
+  }
+}
+
+.is-editing .ed-inline.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-muted);
+  font-style: italic;
+  pointer-events: none;
+}
+
+.is-editing .ed-inline a {
+  pointer-events: none;
+}
+
+/* room for an item's "more details" button, so it never covers typed text */
+.is-editing .ed-host:has(> .ed-edit.is-item) > .entry-head,
+.is-editing .ed-host:has(> .ed-edit.is-item) > .skill-head,
+.is-editing .ed-host:has(> .ed-edit.is-item) > .entry-title {
+  padding-inline-end: 3rem;
+}

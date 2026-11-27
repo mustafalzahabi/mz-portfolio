@@ -31,7 +31,7 @@ export function setTagOptions({ languageColors }) {
 function createSection(key, title, cfg) {
   const heading = cfg?.text?.sections?.[key] || title;
   const section = h("section.section", { id: key, "aria-labelledby": `${key}-title`, dataset: { section: key } });
-  section.appendChild(h("h2.section-title", { id: `${key}-title` }, heading));
+  section.appendChild(h("h2.section-title", { id: `${key}-title`, dataset: { path: `@text.sections.${key}` } }, heading));
   return section;
 }
 
@@ -49,21 +49,22 @@ function tagList(items, className = "tag") {
 }
 
 /** Generic timeline/card entry used by work, volunteer, education, awards, … */
-function entryCard({ title, subtitle, subtitleUrl, when, location, summary, highlights, tags, link, linkLabel, extra }) {
+function entryCard({ title, subtitle, subtitleUrl, when, location, summary, highlights, tags, link, linkLabel, extra, fields = {} }) {
   const card = h("article.card.entry");
   const head = h("header.entry-head");
-  head.appendChild(h("h3.entry-title", title || subtitle || ""));
+  const titleField = title || !subtitle ? fields.title : fields.subtitle;
+  head.appendChild(h("h3.entry-title", { dataset: { field: titleField || null } }, title || subtitle || ""));
   if (subtitle && title) {
     head.appendChild(
-      h("p.entry-subtitle", subtitleUrl ? h("a", { href: subtitleUrl }, subtitle) : subtitle),
+      h("p.entry-subtitle", { dataset: { field: fields.subtitle || null } }, subtitleUrl ? h("a", { href: subtitleUrl }, subtitle) : subtitle),
     );
   }
   const meta = [when && h("span.entry-when", when), location && h("span.entry-where", svgIcon(ICONS.pin), location)].filter(Boolean);
   if (meta.length) head.appendChild(h("p.entry-meta", meta));
   card.appendChild(head);
 
-  if (summary) card.appendChild(h("p.entry-summary", summary));
-  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x) => h("li", x))));
+  if (summary) card.appendChild(h("p.entry-summary", { dataset: { field: fields.summary || null } }, summary));
+  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x, i) => h("li", { dataset: { field: fields.highlights ? `${fields.highlights}.${i}` : null } }, x))));
   if (extra) card.appendChild(extra);
   const tl = tagList(tags);
   if (tl) card.appendChild(tl);
@@ -111,9 +112,9 @@ export function buildHeader(vm, cfg, ctx) {
   }
 
   const details = h("div.profile-details");
-  details.appendChild(h("h1.profile-name", b.name));
+  details.appendChild(h("h1.profile-name", { dataset: { path: "basics.name" } }, b.name));
   const tagline = cfg.text.tagline || b.label;
-  if (tagline) details.appendChild(h("p.profile-title", tagline));
+  if (tagline) details.appendChild(h("p.profile-title", { dataset: { path: cfg.text.tagline ? "@text.tagline" : "basics.label" } }, tagline));
 
   const facts = h("ul.profile-facts", { role: "list" });
   if (cfg.header.showLocation && b.location) facts.appendChild(h("li", iconLabel("pin", b.location)));
@@ -309,6 +310,7 @@ export function buildWork(vm, cfg, ctx) {
         location: job.location,
         summary: job.summary || job.description,
         highlights: job.highlights,
+        fields: { title: "position", subtitle: job.name ? "name" : "company", summary: job.summary || !job.description ? "summary" : "description", highlights: "highlights" },
       }),
     );
   }
@@ -329,6 +331,7 @@ export function buildVolunteer(vm, cfg, ctx) {
         when: formatDateRange(v.startDate, v.endDate, ctx.locale, ctx.present),
         summary: v.summary,
         highlights: v.highlights,
+        fields: { title: "position", subtitle: "organization", summary: "summary", highlights: "highlights" },
       }),
     );
   }
@@ -352,6 +355,7 @@ export function buildEducation(vm, cfg, ctx) {
         location: typeof edu.location === "string" ? edu.location : edu.location?.city,
         tags: edu.courses,
         extra,
+        fields: { title: degree ? null : "institution", subtitle: "institution" },
       }),
     );
   }
@@ -612,7 +616,7 @@ export function buildSkills(vm, cfg) {
 
   for (const group of vm.skills) {
     const card = h("article.card.skill-group");
-    const head = h("header.skill-head", h("h3.skill-name", group.name));
+    const head = h("header.skill-head", h("h3.skill-name", { dataset: { field: "name" } }, group.name));
     if (group.level) head.appendChild(h("span.skill-level", group.level));
     card.appendChild(head);
 
@@ -646,7 +650,7 @@ export function buildLanguages(vm, cfg) {
   const section = createSection("languages", "Languages", cfg);
   const list = h("ul.chip-list", { role: "list" });
   for (const lang of vm.languages) {
-    list.appendChild(h("li.card.chip-card", h("strong", lang.language || lang.name || ""), lang.fluency ? h("span.muted", lang.fluency) : null));
+    list.appendChild(h("li.card.chip-card", h("strong", { dataset: { field: lang.language || !lang.name ? "language" : "name" } }, lang.language || lang.name || ""), lang.fluency ? h("span.muted", { dataset: { field: "fluency" } }, lang.fluency) : null));
   }
   section.appendChild(list);
   return section;
@@ -657,7 +661,7 @@ export function buildInterests(vm, cfg) {
   const section = createSection("interests", "Interests", cfg);
   const grid = h("div.card-grid");
   for (const it of vm.interests) {
-    grid.appendChild(h("article.card", h("h3.entry-title", it.name || ""), tagList(it.keywords)));
+    grid.appendChild(h("article.card", h("h3.entry-title", { dataset: { field: "name" } }, it.name || ""), tagList(it.keywords)));
   }
   section.appendChild(grid);
   return section;
@@ -672,7 +676,7 @@ export function buildAwards(vm, cfg, ctx) {
   const section = createSection("awards", "Awards", cfg);
   const grid = h("div.card-grid");
   for (const a of vm.awards) {
-    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary }));
+    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary, fields: { title: "title", subtitle: "awarder", summary: "summary" } }));
   }
   section.appendChild(grid);
   return section;
@@ -683,7 +687,7 @@ export function buildCertificates(vm, cfg, ctx) {
   const section = createSection("certificates", "Certificates", cfg);
   const grid = h("div.card-grid");
   for (const c of vm.certificates) {
-    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate" }));
+    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate", fields: { title: "name", subtitle: "issuer" } }));
   }
   section.appendChild(grid);
   return section;
@@ -694,7 +698,7 @@ export function buildPublications(vm, cfg, ctx) {
   const section = createSection("publications", "Publications", cfg);
   const grid = h("div.card-grid");
   for (const p of vm.publications) {
-    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read" }));
+    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read", fields: { title: "name", subtitle: "publisher", summary: "summary" } }));
   }
   section.appendChild(grid);
   return section;

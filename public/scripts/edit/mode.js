@@ -12,7 +12,7 @@
 import { h, svgIcon, toast, copyText, downloadFile } from "../utils.js";
 import { ICONS } from "../icons.js";
 import { BASE_PATH, parsePath, navigate } from "../router.js";
-import { setPath, prune } from "../editor-core.js";
+import { setPath, prune, getPath } from "../editor-core.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResume, blankScaffold } from "../template.js";
 import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
 import { dropdown } from "../account.js";
@@ -20,6 +20,7 @@ import { normalizeConfig } from "../config.js";
 import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
+import { editInPlace, focusLater } from "./inline.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
   renderPanel, openPost, loadPosts, photoPicker, bannerPicker, openSignIn, showChanges,
@@ -210,7 +211,13 @@ function setEditParam(on) {
 function scheduleRerender() {
   if (!editing) return;
   clearTimeout(rerenderTimer);
-  rerenderTimer = setTimeout(rerenderNow, 220);
+  rerenderTimer = setTimeout(() => {
+    // Don't rebuild the page under someone typing in another field on it;
+    // re-render once they leave it
+    const typing = document.activeElement?.closest?.(".ed-inline");
+    if (typing) typing.addEventListener("blur", scheduleRerender, { once: true });
+    else rerenderNow();
+  }, 220);
 }
 
 async function rerenderNow() {
@@ -267,6 +274,7 @@ function decorate() {
   const banner = document.querySelector(".profile-banner");
   if (banner) editButton(banner, "Edit banner", openBanner, ".is-banner", "Banner");
 
+  inlinePaths(document.querySelector(".profile-info"));
   if (page === "profile") decorateProfile();
   else if (page.startsWith("project:")) decorateProject(decodeURIComponent(page.slice(8)));
   else if (page === "blog") decorateBlog();
@@ -283,6 +291,7 @@ function decorateProfile() {
     const key = section.dataset.section;
     section.classList.add("ed-section");
     section.querySelector(".section-title")?.after(sectionBar(key));
+    inlinePaths(section.querySelector(":scope > .section-title"), SPEC[key]?.label);
     const selector = ITEM_SELECTOR[key];
     if (!selector) continue;
     const list = vm[key] || [];
@@ -295,11 +304,12 @@ function decorateProfile() {
           e.preventDefault();
           editProject(item);
         });
-        editButton(card, `Edit ${item?.name || "project"}`, () => editProject(item), ".is-item");
+        editButton(card, `Edit ${item?.name || "project"}`, () => editProject(item), ".is-item", "Edit");
       } else if (index < 0) {
         editButton(card, "Edit (from GitHub)", openGithubSkills, ".is-item");
       } else {
-        editButton(card, `Edit ${noun(key)}`, () => openItem(key, index), ".is-item");
+        editButton(card, `More details for this ${noun(key)}`, () => openItem(key, index), ".is-item");
+        inlineItem(card, key, index);
       }
     });
   }
@@ -316,6 +326,69 @@ function decorateProfile() {
       hidden.length ? h("div", h("h2", "Hidden sections"),
         h("div.ed-chip-row", hidden.map((key) => h("button.btn.btn-ghost", { type: "button", onclick: () => toggleSection(key, false) }, svgIcon(ICONS.eye), `Show ${SPEC[key]?.label || cap(key)}`)))) : null,
     ));
+  }
+}
+
+// ---------- typing on the page ----------
+
+const toPath = (s) => s.split(".").map((p) => (/^\d+$/.test(p) ? Number(p) : p));
+
+/**
+ * Elements with data-path: "basics.name" is a resume path, "@text.tagline" a
+ * settings path. `root` may itself carry the attribute.
+ */
+function inlinePaths(root, placeholder = "") {
+  if (!root) return;
+  const els = root.matches?.("[data-path]") ? [root] : [...root.querySelectorAll("[data-path]")];
+  for (const el of els) {
+    const raw = el.dataset.path;
+    const isCfg = raw.startsWith("@");
+    const path = toPath(isCfg ? raw.slice(1) : raw);
+    editInPlace(el, {
+      placeholder: placeholder || el.textContent.trim() || "Type here",
+      read: () => (isCfg ? getPath(cfg(), path) : getPath(ed.resume, path)) ?? "",
+      write: (v) => {
+        if (isCfg) setCfg(path, v || undefined);
+        else setPath(ed.resume, path, v);
+        changed();
+      },
+    });
+  }
+}
+
+const FIELD_HINTS = { position: "Job title", name: "Name", company: "Company", organization: "Organization", summary: "A short summary", institution: "School", title: "Title", awarder: "Awarded by", issuer: "Issuer", publisher: "Publisher", language: "Language", fluency: "Fluency" };
+
+/** The fields of one resume item (data-field="position", "highlights.2", …). */
+function inlineItem(card, key, index) {
+  card.dataset.edIndex = String(index);
+  const base = `#view section[data-section="${key}"] [data-ed-index="${index}"]`;
+  for (const el of card.querySelectorAll("[data-field]")) {
+    const field = toPath(el.dataset.field);
+    const path = [key, index, ...field];
+    const isHighlight = field[0] === "highlights" && typeof field[1] === "number";
+    const i = field[1];
+    editInPlace(el, {
+      placeholder: isHighlight ? "A highlight" : FIELD_HINTS[field[0]] || "Type here",
+      multiline: field[0] === "summary" || field[0] === "description",
+      read: () => getPath(ed.resume, path) ?? "",
+      write: (v) => {
+        setPath(ed.resume, path, v);
+        changed();
+      },
+      // Enter in a highlight starts the next one; Backspace in an empty one removes it
+      onEnter: isHighlight ? () => {
+        const list = getPath(ed.resume, [key, index, "highlights"]);
+        list.splice(i + 1, 0, "");
+        changed();
+        focusLater(`${base} [data-field="highlights.${i + 1}"]`);
+      } : null,
+      onRemoveEmpty: isHighlight ? () => {
+        const list = getPath(ed.resume, [key, index, "highlights"]);
+        list.splice(i, 1);
+        changed();
+        if (i > 0) focusLater(`${base} [data-field="highlights.${i - 1}"]`);
+      } : null,
+    });
   }
 }
 
@@ -378,7 +451,8 @@ function decorateBlog() {
   const mark = () => results?.querySelectorAll(".post-card").forEach((card) => {
     const slug = decodeURIComponent(card.querySelector("a")?.getAttribute("href")?.split("/").pop() || "");
     const post = api.state.vm.posts.find((x) => x.slug === slug);
-    if (post) editButton(card, `Edit ${post.title}`, () => openBlog(post), ".is-item");
+    // A post is edited on its own page: the card only offers the way there
+    if (post) editButton(card, `Edit ${post.title}`, () => editPost(post), ".is-item", "Edit");
   });
   mark();
   if (results && !results.dataset.edObserved) {
@@ -390,7 +464,12 @@ function decorateBlog() {
 function decoratePost(slug) {
   if (editKind() !== "own") return;
   const post = api.state.vm.posts.find((x) => x.slug === slug);
-  if (post) addPageAction("Edit post", "pencil", () => openBlog(post));
+  if (!post) return;
+  addPageAction("Edit post", "pencil", () => openBlog(post));
+  if (ed.openPostSheet === post.slug) {
+    ed.openPostSheet = null;
+    openBlog(post);
+  }
 }
 
 /** Index of a view-model item in the draft resume (same object), or -1. */
@@ -678,6 +757,14 @@ function openCustomize() {
   panelSheet("Customize", ed.tab === "json" ? "json" : "settings", {
     tabs: [["settings", "Design & settings"], ["resume", "All content"], ...(editKind() === "own" ? [["blog", "Blog"]] : []), ["json", "JSON"]],
   });
+}
+
+/** Goes to the post's own page in edit mode, where its editor opens. */
+function editPost(post) {
+  const sub = parsePath().sub;
+  if (sub?.name === "post" && sub.param === post.slug) return openBlog(post);
+  ed.openPostSheet = post.slug;
+  navigate(`${api.state.base}/blog/${encodeURIComponent(post.slug)}?edit`);
 }
 
 function openBlog(post) {
