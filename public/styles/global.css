@@ -451,42 +451,16 @@ pre {
   tab-size: 2;
 }
 
-/* Math (LaTeX → native MathML, see scripts/latex.js): upright letters in the
-   site font, colored by role — numbers, variables, function names. */
-/* Operators, roots and stretchy brackets need the math font's drawing data */
-.prose math {
-  font-family: math;
-  font-size: 1.05em;
-}
-.prose math mi,
-.prose math mn,
-.prose math mtext {
-  font-family: var(--font-family);
-  font-style: normal;
-  text-transform: none;
-}
-.prose math mn { color: var(--color-o); }
-.prose math mi { color: color-mix(in oklab, var(--color-f) 75%, var(--color-c)); }
-.prose math mi.fn,
-.prose math mi.rm { color: var(--color-a); }
-.prose math mi.set,
-.prose math mtext { color: var(--color-c); }
-.prose .math-block {
-  margin: 1rem 0;
-  padding: 0.85rem 1rem;
-  overflow-x: auto;
-  border-radius: var(--radius);
+/* ```math-text blocks: the author's own equation palette (blog posts) */
+.prose pre.math-text {
+  border-color: transparent;
   background: color-mix(in oklab, var(--color-b) 94%, var(--color-v));
+  color: var(--color-c);
+  line-height: 1.35;
 }
-.prose .math-block math { font-size: 1.12em; }
-/* aligned: right | left column pairs meeting at the "&" (justify-items is
-   what Chromium's MathML cells honour; text-align is for the others) */
-.prose math mtable.aligned mtd { padding: 0.2em 0; }
-.prose math mtable.aligned mtd:nth-child(odd) { text-align: right; justify-items: end; }
-.prose math mtable.aligned mtd:nth-child(even) { text-align: left; justify-items: start; }
-.prose math mtable.aligned mtd:nth-child(odd):not(:first-child) { padding-left: 2em; }
-.prose math mtable.cases mtd { padding: 0.15em 0.6em 0.15em 0; text-align: left; justify-items: start; }
-.prose math mtable.matrix mtd { padding: 0.15em 0.5em; }
+.math-text .mn { color: var(--color-o); }
+.math-text .mv { color: color-mix(in oklab, var(--color-f) 75%, var(--color-c)); }
+.math-text .mf { color: var(--color-a); }
 
 .prose img {
   border-radius: var(--radius-sm);
