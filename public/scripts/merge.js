@@ -230,6 +230,8 @@ function projectFromRepo(r) {
     repo: { owner: r.owner, name: r.name, branch: r.defaultBranch },
     fromResume: false,
     order: Infinity,
+    // Everything here comes from the repo: shown locked in edit mode
+    sources: { name: "repo", description: "repo", keywords: "repo" },
   };
 }
 
@@ -244,6 +246,8 @@ export function mergeProjects(resumeProjects, repos, cfg = {}) {
     if (i >= 0) {
       taken.add(i);
       const repo = projectFromRepo(pool[i]);
+      project.sources = {};
+      if (!project.description && repo.description) project.sources.description = "repo";
       project.description ||= repo.description;
       project.keywords = [...new Set([...project.keywords, ...repo.keywords])];
       project.github ||= repo.github;

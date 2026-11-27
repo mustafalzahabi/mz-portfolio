@@ -19,6 +19,7 @@ import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
 import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
+import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
   renderPanel, openPost, loadPosts, photoPicker, bannerPicker, openSignIn, showChanges,
@@ -357,6 +358,13 @@ function decorateProject(slug) {
   const p = api.state.vm.projects.find((x) => x.slug === slug);
   if (!p) return;
   addPageAction("Edit project", "pencil", () => editProject(p));
+  if (p.repo && canEditReadme(p)) {
+    const onSaved = () => api.rerender(ed.resume);
+    const open = () => openReadmeEditor(p, { onSaved });
+    addPageAction("Edit README", "github", open, "ghost");
+    editButton(document.querySelector(".project-readme"), "Edit README", open, ".ed-edit-readme", "Edit README");
+    if (resumeReadmeEdit(p, onSaved)) return;
+  }
   if (ed.openProjectSheet) {
     ed.openProjectSheet = false;
     editProject(p);
@@ -412,10 +420,13 @@ function smallBtn(icon, label, onclick) {
   return h("button.btn.btn-ghost.ed-small", { type: "button", onclick }, svgIcon(ICONS[icon]), label);
 }
 
-function addPageAction(label, icon, onclick) {
+function addPageAction(label, icon, onclick, kind = "primary") {
   const view = document.getElementById("view");
-  if (!view || view.querySelector(".ed-page-actions")) return;
-  view.prepend(h("div.ed-page-actions", h("button.btn.btn-primary", { type: "button", onclick }, svgIcon(ICONS[icon]), label)));
+  if (!view) return;
+  let bar = view.querySelector(":scope > .ed-page-actions");
+  if (!bar) view.prepend((bar = h("div.ed-page-actions")));
+  if ([...bar.children].some((b) => b.textContent === label)) return;
+  bar.appendChild(h(`button.btn.btn-${kind}`, { type: "button", onclick }, svgIcon(ICONS[icon]), label));
 }
 
 // ============================================================================

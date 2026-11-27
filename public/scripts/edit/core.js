@@ -1432,7 +1432,7 @@ export {
   ed, store, ago, begin, changed, undo, redo, save, saveDraft, readDraft, computeDirty, updateStatus,
   renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPosts,
   photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
-  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL,
+  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL, MD_ACTIONS,
 };
 
 /** Inputs for some settings of one config group, e.g. cfgFields("footer") or cfgFields("text", ["bio"]). */

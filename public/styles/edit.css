@@ -449,3 +449,245 @@ body.has-sheet .ed-bar {
 .is-editing .preview-bar {
   display: none;
 }
+
+/* ---------- content synced from GitHub: locked while editing ---------- */
+
+.is-editing [data-source] {
+  position: relative;
+  border-radius: calc(var(--radius) * 0.6);
+  outline: 1.5px dashed var(--line-strong);
+  outline-offset: 4px;
+  opacity: 0.6;
+  filter: grayscale(0.6);
+  user-select: none;
+}
+
+.is-editing [data-source]::before {
+  content: "Synced from GitHub";
+  position: absolute;
+  top: -0.65rem;
+  left: 0.5rem;
+  z-index: 2;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--color-s);
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.3rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.is-editing [data-source="readme"]::before {
+  content: "From the repo's README";
+}
+
+/* the README block keeps its own Edit README button fully visible */
+.is-editing .project-readme[data-source] {
+  opacity: 1;
+  filter: none;
+}
+
+.is-editing .project-readme[data-source] > .prose {
+  opacity: 0.6;
+  filter: grayscale(0.6);
+}
+
+.ed-edit.ed-edit-readme {
+  top: 0;
+  right: 0;
+}
+
+/* ---------- Markdown editor (write + preview) ---------- */
+
+.md-editor {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.md-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.md-tab {
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.md-tab[aria-selected="true"] {
+  border-color: var(--color-c);
+  background: var(--color-c);
+  color: var(--color-b);
+}
+
+.md-panes {
+  display: grid;
+  min-height: 0;
+}
+
+.md-write {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.md-editor[data-view="write"] .md-preview,
+.md-editor[data-view="preview"] .md-write {
+  display: none;
+}
+
+.ed-md-text {
+  min-height: 16rem;
+  height: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.md-preview {
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (min-width: 900px) {
+  .md-tabs {
+    display: none;
+  }
+
+  .md-panes {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .md-editor[data-view] .md-write {
+    display: grid;
+  }
+
+  .md-editor[data-view] .md-preview {
+    display: block;
+  }
+}
+
+/* ---------- README editor overlay ---------- */
+
+.readme-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-b);
+  color: var(--color-c);
+}
+
+.readme-dialog[open] {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.readme-dialog::backdrop {
+  background: color-mix(in oklab, var(--color-c) 45%, transparent);
+}
+
+.readme-head,
+.readme-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem var(--gutter);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.readme-foot {
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 0;
+}
+
+.readme-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.readme-titles h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.readme-titles p {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.readme-close {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+
+.readme-close:hover {
+  background: var(--well);
+}
+
+.readme-body {
+  min-height: 0;
+  padding: 0.75rem var(--gutter);
+  overflow: auto;
+}
+
+.readme-body .md-editor {
+  height: 100%;
+}
+
+.readme-status {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.readme-status:empty {
+  display: none;
+}
+
+.readme-message-label {
+  display: grid;
+  flex: 1 1 16rem;
+  gap: 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.readme-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.readme-fallback {
+  color: var(--ink-muted);
+}

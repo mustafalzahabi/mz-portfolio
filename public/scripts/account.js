@@ -9,7 +9,7 @@
 import { h, svgIcon, toast } from "./utils.js";
 import { ICONS, logoImg } from "./icons.js";
 import { BASE_PATH } from "./router.js";
-import { signIn, clearToken } from "./github.js";
+import { signIn, clearToken, readmePending, setReadmePending, setOnceToken } from "./github.js";
 import { googleLoginUrl, completeGoogleSignIn, clearGoogle, googleClientId } from "./google.js";
 import { session, signOutAll, myPortfolioPath } from "./storage.js";
 
@@ -20,8 +20,8 @@ const LOGIN_ERRORS = {
   not_configured: "GitHub sign-in isn't set up on this site yet. Use a token instead (in the editor's sign-in options).",
 };
 
-export function loginUrl(returnPath = location.pathname) {
-  return `/api/auth/login?return=${encodeURIComponent(returnPath)}`;
+export function loginUrl(returnPath = location.pathname, { repoAccess = false } = {}) {
+  return `/api/auth/login?return=${encodeURIComponent(returnPath)}${repoAccess ? "&scope=public_repo" : ""}`;
 }
 
 /** True when this page load is coming back from a sign-in. */
@@ -50,8 +50,16 @@ export async function completeSignIn() {
   const error = params.get("gh_error");
   if (!token && !error) return null;
   history.replaceState(history.state, "", location.pathname + location.search);
+  const pending = readmePending();
   if (error) {
-    toast(LOGIN_ERRORS[error] || LOGIN_ERRORS.github, "error");
+    if (pending) setReadmePending({ ...pending, denied: true });
+    toast(pending && error === "denied" ? "Permission wasn't given, so the README wasn't saved." : LOGIN_ERRORS[error] || LOGIN_ERRORS.github, "error");
+    return null;
+  }
+  // "Allow once" for a README save: keep this token for that save only,
+  // and stay signed in with the usual gist-only one
+  if (pending?.mode === "once") {
+    setOnceToken(token);
     return null;
   }
   try {

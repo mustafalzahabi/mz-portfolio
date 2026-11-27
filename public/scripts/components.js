@@ -385,7 +385,7 @@ export function buildProjects(vm, cfg, ctx) {
     body.appendChild(title);
     const meta = [p.entity, p.type, formatDateRange(p.startDate, p.endDate, ctx.locale, ctx.present)].filter(Boolean).join(" · ");
     if (meta) body.appendChild(h("p.project-meta", meta));
-    if (p.description) body.appendChild(h("p.project-desc", p.description));
+    if (p.description) body.appendChild(h("p.project-desc", { dataset: { source: p.sources?.description || null } }, p.description));
     const tl = tagList(p.keywords.slice(0, 6));
     if (tl) body.appendChild(tl);
     card.appendChild(body);
@@ -404,7 +404,11 @@ export async function enrichProjectCovers(projects, max = 8) {
       if (!readme) return;
       p.readme = readme;
       p.images = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch);
-      if (!p.description) p.description = extractReadmeSummary(readme);
+      p.sources = { ...p.sources, images: "readme" };
+      if (!p.description) {
+        p.description = extractReadmeSummary(readme);
+        p.sources.description = "readme";
+      }
     }),
   );
 }
@@ -439,7 +443,7 @@ function factRow(label, value) {
   return h("div.fact", h("dt", label), h("dd", value));
 }
 
-function readmeHtml(project, text) {
+export function readmeHtml(project, text) {
   const { owner, name, branch } = project.repo;
   return markdownToHtml(text, {
     baseUrl: `https://github.com/${owner}/${name}/blob/${branch}/`,
@@ -459,7 +463,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
   intro.appendChild(h("h1.project-hero-title", project.name));
-  if (project.description) intro.appendChild(h("p.project-hero-lead", project.description));
+  if (project.description) intro.appendChild(h("p.project-hero-lead", { dataset: { source: project.sources?.description || null } }, project.description));
   const actions = h("div.project-hero-actions");
   if (live) actions.appendChild(h("a.btn.btn-primary", { href: live }, svgIcon(ICONS.external), "Visit project"));
   if (project.github) actions.appendChild(h("a.btn.btn-ghost", { href: project.github }, svgIcon(ICONS.github), "Source code"));
@@ -508,7 +512,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   };
   renderGallery();
 
-  const readmeBlock = h("section.project-block.project-readme", { "aria-labelledby": "p-readme", hidden: true },
+  const readmeBlock = h("section.project-block.project-readme", { "aria-labelledby": "p-readme", hidden: true, dataset: { source: "readme" } },
     h("h2.project-block-title", { id: "p-readme" }, "About this project"));
   const readmeBox = h("div.prose.card");
   readmeBlock.appendChild(readmeBox);
