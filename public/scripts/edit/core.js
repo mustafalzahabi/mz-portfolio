@@ -82,9 +82,13 @@ const store = {
   },
 };
 
-function ago(ts) {
-  if (!ts) return "";
-  const s = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 1000));
+function ago(value) {
+  if (!value) return "";
+  // A linked account's stamp holds one time per store ("<github>|<google>"): the newest counts
+  const times = String(value).split("|").map((t) => Date.parse(t)).filter(Number.isFinite);
+  if (!times.length) return "";
+  const ts = Math.max(...times);
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
   if (s < 45) return "just now";
   const m = Math.round(s / 60);
   if (m < 60) return `${m} min ago`;
