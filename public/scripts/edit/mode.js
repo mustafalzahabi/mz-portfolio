@@ -12,7 +12,7 @@
 import { h, svgIcon, toast, copyText, downloadFile } from "../utils.js";
 import { ICONS } from "../icons.js";
 import { BASE_PATH, parsePath, navigate } from "../router.js";
-import { setPath, prune, getPath } from "../editor-core.js";
+import { setPath, prune, getPath, validateField } from "../editor-core.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResume, blankScaffold } from "../template.js";
 import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
 import { dropdown } from "../account.js";
@@ -21,11 +21,12 @@ import { getResumeFilename } from "../data.js";
 import { openSheet, closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
+import { photoEditor, imageMenu, stripInput, fieldStrip, itemTools, editIcon, addSectionMenu } from "./direct.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
-  renderPanel, openPost, loadPosts, photoPicker, bannerPicker, openSignIn, showChanges,
+  renderPanel, openPost, loadPosts, openSignIn, showChanges,
   showShortcuts, choiceDialog, fetchOwnResume, beforeUnload, iconButton, setCfg,
-  cfgFields, boundInput, itemList, imageSource, tabsGroup,
+  cfgFields, tabsGroup,
 } from "./core.js";
 
 export const DRAFT_FILE = SHARED_DRAFT_FILE;
@@ -269,20 +270,86 @@ function decorate() {
   const page = api.state.page || "";
   document.body.classList.add("is-editing");
 
-  const info = document.querySelector(".profile-info");
-  if (info) editButton(info, "Edit profile", openProfile, ".is-header", "Edit profile");
-  const banner = document.querySelector(".profile-banner");
-  if (banner) editButton(banner, "Edit banner", openBanner, ".is-banner", "Banner");
-
-  inlinePaths(document.querySelector(".profile-info"));
+  decorateHeader();
   if (page === "profile") decorateProfile();
   else if (page.startsWith("project:")) decorateProject(decodeURIComponent(page.slice(8)));
   else if (page === "blog") decorateBlog();
   else if (page.startsWith("post:")) decoratePost(decodeURIComponent(page.slice(5)));
   else if (page.startsWith("tab:")) addPageAction("Edit tabs", "pencil", openTabs);
+}
 
-  const footer = document.querySelector("body > #app > .site-footer, #app .site-footer");
-  if (footer) editButton(footer, "Edit footer", openFooter, ".is-inline");
+/** Header: name and title typed in place, photo and banner on themselves, contact details in a strip. */
+function decorateHeader() {
+  const info = document.querySelector(".profile-info");
+  if (!info) return;
+  inlinePaths(info);
+
+  const photoCfg = String(cfg().profile.photo || "");
+  photoEditor(info.querySelector(".profile-photo"), {
+    mode: photoCfg === "none" ? "none" : /^(gh|github)$/.test(photoCfg) ? "gh" : photoCfg ? "custom" : "auto",
+    onSet: (v) => {
+      setCfg(["profile", "photo"], v || undefined);
+      changed({ key: "cfg.profile.photo" });
+    },
+  });
+
+  const banner = document.querySelector(".profile-banner");
+  if (banner && !banner.querySelector(".ed-image-menu")) {
+    const current = String(cfg().banner.image || "");
+    banner.appendChild(h("div.ed-banner-tools", imageMenu(banner, {
+      kind: "banner", label: "Change banner image", current, removeLabel: "Use the color gradient",
+      onSet: (v) => {
+        setCfg(["banner", "image"], v || undefined);
+        changed({ key: "cfg.banner.image" });
+      },
+    })));
+  }
+
+  // Contact details and links that aren't typed on the page
+  const details = info.querySelector(".profile-details");
+  if (details && !details.querySelector(".ed-strip")) {
+    const contact = BASICS_FIELDS.filter(([k]) => ["email", "phone", "url"].includes(k));
+    const strip = h("div.ed-strip.ed-header-strip",
+      ...contact.map((f) => stripInput(["basics", f[0]], f)),
+      ...LOCATION_FIELDS.filter(([k]) => ["city", "region", "countryCode"].includes(k)).map((f) => stripInput(["basics", "location", f[0]], f)),
+      profileLinks(),
+    );
+    details.appendChild(strip);
+  }
+}
+
+/** Profile links as chips (network + link), added and removed in place. */
+function profileLinks() {
+  const box = h("div.ed-strip-wide.ed-links");
+  const list = () => (Array.isArray(ed.resume.basics?.profiles) ? ed.resume.basics.profiles : []);
+  const draw = () => {
+    const network = h("input.ed-strip-input", { type: "text", placeholder: "Network (e.g. LinkedIn)", "aria-label": "Network", size: 16 });
+    const url = h("input.ed-strip-input", { type: "url", placeholder: "https://…/username", "aria-label": "Link", size: 22 });
+    const add = () => {
+      const u = url.value.trim();
+      if (!u) return url.focus();
+      if (validateField("url", u)) return toast(validateField("url", u), "error");
+      ed.resume.basics ||= {};
+      ed.resume.basics.profiles = [...list(), { network: network.value.trim() || new URL(u).hostname.replace(/^www\./, ""), url: u }];
+      changed();
+      draw();
+    };
+    url.addEventListener("keydown", (e) => e.key === "Enter" && add());
+    box.replaceChildren(
+      h("span.ed-strip-label", "Profile links"),
+      h("div.ed-chips", list().map((p, i) => h("span.ed-chip", h("span", p.network || p.url),
+        h("button.ed-chip-x", { type: "button", "aria-label": `Remove ${p.network || p.url}`, title: "Remove", onclick: () => {
+          const next = list().slice();
+          next.splice(i, 1);
+          ed.resume.basics.profiles = next;
+          changed();
+          draw();
+        } }, svgIcon(ICONS.close))))),
+      h("div.ed-link-add", network, url, h("button.ed-tool", { type: "button", "aria-label": "Add link", title: "Add link", onclick: add }, svgIcon(ICONS.plus))),
+    );
+  };
+  draw();
+  return box;
 }
 
 function decorateProfile() {
@@ -291,41 +358,50 @@ function decorateProfile() {
     const key = section.dataset.section;
     section.classList.add("ed-section");
     section.querySelector(".section-title")?.after(sectionBar(key));
-    inlinePaths(section.querySelector(":scope > .section-title"), SPEC[key]?.label);
+    if (key === "contact" && !section.querySelector(".contact-message")) {
+      section.querySelector(".ed-section-bar")?.after(h("p.contact-message", { dataset: { path: "@text.contact_message" } }));
+    }
+    inlinePaths(section);
     const selector = ITEM_SELECTOR[key];
     if (!selector) continue;
     const list = vm[key] || [];
     section.querySelectorAll(selector).forEach((card, i) => {
       const item = list[i];
       const index = resumeIndex(key, item);
+      card.classList.add("ed-card");
       if (key === "projects") {
+        // A project is edited on its own page; here it only offers the way there
         card.addEventListener("click", (e) => {
-          if (e.target.closest(".ed-edit")) return;
+          if (e.target.closest(".ed-tool")) return;
           e.preventDefault();
           editProject(item);
         });
-        editButton(card, `Edit ${item?.name || "project"}`, () => editProject(item), ".is-item", "Edit");
+        card.appendChild(h("div.ed-tools", editIcon(`Edit ${item?.name || "project"} on its page`, () => editProject(item))));
       } else if (index < 0) {
-        editButton(card, "Edit (from GitHub)", openGithubSkills, ".is-item");
+        card.dataset.source = "repo"; // the "Languages on GitHub" group: settings in Customize
       } else {
-        editButton(card, `More details for this ${noun(key)}`, () => openItem(key, index), ".is-item");
         inlineItem(card, key, index);
+        card.appendChild(itemTools(() => ed.resume[key], index, noun(key)));
+        const shownKeys = new Set([...card.querySelectorAll("[data-field]")].map((el) => el.dataset.field.split(".")[0]));
+        const strip = fieldStrip([key, index], SPEC[key].fields, shownKeys);
+        if (strip) card.appendChild(strip);
       }
     });
   }
 
-  // Sections with nothing in them yet, and hidden ones
+  // One "Add section" menu: sections not on the page yet, and hidden ones
   const shown = new Set([...document.querySelectorAll("#view section.section[data-section]")].map((s) => s.dataset.section));
   const hidden = config.sections.hide;
-  const addable = SECTIONS.filter((s) => !shown.has(s.key) && !hidden.includes(s.key));
+  const addable = [
+    ...(!shown.has("about") && !hidden.includes("about") ? [{ key: "about", label: "About" }] : []),
+    ...SECTIONS.filter((s) => !shown.has(s.key) && !hidden.includes(s.key)),
+  ];
   const sections = document.querySelector("#view .sections");
   if (sections && (addable.length || hidden.length)) {
-    sections.appendChild(h("section.ed-more-sections",
-      addable.length ? h("div", h("h2", "Add a section"),
-        h("div.ed-chip-row", addable.map((s) => h("button.btn.btn-ghost", { type: "button", onclick: () => (s.key === "projects" ? addProject() : addItem(s.key)) }, svgIcon(ICONS.plus), s.label)))) : null,
-      hidden.length ? h("div", h("h2", "Hidden sections"),
-        h("div.ed-chip-row", hidden.map((key) => h("button.btn.btn-ghost", { type: "button", onclick: () => toggleSection(key, false) }, svgIcon(ICONS.eye), `Show ${SPEC[key]?.label || cap(key)}`)))) : null,
-    ));
+    sections.appendChild(addSectionMenu(addable, hidden.map((key) => ({ key, label: SPEC[key]?.label || cap(key) })), {
+      onAdd: (k) => (k === "projects" ? addProject() : k === "about" ? addAbout() : addItem(k)),
+      onShow: (k) => toggleSection(k, false),
+    }));
   }
 }
 
@@ -345,7 +421,8 @@ function inlinePaths(root, placeholder = "") {
     const isCfg = raw.startsWith("@");
     const path = toPath(isCfg ? raw.slice(1) : raw);
     editInPlace(el, {
-      placeholder: placeholder || el.textContent.trim() || "Type here",
+      multiline: el.dataset.multiline === "1",
+      placeholder: placeholder || el.dataset.placeholder || PATH_HINTS[raw] || el.textContent.trim() || "Type here",
       read: () => (isCfg ? getPath(cfg(), path) : getPath(ed.resume, path)) ?? "",
       write: (v) => {
         if (isCfg) setCfg(path, v || undefined);
@@ -356,13 +433,14 @@ function inlinePaths(root, placeholder = "") {
   }
 }
 
+const PATH_HINTS = { "basics.name": "Your name", "basics.label": "What you do", "basics.summary": "A few sentences about you and your work. Markdown works.", "@text.contact_message": "A line inviting people to get in touch (optional)" };
+
 const FIELD_HINTS = { position: "Job title", name: "Name", company: "Company", organization: "Organization", summary: "A short summary", institution: "School", title: "Title", awarder: "Awarded by", issuer: "Issuer", publisher: "Publisher", language: "Language", fluency: "Fluency" };
 
 /** The fields of one resume item (data-field="position", "highlights.2", …). */
-function inlineItem(card, key, index) {
+function inlineItem(card, key, index, base = `#view section[data-section="${key}"] [data-ed-index="${index}"]`) {
   card.dataset.edIndex = String(index);
-  const base = `#view section[data-section="${key}"] [data-ed-index="${index}"]`;
-  for (const el of card.querySelectorAll("[data-field]")) {
+  for (const el of card.querySelectorAll("[data-field]:not([data-source])")) {
     const field = toPath(el.dataset.field);
     const path = [key, index, ...field];
     const isHighlight = field[0] === "highlights" && typeof field[1] === "number";
@@ -405,10 +483,8 @@ function sectionBar(key) {
     changed();
   };
   const primary =
-    key === "about" ? smallBtn("pencil", "Edit", openAbout)
-    : key === "contact" ? smallBtn("pencil", "Edit", openContact)
-    : key === "projects" ? smallBtn("plus", "Add", addProject)
-    : SPEC[key] ? smallBtn("plus", "Add", () => addItem(key))
+    key === "projects" ? iconButton("plus", "Add a project", addProject)
+    : SPEC[key] ? iconButton("plus", `Add ${noun(key)}`, () => addItem(key))
     : null;
   return h("div.ed-section-bar", { role: "toolbar", "aria-label": `${SPEC[key]?.label || cap(key)} section` },
     primary,
@@ -430,29 +506,81 @@ function toggleSection(key, hide) {
 function decorateProject(slug) {
   const p = api.state.vm.projects.find((x) => x.slug === slug);
   if (!p) return;
-  addPageAction("Edit project", "pencil", () => editProject(p));
+  const page = document.querySelector("#view .project-page");
+  if (!page) return;
+  if (p.fromResume === false) {
+    // Only on GitHub: shown locked, with the two ways to take it over
+    page.querySelector(".project-hero-title")?.setAttribute("data-source", "repo");
+    addPageAction("Add to my resume", "plus", () => adoptRepoProject(p));
+    addPageAction("Hide this repo", "eye", () => {
+      setCfg(["projects", "exclude"], [...new Set([...cfg().projects.exclude, p.name])]);
+      changed();
+      navigate(`${api.state.base}#projects`);
+      toast(`"${p.name}" is hidden. Show it again in Customize → Projects.`);
+    }, "ghost");
+  } else {
+    const index = p.order;
+    ed.projectIndex = index; // a rename changes the URL: followRenamedProject keeps us on it
+    inlineItem(page, "projects", index, "#view .project-page");
+    const media = page.querySelector(".project-hero-media");
+    if (media && !media.querySelector(".ed-image-menu")) {
+      media.classList.add("ed-media");
+      media.appendChild(h("div.ed-media-tools", imageMenu(media, {
+        kind: `project-${index}`, label: "Change cover image", current: String(ed.resume.projects?.[index]?.image || ""),
+        onSet: (v) => {
+          setPath(ed.resume, ["projects", index, "image"], v || undefined);
+          changed();
+        },
+      })));
+    }
+    const shownKeys = new Set([...page.querySelectorAll("[data-field]:not([data-source])")].map((el) => el.dataset.field.split(".")[0]));
+    const strip = fieldStrip(["projects", index], [...SPEC.projects.fields, ["images", "Gallery images (links)", "list", "https://…/screenshot.png"]], shownKeys, { skip: ["image"] });
+    if (strip && !page.querySelector(":scope > .ed-strip")) page.querySelector(".project-hero")?.after(strip);
+    addPageAction("Delete project", "trash", () => {
+      ed.resume.projects.splice(index, 1);
+      ed.projectIndex = null;
+      changed();
+      navigate(`${api.state.base}#projects`);
+      toast("Project deleted. Undo with Ctrl+Z or the bottom bar.");
+    }, "ghost");
+  }
   if (p.repo && canEditReadme(p)) {
     const onSaved = () => api.rerender(ed.resume);
     const open = () => openReadmeEditor(p, { onSaved });
-    addPageAction("Edit README", "github", open, "ghost");
-    editButton(document.querySelector(".project-readme"), "Edit README", open, ".ed-edit-readme", "Edit README");
-    if (resumeReadmeEdit(p, onSaved)) return;
+    const block = page.querySelector(".project-readme");
+    if (block && !block.querySelector(".ed-tools")) block.appendChild(h("div.ed-tools", editIcon("Edit the README on GitHub", open)));
+    resumeReadmeEdit(p, onSaved);
   }
-  if (ed.openProjectSheet) {
-    ed.openProjectSheet = false;
-    editProject(p);
-  }
+}
+
+/** Copies a GitHub-only project into the resume, so all of it can be edited. */
+function adoptRepoProject(p) {
+  if (!Array.isArray(ed.resume.projects)) ed.resume.projects = [];
+  ed.resume.projects.push(prune({ name: p.name, description: p.description, url: p.github || p.url, keywords: p.keywords?.length ? p.keywords : undefined }));
+  ed.projectIndex = ed.resume.projects.length - 1;
+  changed();
+  toast(`"${p.name}" is now in your resume. Edit it right here.`);
 }
 
 function decorateBlog() {
   if (editKind() !== "own") return;
-  addPageAction("New post", "plus", () => openBlog(null));
+  // A new post is written right here, in place of the list
+  const writeNew = () => mountPostEditor(document.querySelector("#view .blog-results")?.parentElement, null);
+  addPageAction("New post", "plus", writeNew);
+  if (ed.newPost) {
+    ed.newPost = false;
+    writeNew();
+  }
   const results = document.querySelector(".blog-results");
   const mark = () => results?.querySelectorAll(".post-card").forEach((card) => {
+    if (card.querySelector(".ed-tools")) return;
     const slug = decodeURIComponent(card.querySelector("a")?.getAttribute("href")?.split("/").pop() || "");
     const post = api.state.vm.posts.find((x) => x.slug === slug);
     // A post is edited on its own page: the card only offers the way there
-    if (post) editButton(card, `Edit ${post.title}`, () => editPost(post), ".is-item", "Edit");
+    if (post) {
+      card.classList.add("ed-card");
+      card.appendChild(h("div.ed-tools", editIcon(`Edit ${post.title} on its page`, () => editPost(post))));
+    }
   });
   mark();
   if (results && !results.dataset.edObserved) {
@@ -461,14 +589,35 @@ function decorateBlog() {
   }
 }
 
+/** On a post's own page, the post itself becomes its editor. */
 function decoratePost(slug) {
   if (editKind() !== "own") return;
   const post = api.state.vm.posts.find((x) => x.slug === slug);
-  if (!post) return;
-  addPageAction("Edit post", "pencil", () => openBlog(post));
-  if (ed.openPostSheet === post.slug) {
-    ed.openPostSheet = null;
-    openBlog(post);
+  const article = document.querySelector("#view .post-detail");
+  if (post && article && !article.querySelector(".ed-post-page")) mountPostEditor(article, post);
+}
+
+/** "New blog post" from the menu: the blog page, with a new post open on it. */
+function newPost() {
+  if (parsePath().sub?.name === "blog") return mountPostEditor(document.querySelector("#view .blog-results")?.parentElement, null);
+  ed.newPost = true;
+  navigate(`${api.state.base}/blog?edit`);
+}
+
+/** Puts the post editor (title, details, Markdown with preview, save) in place of `target`. */
+async function mountPostEditor(target, post) {
+  if (!target) return;
+  const host = h("div.ed-post-page", h("div.ed-scroll", { id: "ed-panel" }));
+  target.replaceChildren(host);
+  ed.root = host;
+  ed.tab = "blog";
+  try {
+    if (!post) return await openPost(null);
+    if (!ed.posts) await loadPosts();
+    const match = ed.posts.find((p) => p.gistId === post.id) || ed.posts.find((p) => p.title === post.title);
+    await openPost(match || null);
+  } catch (e) {
+    toast(e.message, "error");
   }
 }
 
@@ -482,22 +631,7 @@ function resumeIndex(key, item) {
   return list.indexOf(item);
 }
 
-function editButton(host, label, onclick, extra = "", text = "") {
-  if (!host || host.querySelector(`:scope > .ed-edit[aria-label="${CSS.escape(label)}"]`)) return;
-  host.classList.add("ed-host");
-  host.appendChild(h(`button.ed-edit${extra}`, {
-    type: "button", "aria-label": label, title: label,
-    onclick: (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onclick();
-    },
-  }, svgIcon(ICONS.pencil), text ? h("span", text) : null));
-}
 
-function smallBtn(icon, label, onclick) {
-  return h("button.btn.btn-ghost.ed-small", { type: "button", onclick }, svgIcon(ICONS[icon]), label);
-}
 
 function addPageAction(label, icon, onclick, kind = "primary") {
   const view = document.getElementById("view");
@@ -528,96 +662,22 @@ function formSheet(title, render, opts = {}) {
 
 const doneBtn = () => h("button.btn.btn-primary", { type: "button", onclick: closeSheet }, "Done");
 
-function openProfile() {
-  formSheet("Profile", () => [
-    photoPicker(),
-    ...BASICS_FIELDS.filter(([k]) => k !== "image").map(([k, label, kind, ph]) => boundInput(["basics", k], label, kind, { placeholder: ph })),
-    h("h3.ed-sub", "Location"),
-    h("div.ed-grid", LOCATION_FIELDS.map(([k, label, kind, ph]) => boundInput(["basics", "location", k], label, kind, { placeholder: ph }))),
-    h("h3.ed-sub", "Profile links"),
-    itemList({ path: ["basics", "profiles"], fields: PROFILE_FIELDS, noun: "profile", title: (p) => [p.network, p.username].filter(Boolean).join(" · "), addLabel: "Add profile link" }),
-    h("h3.ed-sub", "Header"),
-    ...cfgFields("text", ["tagline"]),
-    ...cfgFields("header"),
-    ...cfgFields("profile", ["photoShape"]),
-  ], { actions: doneBtn() });
-}
 
-function openBanner() {
-  formSheet("Banner", () => [bannerPicker(), ...cfgFields("banner", ["aspect", "overlay"])], { actions: doneBtn() });
-}
 
-function openAbout() {
-  formSheet("About", () => [
-    boundInput(["basics", "summary"], "About you", "textarea", { placeholder: "A few sentences about you and your work. Markdown works." }),
-    ...cfgFields("text", ["bio"]),
-  ], { actions: doneBtn() });
-}
 
-function openContact() {
-  formSheet("Contact", () => [
-    ...cfgFields("text", ["contact_message"]),
-    h("p.ed-hint", "The links come from your email, phone, website and profile links."),
-    h("button.btn.btn-ghost", { type: "button", onclick: openProfile }, svgIcon(ICONS.pencil), "Edit contact details"),
-  ], { actions: doneBtn() });
-}
 
-function openFooter() {
-  formSheet("Footer", () => cfgFields("footer"), { actions: doneBtn() });
-}
 
 function openTabs() {
   formSheet("Tabs", () => [h("p.ed-hint", "Extra pages next to Profile and Blog: links, Markdown, code, HTML demos or embeds."), tabsGroup()], { actions: doneBtn() });
 }
 
-function openGithubSkills() {
-  formSheet("Languages on GitHub", () => [
-    h("p.ed-hint", "This group is built from the languages of your public GitHub repos. Turn it off, or add your own skill groups instead."),
-    ...cfgFields("skills"),
-    h("button.btn.btn-ghost", { type: "button", onclick: () => addItem("skills") }, svgIcon(ICONS.plus), "Add a skill group"),
-  ], { actions: doneBtn() });
-}
 
-/** The full form of one item of a resume section, with move / duplicate / delete. */
-function openItem(key, index) {
-  const spec = SPEC[key];
-  const list = () => ed.resume[key] || [];
-  const move = (d) => {
-    const arr = list();
-    const j = index + d;
-    if (j < 0 || j >= arr.length) return;
-    [arr[index], arr[j]] = [arr[j], arr[index]];
-    index = j;
-    changed();
-    ed.sheetRender?.();
-  };
-  formSheet(`Edit ${spec.noun}`, () => {
-    if (!list()[index]) return [h("p.muted", "This item no longer exists.")];
-    return spec.fields.map(([k, label, kind, ph]) => boundInput([key, index, k], label, kind, { placeholder: ph }));
-  }, {
-    subtitle: spec.label,
-    actions: [
-      h("div.ed-row",
-        iconButton("chevronUp", "Move up", () => move(-1)),
-        iconButton("chevronDown", "Move down", () => move(1)),
-        iconButton("copy", "Duplicate", () => {
-          list().splice(index + 1, 0, structuredClone(list()[index]));
-          index += 1;
-          changed();
-          ed.sheetRender?.();
-          toast(`${cap(spec.noun)} duplicated.`);
-        }),
-        iconButton("close", "Delete", () => {
-          list().splice(index, 1);
-          if (!list().length) delete ed.resume[key];
-          changed();
-          closeSheet();
-          toast(`${cap(spec.noun)} deleted. Undo with Ctrl+Z or the bottom bar.`);
-        }, ".danger"),
-      ),
-      doneBtn(),
-    ],
-  });
+
+function addAbout() {
+  ed.resume.basics ||= {};
+  ed.resume.basics.summary = "A few sentences about you and your work.";
+  changed();
+  focusLater('#view section[data-section="about"] [data-path]');
 }
 
 function addItem(key) {
@@ -629,7 +689,8 @@ function addItem(key) {
   const hidden = cfg().sections.hide;
   if (hidden.includes(key)) setCfg(["sections", "hide"], hidden.filter((k) => k !== key));
   changed();
-  openItem(key, index);
+  // Straight to typing its first field on the page
+  focusLater(`#view section[data-section="${key}"] [data-ed-index="${index}"] [data-field]`);
 }
 
 // ---------- projects: edited on their own page ----------
@@ -637,50 +698,11 @@ function addItem(key) {
 function editProject(p) {
   if (!p) return;
   const sub = parsePath().sub;
-  const onPage = sub?.name === "project" && sub.param === p.slug;
-  if (!onPage) {
-    ed.openProjectSheet = true;
-    ed.projectIndex = p.fromResume === false ? null : p.order;
-    navigate(`${api.state.base}/project/${encodeURIComponent(p.slug)}?edit`);
-    return;
-  }
-  if (p.fromResume === false) return openGithubProject(p);
-  ed.projectIndex = p.order;
-  openProject(p.order);
+  if (sub?.name === "project" && sub.param === p.slug) return;
+  ed.projectIndex = p.fromResume === false ? null : p.order;
+  navigate(`${api.state.base}/project/${encodeURIComponent(p.slug)}?edit`);
 }
 
-function openProject(index) {
-  const spec = SPEC.projects;
-  formSheet("Edit project", () => {
-    const item = (ed.resume.projects || [])[index];
-    if (!item) return [h("p.muted", "This project no longer exists.")];
-    return [
-      h("h3.ed-sub", "Cover image"),
-      imageSource(`project-${index}`, item.image || "", (v) => {
-        setPath(ed.resume, ["projects", index, "image"], v);
-        changed();
-        ed.sheetRender?.();
-      }),
-      ...spec.fields.map(([k, label, kind, ph]) => boundInput(["projects", index, k], label, kind, { placeholder: ph })),
-      boundInput(["projects", index, "images"], "More images (gallery)", "list", { placeholder: "One image link per line" }),
-    ];
-  }, {
-    subtitle: "Projects",
-    onClose: () => (ed.projectIndex = null),
-    actions: [
-      h("button.btn.btn-ghost.ed-danger", { type: "button", onclick: () => {
-        ed.resume.projects.splice(index, 1);
-        if (!ed.resume.projects.length) delete ed.resume.projects;
-        ed.projectIndex = null;
-        changed();
-        closeSheet();
-        navigate(`${api.state.base}#projects`);
-        toast("Project deleted. Undo with Ctrl+Z.");
-      } }, svgIcon(ICONS.close), "Delete"),
-      doneBtn(),
-    ],
-  });
-}
 
 function addProject() {
   if (!Array.isArray(ed.resume.projects)) ed.resume.projects = [];
@@ -692,36 +714,13 @@ function addProject() {
   const hidden = cfg().sections.hide;
   if (hidden.includes("projects")) setCfg(["sections", "hide"], hidden.filter((k) => k !== "projects"));
   changed();
-  // Once the page shows it, open its own page with the panel
+  // Once the page shows it, go to its own page to fill it in
   setTimeout(() => {
     const p = api.state.vm.projects.find((x) => x.fromResume !== false && x.order === index);
     if (p) editProject(p);
   }, 450);
 }
 
-/** A repo from GitHub: make it a resume project, or hide it. */
-function openGithubProject(p) {
-  formSheet("From GitHub", () => [
-    h("p.ed-hint", `“${p.name}” comes from your public GitHub repos. Add it to your resume to edit its name, description, images and more.`),
-    h("button.btn.btn-primary", { type: "button", onclick: () => {
-      if (!Array.isArray(ed.resume.projects)) ed.resume.projects = [];
-      ed.resume.projects.push(prune({ name: p.name, description: p.description, url: p.github || p.url, keywords: p.keywords?.length ? p.keywords : undefined }));
-      ed.projectIndex = ed.resume.projects.length - 1;
-      changed();
-      closeSheet();
-      setTimeout(() => openProject(ed.projectIndex), 450);
-    } }, svgIcon(ICONS.plus), "Add to my resume"),
-    h("button.btn.btn-ghost", { type: "button", onclick: () => {
-      setCfg(["projects", "exclude"], [...new Set([...cfg().projects.exclude, p.name])]);
-      changed();
-      closeSheet();
-      navigate(`${api.state.base}#projects`);
-      toast(`${p.name} hidden. Find it again under Customize.`);
-    } }, svgIcon(ICONS.eye), "Hide this repo"),
-    h("h3.ed-sub", "GitHub repos"),
-    ...cfgFields("projects", ["github", "showForks", "showStars", "sort"]),
-  ], { actions: doneBtn() });
-}
 
 // ---------- panels that reuse the editor's tabbed panels ----------
 
@@ -762,25 +761,10 @@ function openCustomize() {
 /** Goes to the post's own page in edit mode, where its editor opens. */
 function editPost(post) {
   const sub = parsePath().sub;
-  if (sub?.name === "post" && sub.param === post.slug) return openBlog(post);
-  ed.openPostSheet = post.slug;
+  if (sub?.name === "post" && sub.param === post.slug) return;
   navigate(`${api.state.base}/blog/${encodeURIComponent(post.slug)}?edit`);
 }
 
-function openBlog(post) {
-  panelSheet(post ? "Edit post" : "New post", "blog", {
-    then: async () => {
-      try {
-        if (!post) return openPost(null);
-        if (!ed.posts) await loadPosts();
-        const match = ed.posts.find((p) => p.gistId === post.id) || ed.posts.find((p) => p.title === post.title);
-        await openPost(match || null);
-      } catch (e) {
-        toast(e.message, "error");
-      }
-    },
-  });
-}
 
 // ============================================================================
 // TOOLBAR + BOTTOM BAR
@@ -806,7 +790,7 @@ function mountUi(kind) {
     className: ".ed-more",
     items: [
       kind === "own" ? { label: `Save draft to ${storage()?.label || "your account"}`, icon: "upload", onclick: saveDraftToAccount } : null,
-      kind === "own" ? { label: "New blog post", icon: "plus", onclick: () => openBlog(null) } : null,
+      kind === "own" ? { label: "New blog post", icon: "plus", onclick: newPost } : null,
       { label: "Discard changes", icon: "undo", onclick: discardChanges },
       "sep",
       { label: "Copy JSON", icon: "copy", onclick: async () => toast((await copyText(json())) ? "JSON copied" : "Couldn't copy") },

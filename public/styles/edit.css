@@ -735,3 +735,474 @@ body.has-sheet .ed-bar {
 .is-editing .ed-host:has(> .ed-edit.is-item) > .entry-title {
   padding-inline-end: 3rem;
 }
+
+/* ============================================================================
+   DIRECT EDITING — tools on cards, detail strips, chips, images
+   ============================================================================ */
+
+.is-editing .ed-card {
+  position: relative;
+}
+
+/* item tools (icons only): top-right of the card */
+.ed-tools {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 6;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--color-b);
+  box-shadow: var(--shadow);
+}
+
+.ed-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-c);
+  cursor: pointer;
+}
+
+.ed-tool:hover,
+.ed-tool[aria-expanded="true"] {
+  background: var(--well);
+}
+
+.ed-tool:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 1px;
+}
+
+.ed-tool.is-danger:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-tool .icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (hover: hover) {
+  .is-editing .ed-card > .ed-tools {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .is-editing .ed-card:hover > .ed-tools,
+  .is-editing .ed-card:focus-within > .ed-tools {
+    opacity: 1;
+  }
+}
+
+/* room for the tools so they never cover typed text */
+.is-editing .ed-card > .entry-head,
+.is-editing .ed-card > .skill-head,
+.is-editing .ed-card > .entry-title,
+.is-editing .ed-card > blockquote {
+  padding-inline-end: 9.5rem;
+}
+
+@media (hover: none) {
+  .is-editing .ed-card {
+    padding-top: 3.25rem;
+  }
+
+  .is-editing .ed-card > .entry-head,
+  .is-editing .ed-card > .skill-head,
+  .is-editing .ed-card > .entry-title,
+  .is-editing .ed-card > blockquote {
+    padding-inline-end: 0;
+  }
+}
+
+.is-editing .project-card.ed-card > .ed-tools,
+.is-editing .post-card.ed-card > .ed-tools {
+  opacity: 1;
+}
+
+/* ---------- detail strip: dates, links, lists ---------- */
+
+.ed-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 0.9rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.ed-strip-field,
+.ed-strip-wide {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ed-strip-wide {
+  flex-basis: 100%;
+}
+
+.ed-strip-label {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.ed-strip-input {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 0.6);
+  background: color-mix(in oklab, var(--color-b) 70%, transparent);
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.ed-strip-input:focus {
+  outline: 2px solid var(--color-a);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.ed-strip-input[aria-invalid="true"] {
+  border-color: var(--color-f);
+}
+
+.ed-strip-text {
+  min-height: 2.2rem;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  white-space: pre-wrap;
+}
+
+.ed-header-strip {
+  justify-content: center;
+}
+
+@media (min-width: 900px) {
+  .ed-header-strip {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- chips ---------- */
+
+.ed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ed-chips > .ed-strip-label {
+  flex-basis: 100%;
+}
+
+.ed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 32px;
+  padding: 0 0.15rem 0 0.65rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+  font-size: 0.85rem;
+}
+
+.ed-chip-x {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.ed-chip-x:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-chip-x .icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ed-chip-input {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  min-height: 32px;
+  padding: 0 0.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.ed-chip-input:focus {
+  outline: 2px solid var(--color-a);
+  border-style: solid;
+}
+
+.ed-link-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.ed-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* ---------- "Add section" ---------- */
+
+.ed-add-section-row {
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.ed-add-section {
+  min-height: 48px;
+  padding-inline: 1.25rem;
+}
+
+.ed-add-section-menu .account-menu {
+  right: auto;
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* ---------- images: banner, project cover ---------- */
+
+.ed-banner-tools,
+.ed-media-tools {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 7;
+}
+
+.ed-media {
+  position: relative;
+}
+
+.ed-banner-tools .ed-tool,
+.ed-media-tools .ed-tool {
+  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.ed-image-menu .account-menu {
+  right: auto;
+  left: 0;
+}
+
+.is-editing .is-drop {
+  outline: 3px dashed var(--color-a);
+  outline-offset: -6px;
+}
+
+.is-editing .is-busy {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ---------- profile photo ---------- */
+
+.ed-photo {
+  position: relative;
+  z-index: 4;
+  width: clamp(6.5rem, 28vw, 10rem);
+  margin-top: calc(clamp(6.5rem, 28vw, 10rem) / -2);
+  border-radius: 50%;
+}
+
+.ed-photo > .profile-photo {
+  margin-top: 0;
+  cursor: pointer;
+}
+
+.ed-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--color-c) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.ed-photo:hover::after,
+.ed-photo.is-drop::after {
+  opacity: 1;
+}
+
+.ed-photo:focus-visible {
+  outline: 3px solid var(--color-a);
+  outline-offset: 3px;
+}
+
+.ed-photo-menu {
+  position: absolute;
+  right: 2%;
+  bottom: 2%;
+  z-index: 5;
+}
+
+.ed-photo-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid var(--color-b);
+  border-radius: 50%;
+  background: var(--color-c);
+  color: var(--color-b);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.ed-photo-btn:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
+}
+
+.ed-photo-menu .account-menu {
+  right: auto;
+  left: 0;
+}
+
+.ed-photo.is-busy::before {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  z-index: 6;
+  border: 4px solid color-mix(in oklab, var(--color-b) 40%, transparent);
+  border-top-color: var(--color-b);
+  border-radius: 50%;
+  animation: ed-spin 0.8s linear infinite;
+}
+
+@keyframes ed-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* crop: the image sits in the circle; drag to move, slider / wheel / pinch to zoom */
+.ed-photo.is-cropping > .profile-photo,
+.ed-photo.is-cropping > .ed-photo-menu,
+.ed-photo.is-cropping::after {
+  visibility: hidden;
+}
+
+.ed-crop-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  width: 100%;
+  height: 100%;
+  border: 4px solid var(--color-a);
+  border-radius: 50%;
+  background: var(--color-s);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ed-crop-canvas:active {
+  cursor: grabbing;
+}
+
+.ed-crop-controls {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 50%;
+  z-index: 8;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  box-shadow: var(--shadow-lg);
+  translate: -50% 0;
+}
+
+.ed-crop-hint {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.ed-crop-zoom-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ed-crop-zoom {
+  width: 10rem;
+  accent-color: var(--color-a);
+}
+
+.ed-crop-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ---------- post editor on its own page ---------- */
+
+.ed-post-page {
+  display: grid;
+  gap: 1rem;
+}
+
+/* a project without a cover yet: a place to drop or pick one */
+.is-editing .project-hero-media.ed-media:not(:has(img)) {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.is-editing .project-hero-media.ed-media:not(:has(img)) .ed-media-tools {
+  position: static;
+}

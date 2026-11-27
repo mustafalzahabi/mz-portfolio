@@ -285,7 +285,7 @@ export function buildAbout(vm, cfg) {
   // One readable column; the resume opens from the header button
   const section = createSection("about", "About", cfg);
   const text = h("div.about-text");
-  const prose = h("div.prose.about-lead");
+  const prose = h("div.prose.about-lead", { dataset: { path: cfg.text.bio ? "@text.bio" : "basics.summary", multiline: "1" } });
   prose.innerHTML = markdownToHtml(bio);
   text.appendChild(prose);
   section.appendChild(text);
@@ -466,8 +466,8 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   // ---- Hero
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
-  intro.appendChild(h("h1.project-hero-title", project.name));
-  if (project.description) intro.appendChild(h("p.project-hero-lead", { dataset: { source: project.sources?.description || null } }, project.description));
+  intro.appendChild(h("h1.project-hero-title", { dataset: { field: "name", source: project.sources?.name || null } }, project.name));
+  if (project.description) intro.appendChild(h("p.project-hero-lead", { dataset: { field: "description", source: project.sources?.description || null } }, project.description));
   const actions = h("div.project-hero-actions");
   if (live) actions.appendChild(h("a.btn.btn-primary", { href: live }, svgIcon(ICONS.external), "Visit project"));
   if (project.github) actions.appendChild(h("a.btn.btn-ghost", { href: project.github }, svgIcon(ICONS.github), "Source code"));
@@ -501,7 +501,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
     main.appendChild(
       h("section.project-block", { "aria-labelledby": "p-highlights" },
         h("h2.project-block-title", { id: "p-highlights" }, "Highlights"),
-        h("ul.highlight-grid", { role: "list" }, project.highlights.map((x) => h("li.card", svgIcon(ICONS.check), h("span", x))))),
+        h("ul.highlight-grid", { role: "list" }, project.highlights.map((x, i) => h("li.card", svgIcon(ICONS.check), h("span", { dataset: { field: `highlights.${i}` } }, x))))),
     );
   }
 
@@ -709,7 +709,7 @@ export function buildReferences(vm, cfg) {
   const section = createSection("references", "References", cfg);
   const grid = h("div.card-grid");
   for (const r of vm.references) {
-    grid.appendChild(h("figure.card.quote", h("blockquote", r.reference || ""), r.name ? h("figcaption", r.name) : null));
+    grid.appendChild(h("figure.card.quote", h("blockquote", { dataset: { field: "reference" } }, r.reference || ""), h("figcaption", { dataset: { field: "name" } }, r.name || "")));
   }
   section.appendChild(grid);
   return section;
@@ -749,7 +749,7 @@ export function buildContact(vm, cfg, ctx) {
   if (!links.length && !message) return null;
 
   const section = createSection("contact", "Get in touch", cfg);
-  if (message) section.appendChild(h("p.contact-message", message));
+  if (message) section.appendChild(h("p.contact-message", { dataset: { path: "@text.contact_message" } }, message));
   section.appendChild(h("ul.contact-links", { role: "list" }, links.map((l) => h("li", h("a.contact-link.card", { href: l.href }, svgIcon(l.icon), h("span", l.label))))));
   return section;
 }
