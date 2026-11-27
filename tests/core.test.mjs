@@ -108,7 +108,7 @@ test("config: legacy shapes are migrated", () => {
   assert.deepEqual(warnings, []);
   assert.equal(config.colors.accent, "#123456");
   assert.equal(config.theme.mode, "dark");
-  assert.equal(config.theme.toggle, "icon");
+  assert.equal(config.theme.toggle, undefined); // only the switch now
   assert.equal(config.blog.enabled, false);
   assert.equal(config.animation.intro, "slide");
   assert.equal(config.animation.duration, 0.3);
@@ -277,4 +277,12 @@ test("isSamePage: matches a portfolio's own address loosely", async () => {
   assert.ok(!isSamePage("https://github.com/mustafalzahabi", own));
   assert.ok(!isSamePage("mailto:a@b.co", own));
   assert.ok(!isSamePage("not a url", own));
+});
+
+test("markdown: math-text blocks color numbers, variables and functions", () => {
+  const html = markdownToHtml("```math-text\nf(x) = 2x² + sin θ < π\n```");
+  assert.match(html, /<pre class="math-text">/);
+  assert.match(html, /<span class="mf">f<\/span>\(<span class="mv">x<\/span>\)/);
+  assert.match(html, /<span class="mn">2<\/span><span class="mv">x<\/span><span class="mn">²<\/span>/);
+  assert.match(html, /<span class="mf">sin<\/span> <span class="mv">θ<\/span> &lt; <span class="mn">π<\/span>/);
 });

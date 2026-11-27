@@ -217,6 +217,24 @@ export function dropOnceToken() {
   }
 }
 
+/** "Always allow" README pushes was chosen on this device. */
+export function repoScopeRemembered() {
+  try {
+    return localStorage.getItem(REPO_OK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Ask again before the next README push. (Removing the access itself is done on GitHub.) */
+export function forgetRepoScope() {
+  try {
+    localStorage.removeItem(REPO_OK_KEY);
+  } catch {
+    /* nothing kept */
+  }
+}
+
 /** True when a README can be saved now without asking for more permission. */
 export function canWriteRepos() {
   if (onceToken()) return true;

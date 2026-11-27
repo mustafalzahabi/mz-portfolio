@@ -1,17 +1,21 @@
 // ============================================================================
 // ACCOUNT — sign in with GitHub or Google, the avatar menu, sign out.
-// One account at a time. GitHub sign-in goes through the /api/auth Pages
-// Function, which comes back with #gh_token=… (or #gh_error=…). Google's
-// comes straight back to the site root with #access_token=…&state=… (see
-// google.js).
+// Both can be signed in at once, and linked into one account (Account
+// settings, or the offer shown when both are signed in). GitHub sign-in goes
+// through the /api/auth Pages Function, which comes back with #gh_token=…
+// (or #gh_error=…). Google's comes straight back to the site root with
+// #access_token=…&state=… (see google.js).
 // ============================================================================
 
 import { h, svgIcon, toast } from "./utils.js";
 import { ICONS, logoImg } from "./icons.js";
 import { BASE_PATH } from "./router.js";
-import { signIn, clearToken, readmePending, setReadmePending, setOnceToken } from "./github.js";
-import { googleLoginUrl, completeGoogleSignIn, clearGoogle, googleClientId } from "./google.js";
-import { session, signOutAll, myPortfolioPath } from "./storage.js";
+import { signIn, readmePending, setReadmePending, setOnceToken } from "./github.js";
+import { googleLoginUrl, completeGoogleSignIn, googleClientId } from "./google.js";
+import { session, signOutAll, myPortfolioPath, refreshAccount, linkNow } from "./storage.js";
+
+const LINK_KEY = "mz-link-pending"; // "Connect Google / GitHub" started from Account settings
+const DISMISS_KEY = "mz-link-dismissed"; // "Not now" for this pair of sign-ins
 
 const LOGIN_ERRORS = {
   denied: "Sign-in was cancelled on GitHub.",
@@ -41,8 +45,8 @@ export async function completeSignIn() {
       toast(result.error, "error");
       return null;
     }
-    clearToken(); // one account at a time
     toast(`Signed in as ${result.user.name || result.user.email}`);
+    await afterSignIn();
     return result;
   }
   const params = new URLSearchParams(location.hash.slice(1));
@@ -64,13 +68,111 @@ export async function completeSignIn() {
   }
   try {
     const user = await signIn(token);
-    clearGoogle(); // one account at a time
     toast(`Signed in as ${user.login}`);
+    await afterSignIn();
     return { user };
   } catch (e) {
     toast(e.message, "error");
     return null;
   }
+}
+
+// ============================================================================
+// ONE ACCOUNT FROM TWO SIGN-INS
+// ============================================================================
+
+/** Starts the other provider's sign-in; coming back, the two are linked. */
+export function connectProvider(provider, returnPath = location.pathname + location.search) {
+  const url = provider === "google" ? googleLoginUrl(returnPath) : loginUrl(returnPath);
+  if (!url) return toast("Google sign-in isn't set up on this site.", "error");
+  try {
+    sessionStorage.setItem(LINK_KEY, "1");
+  } catch {
+    /* the offer to link still shows when both are signed in */
+  }
+  location.assign(url);
+}
+
+/**
+ * After any sign-in: finish a "Connect" that was started, else read the link
+ * from the account (made on another device), else, when both providers are
+ * signed in here but not linked, offer to link them.
+ */
+async function afterSignIn() {
+  let wanted = false;
+  try {
+    wanted = sessionStorage.getItem(LINK_KEY) === "1";
+    sessionStorage.removeItem(LINK_KEY);
+  } catch {
+    /* no session storage */
+  }
+  const s = session();
+  const both = Boolean(s?.providers.github && s?.providers.google);
+  try {
+    if (both && wanted) {
+      await linkNow();
+      toast("GitHub and Google are now one account. Either sign-in opens it.");
+      return;
+    }
+    const linked = await refreshAccount();
+    if (both && !linked) setTimeout(offerLink, 900); // once the page has drawn
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+/** Both sign-ins on this device but not linked: ask (never linked on an email match alone). */
+export function offerLink() {
+  const s = session();
+  const gh = s?.providers.github;
+  const g = s?.providers.google;
+  if (!gh || !g || s.account || document.querySelector(".link-dialog")) return;
+  const pair = `${gh.login}|${g.email}`.toLowerCase();
+  try {
+    if (localStorage.getItem(DISMISS_KEY) === pair) return;
+  } catch {
+    /* ask */
+  }
+  const close = () => dialog.close();
+  const link = async () => {
+    linkBtn.disabled = true;
+    try {
+      await linkNow();
+      close();
+      toast("Linked. GitHub and Google are now one account.");
+      dispatchEvent(new CustomEvent("mz-auth", { detail: { user: session()?.user } }));
+    } catch (e) {
+      linkBtn.disabled = false;
+      toast(e.message, "error");
+    }
+  };
+  const linkBtn = h("button.btn.btn-primary", { type: "button", onclick: link }, "Link them");
+  const dialog = h("dialog.signin-dialog.link-dialog", { "aria-labelledby": "link-title" },
+    h("div.signin-card",
+      h("h2#link-title", "Make these one account?"),
+      h("p.muted", "You're signed in with both on this device:"),
+      h("ul.link-who",
+        h("li", svgIcon(ICONS.github), h("span", `@${gh.login}`)),
+        h("li", svgIcon(ICONS.google), h("span", g.email))),
+      h("p.muted", "Linked, either sign-in opens the same account, and your portfolio combines what's in both (the newest wins). You can unlink in Account settings."),
+      h("div.link-actions",
+        h("button.btn.btn-ghost", { type: "button", onclick: () => {
+          try {
+            localStorage.setItem(DISMISS_KEY, pair);
+          } catch {
+            /* asks again next time */
+          }
+          close();
+        } }, "Not now"),
+        linkBtn)));
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
+/** Opens Account settings (loaded when first needed). */
+export function openAccountSettings(group) {
+  import("./views/account-settings.js").then((m) => m.openAccountSettings(group)).catch((e) => toast(e.message, "error"));
 }
 
 export function signOut() {
@@ -180,18 +282,25 @@ export function accountMenu({ user = session()?.user, items = [], returnPath } =
   }
   const google = user.provider === "google";
   const home = myPortfolioPath();
+  const s = session();
+  const ghUser = s?.providers.github || (s?.account ? { login: s.account.github.login } : null);
+  // Which sign-ins make up this account (both when linked)
+  const providers = s?.account
+    ? [["github", `@${s.account.github.login}`], ["google", s.account.google.email]]
+    : [[google ? "google" : "github", google ? "Google Drive" : "GitHub"]];
   return dropdown({
     button: h("button.account-button", { type: "button" }, avatarImg(user, 32)),
     label: `Account: ${user.name || user.login}`,
     head: h("div.account-head", avatarImg(user, 40), h("div",
       h("strong", user.name || user.login),
       h("span.muted", google ? user.email : `@${user.login}`),
-      h("span.account-provider", svgIcon(ICONS[google ? "google" : "github"]), google ? "Google Drive" : "GitHub"))),
+      ...providers.map(([p, text]) => h("span.account-provider", svgIcon(ICONS[p]), text)))),
     items: [
       home ? { label: "My portfolio", icon: "user", href: home } : null,
       { label: home ? "Edit my portfolio" : "Create my portfolio", icon: "pencil", href: `${BASE_PATH}edit` },
+      { label: "Account settings", icon: "sliders", onclick: () => openAccountSettings() },
       ...items,
-      google ? null : { label: "GitHub profile", icon: "github", href: `https://github.com/${encodeURIComponent(user.login)}` },
+      ghUser ? { label: "GitHub profile", icon: "github", href: `https://github.com/${encodeURIComponent(ghUser.login)}` } : null,
       "sep",
       { label: "Sign out", icon: "logout", onclick: signOut },
     ],

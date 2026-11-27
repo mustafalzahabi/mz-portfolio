@@ -451,6 +451,17 @@ pre {
   tab-size: 2;
 }
 
+/* ```math-text blocks: the author's own equation palette (blog posts) */
+.prose pre.math-text {
+  border-color: transparent;
+  background: color-mix(in oklab, var(--color-b) 94%, var(--color-v));
+  color: var(--color-c);
+  line-height: 1.35;
+}
+.math-text .mn { color: var(--color-o); }
+.math-text .mv { color: color-mix(in oklab, var(--color-f) 75%, var(--color-c)); }
+.math-text .mf { color: var(--color-a); }
+
 .prose img {
   border-radius: var(--radius-sm);
 }

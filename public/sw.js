@@ -5,7 +5,7 @@
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v36";
+const CACHE_NAME = "mz-portfolio-v37";
 const SHELL = "/index.html";
 // Everything the app loads, so a first visit works offline. tools/check.mjs
 // keeps this list in sync with the files on disk.
@@ -47,6 +47,10 @@ const urlsToCache = [
   "/scripts/edit/readme.js",
   "/scripts/edit/inline.js",
   "/scripts/edit/datepicker.js",
+  "/scripts/edit/settings-ui.js",
+  "/scripts/views/account-settings.js",
+  "/scripts/combine.js",
+  "/scripts/account-link.js",
   "/scripts/edit/direct.js",
   "/scripts/edit/post-page.js",
   "/scripts/edit/markdown-editor.js",

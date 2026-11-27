@@ -25,6 +25,7 @@ import { googleLoginUrl } from "../google.js";
 import { accountMenu, avatarImg, dropdown, loginUrl } from "../account.js";
 import { resolveImage, imageToDataUrl, isGistImage, IMAGE_FILES } from "../images.js";
 import { selectMenu } from "../ui.js";
+import { settingsLayout } from "./settings-ui.js";
 
 /** "photoShape" / "two-column" → "Photo shape" / "Two column" */
 const humanize = (v) => String(v).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
@@ -941,85 +942,16 @@ function settingsPanel() {
     return body.children.length ? body : null;
   };
 
-  const main = h("div.ed-set-main");
-  let pinnedUntil = 0;
-  const markCurrent = (id) => {
-    let active = null;
-    nav.querySelectorAll(".ed-set-link").forEach((a) => {
-      a.toggleAttribute("aria-current", a.dataset.group === id);
-      if (a.dataset.group === id) active = a;
-    });
-    // Phones: the chip row scrolls sideways to keep the current group in sight
-    if (active && nav.scrollWidth > nav.clientWidth) nav.scrollTo({ left: active.offsetLeft - nav.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
-  };
-  const nav = h("nav.ed-set-nav", { "aria-label": "Setting groups" });
-  for (const [id, title, names] of SETTING_GROUPS) {
-    const cards = names.map((name) => {
-      const body = bodyFor(name);
-      if (!body) return null;
-      const [t, d] = SETTING_CARDS[name];
-      return h("section.ed-set-card", { id: `set-${name}`, dataset: { name } }, h("header.ed-set-head", h("h3", t), h("p", d)), body);
-    }).filter(Boolean);
-    if (!cards.length) continue;
-    main.appendChild(h("section.ed-set-group", { id: `setg-${id}`, dataset: { group: id } }, h("h2.ed-set-title", title), ...cards));
-    nav.appendChild(h("a.ed-set-link", { href: `#setg-${id}`, dataset: { group: id }, onclick: (e) => {
-      e.preventDefault();
-      // The chosen group stays marked while the scroll gets there (short last groups never reach the top)
-      markCurrent(id);
-      pinnedUntil = Date.now() + 1200;
-      document.getElementById(`setg-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } }, title));
-  }
-
-  const search = h("input.input.ed-search", { type: "search", placeholder: "Find a setting", "aria-label": "Find a setting", value: ed.query.settings || "" });
-  const empty = h("p.muted.ed-no-match", { hidden: true });
-  const filter = () => {
-    const q = search.value.trim().toLowerCase();
-    ed.query.settings = search.value;
-    let any = 0;
-    for (const card of main.querySelectorAll(".ed-set-card")) {
-      const head = card.querySelector(".ed-set-head").textContent.toLowerCase();
-      const hitCard = !q || head.includes(q);
-      let hits = 0;
-      for (const f of card.querySelectorAll(".ed-field")) {
-        const hit = hitCard || f.textContent.toLowerCase().includes(q);
-        f.hidden = !hit;
-        hits += hit;
-      }
-      card.hidden = !(hitCard || hits);
-      any += !card.hidden;
-    }
-    for (const g of main.querySelectorAll(".ed-set-group")) g.hidden = !g.querySelector(".ed-set-card:not([hidden])");
-    empty.hidden = !q || any > 0;
-    empty.textContent = `Nothing matches “${search.value}”.`;
-  };
-  search.addEventListener("input", filter);
-
-  // The side list follows the scroll of the settings (the overlay scrolls, not the page)
-  queueMicrotask(() => {
-    const scroller = main.closest(".ed-settings");
-    if (!scroller) return;
-    const follow = () => {
-      if (Date.now() < pinnedUntil) return;
-      const top = scroller.getBoundingClientRect().top;
-      const groups = [...main.querySelectorAll(".ed-set-group:not([hidden])")];
-      const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
-      let cur = groups[0];
-      for (const g of groups) if (g.getBoundingClientRect().top - top < scroller.clientHeight * 0.3) cur = g;
-      if (atEnd) cur = groups[groups.length - 1];
-      if (cur) markCurrent(cur.dataset.group);
-    };
-    scroller.addEventListener("scroll", () => requestAnimationFrame(follow), { passive: true });
-    follow();
+  const groups = SETTING_GROUPS.map(([id, title, names]) => ({
+    id, title,
+    cards: names.map((name) => ({ name, title: SETTING_CARDS[name][0], desc: SETTING_CARDS[name][1], body: bodyFor(name) })),
+  }));
+  return settingsLayout({
+    groups,
+    query: ed.query.settings || "",
+    onQuery: (q) => (ed.query.settings = q),
+    notice: warnings.length ? warningsBox(warnings, `${warnings.length} setting(s) need attention`) : null,
   });
-
-  const panel = h("div.ed-panel.ed-set-layout",
-    h("aside.ed-set-side", h("span.ed-search-wrap", svgIcon(ICONS.search), search), nav),
-    h("div.ed-set-content",
-      warnings.length ? warningsBox(warnings, `${warnings.length} setting(s) need attention`) : null,
-      empty, main));
-  if (search.value) queueMicrotask(filter);
-  return panel;
 }
 
 // ============================================================================

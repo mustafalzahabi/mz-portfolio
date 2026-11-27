@@ -90,7 +90,7 @@ export function buildHeader(vm, cfg, ctx) {
     banner.classList.add("has-image");
     if (cfg.banner.overlay) banner.classList.add("has-overlay");
   }
-  const toggle = buildThemeToggle(cfg.theme.toggle);
+  const toggle = buildThemeToggle();
   const account = signedInMenu(ctx);
   if (toggle || account) banner.appendChild(h("div.banner-toggle", toggle, account));
 
@@ -433,7 +433,7 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
   if (ctx.photo) back.appendChild(h("img.page-bar-avatar", { src: ctx.photo, alt: "", width: 32, height: 32, decoding: "async" }));
   back.appendChild(h("span.page-bar-text", h("strong", vm.basics.name), h("span.muted", backLabel)));
   bar.appendChild(back);
-  const toggle = buildThemeToggle(cfg.theme.toggle === "none" ? "none" : "icon");
+  const toggle = buildThemeToggle();
   const account = signedInMenu(ctx);
   if (toggle || account) bar.appendChild(h("div.page-bar-tools", toggle, account));
   return bar;

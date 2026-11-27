@@ -74,10 +74,13 @@ Everything is edited where it's shown; there are no editing panels. Text is type
 
 **Without an account,** `/edit` opens a preview with every section ready to fill in, editable the same way; copy or download the JSON when you're done, or sign in to publish it. Other people's portfolios never show edit controls.
 
-**Signing in.** Click *Sign in*, then choose GitHub or Google. One account is signed in at a time.
+**Signing in.** Click *Sign in*, then choose GitHub or Google. You can be signed in with both, and link them into one account (below).
 - **GitHub** asks for the **gist** scope only. Your portfolio is a `resume.json` gist at `/your-username`. (A personal access token can still be pasted under *Use a personal access token instead*.)
 - **Google** asks for access to the files this app creates in your Drive (`drive.file`) and its hidden app folder (`drive.appdata`), nothing else. Your portfolio is an *mz-portfolio* folder (shared as "anyone with the link can view") holding `resume.json`, posts and images, at `/<folder-id>`. The draft you save to your account goes to the hidden app folder, never the shared one. Google's sign-in lasts about an hour; after that you're asked to sign in again to save.
-- GitHub and Google accounts are separate for now: a portfolio made with one isn't found when you sign in with the other.
+- **One account from both.** In *Account settings* (avatar menu), connect the other provider, or accept the offer shown when you're signed in with both. Signing in to both is the proof; a matching email alone never links accounts. The link is saved privately in both: a secret gist and Drive's hidden app folder (`mz-portfolio-account.json`), so either sign-in, on any device, opens the same account. There's no server database.
+  - Your portfolio then combines both: each resume section comes from whichever was saved last (or the one you pick per section in *Account settings → Sources*), posts come from both (the same post in both shows its newer copy), and publishing writes to both by default. Both addresses (`/username` and `/<folder-id>`) show the same portfolio: the published config lists the two addresses (never your email) so visitors' browsers load and combine them.
+  - Google's sign-in lasts an hour. Publishing to Drive renews it first in a small window that closes itself; if Google needs you, it says so and you reconnect in one click. A place you aren't signed in to on a device is skipped and catches up on the next publish.
+  - *Account settings* also has where new posts and images go, README push permission, drafts, downloading your resume, and *Forget this device*.
 - The token is kept in this browser's `localStorage` until you click *Sign out*, or until it expires or is rejected, so reopening the editor keeps you signed in. Sign out on shared computers.
 - It is sent only to `api.github.com` (GitHub) or `www.googleapis.com` (Google), and never logged or written anywhere else.
 

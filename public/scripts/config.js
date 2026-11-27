@@ -57,9 +57,8 @@ export const CONFIG_SCHEMA = {
     prime: color("Brand: hero, logo and large type."),
   },
   theme: {
-    _desc: "Light / dark behaviour and the theme toggle.",
+    _desc: "Light / dark behaviour.",
     mode: oneOf(["auto", "light", "dark"], "auto", "Default mode for first-time visitors. A visitor's own choice is remembered."),
-    toggle: oneOf(["switch", "icon", "slider", "none"], "switch", "Theme toggle style shown in the banner."),
   },
   typography: {
     _desc: "Fonts and text size (system fonts only, nothing is downloaded).",
@@ -232,11 +231,9 @@ export function migrateLegacy(raw) {
       delete cfg.theme.dark;
     }
   }
-  // themeToggle.style → theme.toggle
-  if (cfg.themeToggle && typeof cfg.themeToggle === "object") {
-    cfg.theme = { ...(cfg.theme || {}), toggle: cfg.theme?.toggle || cfg.themeToggle.style };
-    delete cfg.themeToggle;
-  }
+  // The theme toggle is always the switch now: older style choices are dropped
+  delete cfg.themeToggle;
+  if (cfg.theme && typeof cfg.theme === "object") delete cfg.theme.toggle;
   // blog: false shorthand
   if (typeof cfg.blog === "boolean") cfg.blog = { enabled: cfg.blog };
   // animation.type / transitionDuration / shadowOnHover / glowOnHover (v1)
@@ -414,7 +411,8 @@ function normalizeNode(schema, raw, path, warnings) {
     }
   }
   for (const key of Object.keys(input)) {
-    if (!(key in schema)) warnings.push(`${path ? path + "." : ""}${key}: unknown option (ignored).`);
+    // "sources" is written by Account settings (linked GitHub + Google), not a site setting
+    if (!(key in schema) && !(!path && key === "sources")) warnings.push(`${path ? path + "." : ""}${key}: unknown option (ignored).`);
   }
   return out;
 }

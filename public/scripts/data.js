@@ -21,6 +21,7 @@ import {
 import { parseFrontmatter, slugify } from "./utils.js";
 import { postFields } from "./posts.js";
 import { debug } from "./log.js";
+import { combineResumes, combinePosts, publicSources } from "./combine.js";
 
 const SNAPSHOT_PREFIX = "mz-portfolio-data-";
 const SNAPSHOT_TTL = 30 * 60 * 1000; // serve without refetching for 30 min
@@ -230,6 +231,52 @@ async function attachGithubToDrive(data) {
 }
 
 // ============================================================================
+// LINKED ACCOUNTS — a portfolio whose owner linked GitHub and Google lists
+// both public addresses in its config ("sources"). Visitors get one
+// portfolio from both: the other half is loaded (capped at 2.5 s, so a slow
+// store just leaves it out) and combined section by section, newest first.
+// ============================================================================
+
+const loadSource = (type, id) => (type === "gd" ? loadFromDrive(id) : loadFromGithub(id));
+
+/** The other half of a linked portfolio, combined in. */
+async function withLinkedSource(data) {
+  const s = publicSources(data.resume);
+  if (!s) return data;
+  const self = data.source.type;
+  const other = self === "gh" ? (s.drive ? { type: "gd", id: s.drive } : null) : s.github ? { type: "gh", id: s.github } : null;
+  if (!other) return data;
+  const loaded = await Promise.race([
+    loadSource(other.type, other.id).catch(() => null),
+    new Promise((r) => setTimeout(() => r(null), 2500)),
+  ]);
+  if (loaded?.status !== "ok" || !loaded.data.resume) return data;
+  const o = loaded.data;
+  const me = self === "gh" ? "github" : "google";
+  const them = me === "github" ? "google" : "github";
+  const { resume } = combineResumes([
+    { store: me, resume: data.resume, updatedAt: data.source.updatedAt },
+    { store: them, resume: o.resume, updatedAt: o.source.updatedAt },
+  ], { resume: s.resume });
+  const posts = combinePosts([{ store: me, posts: data.posts }, { store: them, posts: o.posts }], { posts: s.posts });
+  const gh = self === "gh" ? data : o;
+  return {
+    ...data,
+    resume,
+    posts,
+    github: gh.github || data.github,
+    repos: gh.repos?.length ? gh.repos : data.repos,
+    source: { ...data.source, linked: other },
+  };
+}
+
+/** One store's published resume, read like a visitor does (for a linked account's editor). */
+export async function publicResume(type, id) {
+  const r = await loadSource(type, id);
+  return r.status === "ok" && r.data.resume ? { resume: r.data.resume, updatedAt: r.data.source.updatedAt } : null;
+}
+
+// ============================================================================
 // SNAPSHOTS (offline / rate-limited fallback)
 // ============================================================================
 
@@ -296,6 +343,7 @@ export async function collectPortfolioData(source, id, { force = false } = {}) {
     if (result.status === "ok" && result.data.source.type === "gd") {
       result.data = await attachGithubToDrive(result.data);
     }
+    if (result.status === "ok") result.data = await withLinkedSource(result.data);
   } catch (e) {
     if (e.name === "ResumeParseError") return { status: "invalid", error: e };
     result = { status: "error", message: e.message || "Something went wrong while loading this portfolio." };

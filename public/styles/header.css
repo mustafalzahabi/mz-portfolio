@@ -313,54 +313,12 @@
   box-shadow: none;
 }
 
-/* Icon button */
-.theme-toggle--icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--color-c) 25%, transparent);
-  color: var(--on-p);
-  backdrop-filter: blur(6px);
-}
-
-/* Segmented slider */
-.theme-toggle--slider {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--color-c) 25%, transparent);
-  backdrop-filter: blur(6px);
-}
-
-.theme-toggle--slider button {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 38px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--on-p);
-}
-
-.theme-toggle--slider button[aria-checked="true"] {
-  background: var(--color-b);
-  color: var(--color-p);
-}
-
 /* Toggles outside the banner (site header) */
-.site-tools .theme-switch-track {
+.site-tools .theme-switch-track,
+.page-bar .theme-switch-track {
   background: var(--well);
   color: var(--ink-muted);
   box-shadow: inset 0 0 0 1px var(--line-soft);
-}
-
-.site-tools .theme-toggle--icon,
-.site-tools .theme-toggle--slider {
-  background: var(--well);
 }
 
 /* ============================================================================

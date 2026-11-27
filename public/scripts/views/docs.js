@@ -151,6 +151,16 @@ Write the post in **Markdown** here.`, "post.md"),
       { id: "import", title: "Import a JSON Resume", body: () => [
         p("Already have a resume.json from another tool? Open ", link(`${BASE_PATH}preview`, "Try it"), ", drop the file in, and choose Edit it. Unknown fields are kept as they are."),
       ] },
+      { id: "accounts", title: "GitHub and Google as one account", body: () => [
+        p("Signed in with one, open ", h("strong", "Account settings"), " from your avatar and connect the other (or accept the offer when you're signed in with both). Either sign-in then opens the same account, on any device."),
+        ul(
+          "Signing in to both is the proof they're yours. A matching email alone never links accounts.",
+          "Your portfolio combines both: each resume section comes from whichever was saved last, or the one you choose in Account settings → Sources. Posts come from both; the same post in both shows its newer copy.",
+          "Publishing writes to both by default, so the two stay the same. Both addresses show the same portfolio.",
+          "Google's sign-in lasts an hour: publishing renews it in a small window that closes itself.",
+        ),
+        note("The link is stored privately in your own accounts (a secret gist and Drive's hidden app folder). This site has no database."),
+      ] },
       { id: "drive", title: "Google Drive", body: () => [
         p("Share a ", code("resume.json"), " file, or a folder containing it, as ", h("em", "Anyone with the link"), ", then open ", code(`${host()}<file-or-folder-id>`), ". You can also paste the full Drive link into the box on the home page."),
         note("Drive portfolios are read-only here: edit the file in Drive. Site owners need a Google API key; see the README."),

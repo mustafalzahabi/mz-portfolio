@@ -1988,3 +1988,94 @@ body.has-sheet .ed-bar {
   color: var(--color-a);
   font-weight: 700;
 }
+
+/* ---------- account settings: rows, status lines, actions ---------- */
+
+.ed-set-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.ed-set-body > .ed-set-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ed-set-row-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ed-set-row .ed-label {
+  font-weight: 600;
+}
+
+.ed-set-row .ed-seg {
+  max-width: 100%;
+}
+
+.ed-set-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.ed-set-status .icon svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.15rem;
+}
+
+.ed-set-status[data-tone="ok"] .icon {
+  color: var(--color-o);
+}
+
+.ed-set-status[data-tone="warn"] .icon {
+  color: var(--color-r);
+}
+
+.ed-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ed-set-url {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+/* ---------- "Make these one account?" ---------- */
+
+.link-who {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.link-who li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.link-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

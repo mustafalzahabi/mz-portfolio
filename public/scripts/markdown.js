@@ -91,6 +91,10 @@ function parseBlocks(lines, ctx) {
         i++;
       }
       i++; // closing fence
+      if (lang === "math-text") {
+        out.push(`<pre class="math-text"><code>${mathTextHtml(body.join("\n"))}</code></pre>`);
+        continue;
+      }
       const cls = lang ? ` class="language-${escapeHtml(lang)}"` : "";
       out.push(`<pre><code${cls}>${escapeHtml(body.join("\n"))}</code></pre>`);
       continue;
@@ -424,6 +428,32 @@ function renderEmphasis(s) {
     .replace(/(^|[^\w*])\*(?=\S)([^*]*?\S)\*(?!\w)/g, "$1<em>$2</em>")
     .replace(/(^|[^\w_])_(?=\S)([^_]*?\S)_(?!\w)/g, "$1<em>$2</em>")
     .replace(/~~(?=\S)([\s\S]*?\S)~~/g, "<del>$1</del>");
+}
+
+// ============================================================================
+// MATH TEXT  ```math-text — plain-text equations, colored by role:
+// numbers/constants (n), variables (v), function names (f). Everything else
+// (operators, fraction bars, prose words) stays plain. GitHub shows the same
+// block uncolored, so the source stays readable anywhere.
+// ============================================================================
+
+const MATH_FUNCS = new Set(["sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arctan", "ln", "log", "lim", "cis", "exp", "det", "max", "min"]);
+const MATH_TOKEN = /([0-9]+(?:\.[0-9]+)?|[⁰¹²³⁴⁵⁶⁷⁸⁹₀₁₂₃₄₅₆₇₈₉½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛]+|[π∞ℝℕℤℚℂ])|([A-Za-zα-ωΑ-ΩΘθ][A-Za-z]*)/g;
+
+function mathTextHtml(text) {
+  let html = "";
+  let last = 0;
+  for (const m of text.matchAll(MATH_TOKEN)) {
+    html += escapeHtml(text.slice(last, m.index));
+    last = m.index + m[0].length;
+    const word = m[0];
+    let cls = "";
+    if (m[1]) cls = "n";
+    else if (MATH_FUNCS.has(word)) cls = "f";
+    else if (word.length === 1) cls = /^[fgh]$/.test(word) && text[last] === "(" ? "f" : "v";
+    html += cls ? `<span class="m${cls}">${escapeHtml(word)}</span>` : escapeHtml(word);
+  }
+  return html + escapeHtml(text.slice(last));
 }
 
 // ============================================================================

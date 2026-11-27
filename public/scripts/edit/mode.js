@@ -15,7 +15,8 @@ import { setPath, prune, getPath, validateField } from "../editor-core.js";
 import { markdownToHtml } from "../markdown.js";
 import { markdownEditor } from "./markdown-editor.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, templateResume, blankScaffold } from "../template.js";
-import { session, storage, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
+import { session, storage, myPortfolioPath, DRAFT_FILE as SHARED_DRAFT_FILE } from "../storage.js";
+import { getGoogleToken, renewGoogleToken } from "../google.js";
 import { dropdown } from "../account.js";
 import { normalizeConfig } from "../config.js";
 import { repoHideKey } from "../merge.js";
@@ -25,6 +26,7 @@ import { closeSheet, sheetOpen } from "./sheet.js";
 import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
 import { editPostOnPage } from "./post-page.js";
+import { openOverlay } from "./settings-ui.js";
 import { photoEditor, imageMenu, stripInput, fieldStrip, itemTools, editIcon, addSectionMenu, inlineDates, chipList } from "./direct.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
@@ -359,29 +361,24 @@ let staleSinceSettings = false;
 /** Full screen on phones; a large panel with the groups in a side menu on desktop. */
 function openSettings() {
   if (settingsDialog) return;
-  const content = h("div.ed-settings", h("div", { id: "ed-panel" }));
-  const dialog = h("dialog.ed-settings-dialog", { "aria-labelledby": "ed-settings-title" },
-    h("header.ed-settings-head",
-      h("h2", { id: "ed-settings-title" }, "Site settings"),
-      iconButton("close", "Close settings", () => dialog.close())),
-    content);
-  dialog.addEventListener("click", (e) => e.target === dialog && dialog.close()); // the backdrop
-  dialog.addEventListener("close", () => {
-    dialog.remove();
-    settingsDialog = null;
-    if (ed.root === content) ed.root = null;
-    if (staleSinceSettings && editing) {
-      staleSinceSettings = false;
-      rerenderNow();
-    }
+  const slot = h("div", { id: "ed-panel" });
+  const dialog = openOverlay({
+    title: "Site settings",
+    content: slot,
+    onClose: () => {
+      settingsDialog = null;
+      if (ed.root === dialog) ed.root = null;
+      if (staleSinceSettings && editing) {
+        staleSinceSettings = false;
+        rerenderNow();
+      }
+    },
   });
-  document.body.appendChild(dialog);
   settingsDialog = dialog;
   ed.tab = "settings";
-  ed.root = content;
+  ed.root = dialog;
   renderPanel();
-  dialog.showModal();
-  content.querySelector(".ed-search")?.focus();
+  dialog.querySelector(".ed-search")?.focus();
 }
 
 // ---------- custom pages (tabs): edited on the page itself ----------
@@ -1172,7 +1169,7 @@ function mountUi(kind) {
   const undoBtn = iconButton("undo", "Undo (Ctrl+Z)", undo);
   const redoBtn = iconButton("redo", "Redo (Ctrl+Shift+Z)", redo);
   const statusEl = h("button.ed-status", { type: "button", title: "See what changed", onclick: showChanges });
-  const saveBtn = h("button.btn.btn-primary.ed-publish", { type: "button", onclick: () => (!ed.user ? openSignIn() : save()) });
+  const saveBtn = h("button.btn.btn-primary.ed-publish", { type: "button", onclick: publish });
 
   const toolbar = h("div.ed-toolbar", { role: "toolbar", "aria-label": "Edit mode" },
     h("span.ed-toolbar-label", h("span.ed-dot"), "Editing"),
@@ -1259,7 +1256,7 @@ function onKeydown(e) {
   const key = e.key.toLowerCase();
   if (mod && key === "s") {
     e.preventDefault();
-    if (ed.user) save();
+    if (ed.user) publish();
     else openSignIn();
     return;
   }
@@ -1276,9 +1273,25 @@ function onKeydown(e) {
   }
 }
 
+/**
+ * Publish. A linked account that publishes to Google Drive needs a fresh
+ * Google token (it lasts an hour): renewed first, from this click, so the
+ * small renewal window isn't blocked as a pop-up.
+ */
+async function publish() {
+  if (!ed.user) return openSignIn();
+  const a = session()?.account;
+  if (a && a.prefs.publishTo !== "github" && !getGoogleToken()) await renewGoogleToken({ hint: a.google.email });
+  return save();
+}
+
 /** /edit: your own portfolio in edit mode, or a preview with every section when signed out. */
 export async function routeEdit(go) {
   const s = session();
+  if (s?.account) {
+    go(`${myPortfolioPath()}?edit`, { replace: true });
+    return;
+  }
   if (s?.provider === "github") {
     go(`${BASE_PATH}${encodeURIComponent(s.user.login)}?edit`, { replace: true });
     return;
