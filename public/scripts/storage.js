@@ -19,7 +19,7 @@
 
 import { BASE_PATH } from "./router.js";
 import { toast } from "./utils.js";
-import { parseResumeJson, publicResume } from "./data.js";
+import { parseResumeJson, publicResume, getResumeFilename } from "./data.js";
 import {
   getToken, cachedUser, clearToken, listMyGists, getGist, createGist, updateGist, deleteGist, gistFileText, forgetCachedPortfolio,
 } from "./github.js";
@@ -462,10 +462,16 @@ const accountStore = {
   async writeResume(source, content, filename) {
     let account = linkedAccount();
     const p = account.prefs;
-    // Drive first: a new Drive folder's address then goes into what GitHub gets
-    const targets = (p.publishTo === "both" ? STORES : [p.publishTo]).slice().sort((a) => (a === "google" ? -1 : 1));
     const parts = { ...(source?.parts || {}) };
     const stamps = { ...(source?.stamps || {}) };
+    const exists = (s) => Boolean(parts[s] || stamps[s]);
+    // "Both" updates the copies that exist; a new copy is only made on purpose
+    // (Account settings → Create a copy), never as a side effect of publishing.
+    // With no copy anywhere yet, the first publish goes to the primary store.
+    let targets = p.publishTo === "both" ? STORES.filter(exists) : [p.publishTo];
+    if (!targets.length) targets = [writeTarget(p.primary) || p.primary];
+    // Drive first: a new Drive folder's address then goes into what GitHub gets
+    targets = ["google", "github"].filter((s) => targets.includes(s));
     const skipped = [];
     for (const store of targets) {
       if (!hasToken(store)) {
@@ -627,4 +633,29 @@ export async function updateAccountPrefs(patch) {
 export async function unlinkAccount() {
   await Promise.all(STORES.filter(hasToken).map((s) => BACKENDS[s].deletePrivate(ACCOUNT_FILE).catch(() => null)));
   writeCachedAccount(null);
+}
+
+/**
+ * Starts a copy of the portfolio in a store that has none yet (e.g. a GitHub
+ * portfolio gets a Google Drive copy: a new public "mz-portfolio" folder).
+ * Done only from Account settings, on purpose. The other copy is then
+ * republished so visitors of either address find both. Returns false when
+ * that store already has a copy.
+ */
+export async function createCopyIn(store) {
+  let account = readCachedAccount();
+  if (!isLinked(account)) throw new Error("Link GitHub and Google first.");
+  if (!hasToken(store)) throw new Error(`Sign in with ${STORE_LABEL[store]} on this device first.`);
+  const filename = getResumeFilename();
+  const found = await accountStore.findResume(filename);
+  if (!found) throw new Error("Publish your portfolio once first.");
+  const { parts, stamps } = found.source;
+  if (parts[store] || stamps[store]) return false;
+  const content = `${JSON.stringify(found.resume, null, 2)}\n`;
+  const saved = await BACKENDS[store].writeResume(null, withPublicSources(content, account), filename);
+  if (store === "google" && saved.folderId) account = await saveAccount({ ...account, google: { ...account.google, folderId: saved.folderId } });
+  const other = STORES.find((s) => s !== store);
+  if (parts[other] && hasToken(other)) await BACKENDS[other].writeResume(parts[other], withPublicSources(content, account), filename);
+  accountStore.forgetCache();
+  return true;
 }

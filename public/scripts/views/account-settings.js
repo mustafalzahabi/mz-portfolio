@@ -17,10 +17,10 @@ import { ICONS } from "../icons.js";
 import { BASE_PATH } from "../router.js";
 import { SECTIONS } from "../template.js";
 import { STORE_LABEL } from "../combine.js";
-import { googleClientId, googleSessionExpired } from "../google.js";
+import { googleClientId, googleSessionExpired, getGoogleToken, renewGoogleToken } from "../google.js";
 import { repoScopeRemembered, forgetRepoScope } from "../github.js";
 import { getResumeFilename } from "../data.js";
-import { session, storage, signOutOf, signOutAll, linkNow, unlinkAccount, updateAccountPrefs } from "../storage.js";
+import { session, storage, signOutOf, signOutAll, linkNow, unlinkAccount, updateAccountPrefs, createCopyIn } from "../storage.js";
 import { connectProvider, signOut } from "../account.js";
 import { settingsLayout, openOverlay, settingRow, segmented } from "../edit/settings-ui.js";
 
@@ -58,6 +58,19 @@ const busy = (fn, redraw) => async (e) => {
   redraw();
   dispatchEvent(new CustomEvent("mz-auth", { detail: { user: session()?.user || null } }));
 };
+
+/** "Create a copy in …" for a store that has no copy of the portfolio yet. */
+function copyRows(account, redraw) {
+  const make = (store, label, hint) => settingRow(label, button(`Create a copy in ${STORE_LABEL[store]}`, busy(async () => {
+    if (store === "google" && !getGoogleToken() && !(await renewGoogleToken({ hint: account.google.email }))) throw new Error("Sign in with Google again first.");
+    const made = await createCopyIn(store);
+    toast(made ? `Your portfolio now also lives in ${STORE_LABEL[store]}.` : `${STORE_LABEL[store]} already has a copy.`);
+  }, redraw), "ghost", "plus"), hint);
+  const rows = [];
+  if (!account.google.folderId) rows.push(make("google", "Google Drive has no copy yet", "Makes a public \"mz-portfolio\" folder in your Drive (anyone with the link can view), with your portfolio in it."));
+  else if (account.prefs.primary === "google") rows.push(make("github", "Copy on GitHub", "Makes a public resume.json gist, if there isn't one yet."));
+  return rows;
+}
 
 function groups(redraw) {
   const s = session();
@@ -103,7 +116,7 @@ function groups(redraw) {
     : h("div.ed-set-body",
         h("p", both
           ? "You're signed in with both here. Link them to make one account: either sign-in opens it, and your portfolio combines what's in both (the newest wins)."
-          : `Connect ${s.providers.github ? "Google" : "GitHub"} to make one account from both. It works even if you already have a portfolio in each: they're combined, and you choose below where each part comes from.`),
+          : `Connect ${s.providers.github ? "Google" : "GitHub"} to make one account from both. It works even if you already have a portfolio in each: they're combined, and once linked you can choose where each part comes from.`),
         h("p.ed-hint", "Signing in to both is what proves they're yours: a matching email alone never links accounts."),
         h("div.ed-set-actions", both
           ? button("Link them", busy(async () => {
@@ -143,10 +156,11 @@ function groups(redraw) {
     {
       name: "publish",
       title: "Publishing",
-      desc: "Publishing to both keeps the two copies the same.",
+      desc: "Publishing to both keeps the copies you have the same. A new copy is only made when you ask for it below.",
       body: h("div.ed-set-body",
         settingRow("Publish to", segmented([["both", "Both"], ["github", "GitHub only"], ["google", "Google only"]], prefs.publishTo, (v) => savePrefs({ publishTo: v }), "Publish to"),
-          "A place you aren't signed in to on this device is skipped, and catches up next time.")),
+          "A place you aren't signed in to on this device is skipped, and catches up next time."),
+        ...copyRows(account, redraw)),
     },
   ] } : null;
 
