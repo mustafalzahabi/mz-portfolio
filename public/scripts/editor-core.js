@@ -158,17 +158,7 @@ export function validateField(kind, value) {
 // BLOG FRONTMATTER
 // ============================================================================
 
-export function frontmatter(post) {
-  const q = (s) => `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  const lines = ["---", `title: ${q(post.title || "Untitled")}`];
-  if (post.date) lines.push(`date: ${post.date}`);
-  if (post.tags?.length) lines.push(`tags: [${post.tags.map((t) => q(t)).join(", ")}]`);
-  if (post.description) lines.push(`description: ${q(post.description)}`);
-  if (post.image) lines.push(`image: ${q(post.image)}`);
-  if (post.draft) lines.push("draft: true");
-  lines.push("---", "");
-  return `${lines.join("\n")}\n${String(post.body || "").trim()}\n`;
-}
+export { frontmatter } from "./posts.js";
 
 /** Wraps/prefixes a textarea selection for the Markdown toolbar. Returns { text, start, end }. */
 export function applyMarkdown(text, start, end, action) {

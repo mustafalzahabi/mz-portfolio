@@ -106,7 +106,26 @@ const GUIDE = [
       ] },
       { id: "blog", title: "Blog", body: () => [
         p("Click ", h("strong", "New post"), " on the blog page while editing. Posts are written in Markdown, and each one is saved as its own gist (or Markdown file in your Drive folder), published separately from the rest of the portfolio."),
-        p("Public gists with a ", code(".md"), " file show up as posts. For Drive portfolios, ", code(".md"), " files in the folder do."),
+        p("Public gists with a ", code(".md"), " file show up as posts. For Drive portfolios, ", code(".md"), " files in the folder do. If you already blog from gists, nothing needs to change."),
+        p("Each post is one Markdown file with optional frontmatter at the top. The keys are the ones dev.to uses (plus ", code("date"), " and ", code("slug"), "), so a post can be copied to dev.to, Hashnode, Jekyll or Hugo as is:"),
+        codeBlock(`---
+title: "Shipping a portfolio without a backend"
+description: "What I learned building on gists."
+date: 2026-11-20
+tags: [javascript, webdev]
+cover_image: "https://example.com/cover.png"
+canonical_url: "https://example.com/original-post"
+slug: no-backend-portfolio
+published: true
+---
+
+Write the post in **Markdown** here.`, "post.md"),
+        ul(
+          ["Without a ", code("title"), ", the gist's description is used, then the first ", code("# heading"), ", then the file name."],
+          ["Without a ", code("date"), ", a ", code("YYYY-MM-DD-"), " file name prefix is used, then the gist's creation date."],
+          [code("published: false"), " (or ", code("draft: true"), ") hides a post. ", code("summary"), ", ", code("image"), " and comma-separated tags are read too."],
+          [code("slug"), " keeps the post's address stable when you rename it. The editor writes it for you."],
+        ),
       ] },
       { id: "images", title: "Photos and images", body: () => [
         p("Your photo can be your GitHub avatar, an upload, a link, or none. The banner can be a gradient or an image. Uploads are resized in the browser and stored in your own account (a gist, or your Drive folder), so nothing depends on a third-party host."),

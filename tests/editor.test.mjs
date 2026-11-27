@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 
 import { checkPalette, darkHex, contrast, hexToRgb } from "../public/scripts/palette.js";
 import { parseFrontmatter } from "../public/scripts/utils.js";
+import { postFields } from "../public/scripts/posts.js";
 import { setPath, frontmatter, prune, History, diffSummary, validateField, applyMarkdown } from "../public/scripts/editor-core.js";
 import { SECTIONS, templateResume, blankScaffold } from "../public/scripts/template.js";
 import { validateResume } from "../public/scripts/merge.js";
@@ -53,8 +54,36 @@ test("editor: blog frontmatter round-trips through the parser", () => {
   assert.equal(metadata.title, 'He said "hi"');
   assert.equal(String(metadata.date), "2026-11-03");
   assert.deepEqual(metadata.tags, ["notes", "a b"]);
-  assert.equal(metadata.draft, true);
+  assert.equal(metadata.published, false);
   assert.equal(body, "# Hello\n\nText");
+});
+
+test("posts: dev.to keys are written and read back", () => {
+  const post = { title: "T", date: "2026-11-03", tags: ["a"], description: "D", image: "https://x/c.png", canonical: "https://x/p", slug: "my-post", draft: false, body: "Hi" };
+  const { metadata, body } = parseFrontmatter(frontmatter(post));
+  assert.equal(metadata.cover_image, "https://x/c.png");
+  assert.equal(metadata.canonical_url, "https://x/p");
+  assert.equal(metadata.published, true);
+  const back = postFields(metadata, { body, filename: "x.md" });
+  assert.equal(back.slug, "my-post");
+  assert.equal(back.image, "https://x/c.png");
+  assert.equal(back.canonical, "https://x/p");
+  assert.equal(back.draft, false);
+});
+
+test("posts: lenient reading and fallbacks", () => {
+  const a = postFields({ summary: "S", image: "i.png", tags: "a, b", draft: true }, { body: "# Heading\n", filename: "2025-04-01-hello-there.md" });
+  assert.equal(a.title, "Heading");
+  assert.equal(a.description, "S");
+  assert.equal(a.image, "i.png");
+  assert.deepEqual(a.tags, ["a", "b"]);
+  assert.equal(a.date, "2025-04-01");
+  assert.equal(a.draft, true);
+  const b = postFields({ images: ["one.png"] }, { body: "no heading", filename: "2025-04-01-hello-there.md", fallbackTitle: "From gist" });
+  assert.equal(b.title, "From gist");
+  assert.equal(b.image, "one.png");
+  assert.equal(postFields({}, { filename: "2025-04-01-hello-there.md" }).title, "hello-there");
+  assert.equal(postFields({}, { filename: "x.md", created: "2024-01-02T00:00:00Z" }).date, "2024-01-02T00:00:00Z");
 });
 
 test("logo: logo.svg carries its own color", () => {

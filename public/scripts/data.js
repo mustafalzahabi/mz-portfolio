@@ -19,6 +19,7 @@ import {
   downloadDriveFile,
 } from "./api.js";
 import { parseFrontmatter, slugify } from "./utils.js";
+import { postFields } from "./posts.js";
 import { debug } from "./log.js";
 
 const SNAPSHOT_PREFIX = "mz-portfolio-data-";
@@ -82,21 +83,9 @@ export function parseResumeJson(text) {
 
 function buildPost({ content, filename, fallbackTitle, created, updated, url, id }) {
   const { metadata, body } = parseFrontmatter(content);
-  if (metadata.draft === true || metadata.published === false) return null;
-  const firstHeading = body.match(/^#\s+(.+)$/m)?.[1];
-  const title = String(metadata.title || fallbackTitle || firstHeading || filename.replace(/\.md$/i, ""));
-  return {
-    title,
-    slug: slugify(metadata.slug || title),
-    date: metadata.date || created,
-    updatedAt: updated,
-    tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
-    description: String(metadata.description || metadata.preview || ""),
-    image: String(metadata.image || ""),
-    body,
-    url,
-    id,
-  };
+  const fields = postFields(metadata, { body, filename, fallbackTitle, created });
+  if (fields.draft) return null;
+  return { ...fields, updatedAt: updated, body, url, id };
 }
 
 function dedupeSlugs(posts) {

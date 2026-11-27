@@ -18,6 +18,7 @@ import { checkPalette, darkHex } from "../palette.js";
 import { CURATED_THEMES } from "../resume/index.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, blankScaffold } from "../template.js";
 import { getPath, setPath, isEmpty, prune, History, diffSummary, validateField, frontmatter, applyMarkdown } from "../editor-core.js";
+import { postFields } from "../posts.js";
 import { TOKEN_HELP_URL, signIn } from "../github.js";
 import { storage } from "../storage.js";
 import { googleLoginUrl } from "../google.js";
@@ -970,7 +971,7 @@ async function loadPosts() {
   ed.posts = await storage().listPosts(ed.source?.filename || getResumeFilename());
 }
 
-const POST_FIELDS = ["title", "date", "tags", "description", "image", "draft", "body", "slug", "isPublic"];
+const POST_FIELDS = ["title", "date", "tags", "description", "image", "canonical", "draft", "body", "slug", "isPublic"];
 
 function savePostDraft(p) {
   store.set(POST_DRAFT_KEY, { gistId: p.gistId, ...Object.fromEntries(POST_FIELDS.map((k) => [k, p[k]])), editedAt: new Date().toISOString() });
@@ -990,17 +991,9 @@ async function openPost(post) {
   if (post && !post.loaded) {
     const { text, createdAt, updatedAt } = await storage().readPost(post);
     const { metadata, body } = parseFrontmatter(text);
-    Object.assign(post, {
-      loaded: true,
-      title: String(metadata.title || post.title),
-      date: metadata.date ? String(metadata.date).slice(0, 10) : String(createdAt || "").slice(0, 10),
-      tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
-      description: String(metadata.description || metadata.preview || ""),
-      image: String(metadata.image || ""),
-      draft: metadata.draft === true || metadata.published === false,
-      body,
-      updatedAt,
-    });
+    const fields = postFields(metadata, { body, filename: post.filename, fallbackTitle: post.title, created: createdAt });
+    // The slug is written back on save, so a later title change keeps the post's URL
+    Object.assign(post, { loaded: true, ...fields, date: fields.date.slice(0, 10), body, updatedAt });
   }
   ed.post = post || {
     gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", draft: false, body: "", isPublic: true, loaded: true,
@@ -1122,6 +1115,7 @@ function postEditor(panel) {
   const saveBtn = h("button.btn.btn-primary", { type: "button" }, p.gistId ? "Save post" : "Publish post");
   const save = async () => {
     if (!p.title.trim()) return toast("Give the post a title first.", "error");
+    p.slug = slugify(slugInput?.value || p.slug || p.title);
     const content = frontmatter(p);
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving…";
