@@ -882,6 +882,7 @@ const SETTING_CARDS = {
   tags: ["Tags", "The small labels on projects and skills."],
   blog: ["Blog", "Whether and how posts are listed."],
   resume: ["Resume", "Downloading and printing."],
+  chat: ["AI chat", "A chat that answers visitors' questions from your portfolio, on their own device."],
   animation: ["Animations", "The intro and scroll effects."],
   seo: ["Search and sharing", "How your portfolio appears in search results and link previews."],
   json: ["resume.json", "Everything, as raw JSON. For bulk edits."],
@@ -889,7 +890,7 @@ const SETTING_CARDS = {
 const SETTING_GROUPS = [
   ["look", "Look", ["colors", "theme", "typography", "shape", "resumeTheme"]],
   ["layout", "Layout", ["header", "profile", "banner", "sections", "navbar", "footer"]],
-  ["content", "Content", ["text", "projects", "skills", "tags", "blog", "resume"]],
+  ["content", "Content", ["text", "projects", "skills", "tags", "blog", "resume", "chat"]],
   ["motion", "Motion", ["animation"]],
   ["sharing", "Sharing", ["seo"]],
   ["advanced", "Advanced", ["json"]],

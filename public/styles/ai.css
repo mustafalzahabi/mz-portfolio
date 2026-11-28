@@ -1,0 +1,154 @@
+/* ============================================================================
+   AI CHAT — visitor button + panel (also "Edit with AI" in edit mode)
+   ============================================================================ */
+
+.ai-fab {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 55;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 48px;
+  padding: 0 1.1rem 0 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-a);
+  color: var(--color-b);
+  font: inherit;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+}
+.ai-fab .icon svg { width: 20px; height: 20px; }
+.ai-fab:focus-visible { outline: 2px solid var(--color-c); outline-offset: 3px; }
+
+/* the owner's edit pencil keeps the corner; the chat sits beside it */
+body:has(.ed-fab) .ai-fab { right: calc(1rem + 56px + 0.75rem + env(safe-area-inset-right)); }
+/* in edit mode the toolbar has its own AI button */
+.is-editing .ai-fab { display: none; }
+/* the back-to-top button moves above it */
+body:has(.ai-fab) .to-top { bottom: 5.5rem; }
+
+@media (max-width: 899px) {
+  /* above the section menu along the bottom */
+  body:has(.section-nav) .ai-fab { bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
+  .ai-fab { min-height: 44px; padding: 0 0.95rem 0 0.8rem; }
+}
+@media (max-width: 420px) {
+  /* icon only on narrow phones */
+  .ai-fab { width: 48px; min-height: 48px; padding: 0; justify-content: center; }
+  .ai-fab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+
+.ai-panel {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 2rem));
+  height: min(600px, calc(100dvh - 2rem));
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 1.5);
+  background: var(--color-b);
+  color: var(--color-c);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.is-editing .ai-panel { bottom: calc(4.75rem + env(safe-area-inset-bottom)); height: min(600px, calc(100dvh - 9rem)); }
+
+@media (max-width: 599px) {
+  /* a bottom sheet on phones */
+  .ai-panel,
+  .is-editing .ai-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: min(85dvh, 640px);
+    border-radius: calc(var(--radius) * 1.5) calc(var(--radius) * 1.5) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.6rem 0.6rem 1rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ai-title { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 600; min-width: 0; }
+.ai-title .icon { color: var(--color-a); }
+
+.ai-status { display: grid; gap: 0.5rem; padding: 0 1rem; font-size: 0.85rem; color: var(--ink-muted); }
+.ai-status:has(.ai-status-text:not(:empty)) { padding-top: 0.75rem; }
+.ai-progress { width: 100%; height: 6px; accent-color: var(--color-a); }
+.ai-start { justify-self: start; }
+
+.ai-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ai-msg {
+  max-width: 88%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 1rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.ai-user { align-self: flex-end; background: var(--color-a); color: var(--color-b); border-bottom-right-radius: 0.3rem; }
+.ai-bot { align-self: flex-start; background: var(--well); border-bottom-left-radius: 0.3rem; }
+.ai-bot:has(.ai-card) { max-width: 100%; width: 100%; display: grid; gap: 0.5rem; background: none; padding: 0; }
+.ai-msg.is-pending { color: var(--ink-muted); }
+
+.ai-form { display: flex; gap: 0.5rem; padding: 0.6rem; border-top: 1px solid var(--line-soft); }
+.ai-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--color-b);
+  color: inherit;
+  font: inherit;
+  font-size: max(16px, 1rem); /* no zoom-on-focus on iOS */
+}
+.ai-input:focus-visible { outline: 2px solid var(--color-a); outline-offset: 1px; }
+.ai-send { width: 44px; min-height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+.ai-foot { margin: 0; padding: 0 1rem 0.6rem; font-size: 0.75rem; color: var(--ink-muted); }
+
+/* ---------- change cards (edit mode) ---------- */
+.ai-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+}
+.ai-card-ask { font-size: 0.8rem; color: var(--ink-muted); }
+.ai-diff { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; }
+.ai-field { font-weight: 600; margin-right: 0.15rem; }
+.ai-field::after { content: ":"; }
+.ai-diff del,
+.ai-diff ins { padding: 0.05rem 0.35rem; border-radius: 0.3rem; text-decoration: none; overflow-wrap: anywhere; }
+.ai-diff del { background: color-mix(in oklab, var(--color-f) 16%, transparent); color: var(--color-f); text-decoration: line-through; }
+.ai-diff ins { background: color-mix(in oklab, var(--color-o) 18%, transparent); color: var(--color-o); }
+.ai-arrow, .ai-empty { color: var(--ink-muted); }
+.ai-card-actions { display: flex; justify-content: flex-end; gap: 0.4rem; }
+.ai-settled { font-size: 0.85rem; color: var(--ink-muted); }
+.ai-card.is-done, .ai-card.is-skipped { opacity: 0.65; }
+.ai-card.is-skipped { font-size: 0.9rem; }
+.ai-all { justify-self: end; }

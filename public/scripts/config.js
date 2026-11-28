@@ -172,6 +172,10 @@ export const CONFIG_SCHEMA = {
     download: bool("Show a Download resume.json button.", true),
     print: bool("Show a Print / PDF button.", true),
   },
+  chat: {
+    _desc: "AI chat for visitors. The model runs on each visitor's own device (a one-time download they choose), so there's no account, key or shared limit.",
+    enabled: bool("Show the \"Ask about …\" AI chat button on your portfolio.", true),
+  },
   seo: {
     _desc: "Search and link previews.",
     title: str("Page title. Defaults to \"Name – Label\"."),

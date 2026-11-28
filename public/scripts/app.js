@@ -35,6 +35,7 @@ import { loadLanguageColors } from "./languages.js";
 import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
+import { setChatSource } from "./ai/chat.js";
 import { renderDocs } from "./views/docs.js";
 import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme, isEditing } from "./edit/mode.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
@@ -230,6 +231,7 @@ async function rerenderPortfolio(resume) {
 // theme default) so the next page never inherits another owner's look.
 function resetPortfolio() {
   state.loadId++;
+  setChatSource(null);
   closeResume(); // its overlay must not stay over the next page
   document.body.classList.remove("is-sparse");
   teardownAnimations();
@@ -285,6 +287,8 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   state.shell = null;
   state.page = null;
   state.introPlayed = false;
+  // Visitors' AI chat (runs on their device; nothing loads until they open it)
+  setChatSource(config.chat.enabled && data.resume && !EMBEDDED ? () => state.data?.resume || data.resume : null);
   return true;
 }
 

@@ -27,6 +27,8 @@ import { canEditReadme, openReadmeEditor, resumeReadmeEdit } from "./readme.js";
 import { editInPlace, focusLater } from "./inline.js";
 import { editPostOnPage } from "./post-page.js";
 import { openOverlay } from "./settings-ui.js";
+import { openAiPanel, closePanel as closeAiEdit } from "../ai/chat.js";
+import { applyChange } from "../ai/prompts.js";
 import { photoEditor, imageMenu, stripInput, fieldStrip, itemTools, editIcon, addSectionMenu, inlineDates, chipList } from "./direct.js";
 import {
   ed, hooks, ago, begin, changed, undo, redo, save, readDraft, bindControls,
@@ -221,6 +223,7 @@ function stopEditing() {
 
 function leaveUi() {
   closeSheet();
+  closeAiEdit();
   document.querySelector(".ed-fab")?.remove();
   ui?.toolbar.remove();
   ui?.bar.remove();
@@ -359,6 +362,18 @@ let settingsDialog = null;
 let staleSinceSettings = false;
 
 /** Full screen on phones; a large panel with the groups in a side menu on desktop. */
+/** "Edit with AI": accepted changes go through changed(), like any other edit (undo, drafts, publish). */
+function openAiEdit() {
+  openAiPanel({
+    mode: "edit",
+    getResume: () => ed.resume,
+    onApply: (change, request) => {
+      applyChange(ed.resume, change, request);
+      changed();
+    },
+  });
+}
+
 function openSettings() {
   if (settingsDialog) return;
   const slot = h("div", { id: "ed-panel" });
@@ -1173,6 +1188,7 @@ function mountUi(kind) {
 
   const toolbar = h("div.ed-toolbar", { role: "toolbar", "aria-label": "Edit mode" },
     h("span.ed-toolbar-label", h("span.ed-dot"), "Editing"),
+    h("button.ed-icon-btn", { type: "button", "aria-label": "Edit with AI", title: "Edit with AI: say what to change", onclick: openAiEdit }, svgIcon(ICONS.sparkles)),
     h("button.ed-icon-btn", { type: "button", "aria-label": "Site settings", title: "Site settings: colors, fonts, layout, SEO", onclick: openSettings }, svgIcon(ICONS.sliders)),
     h("button.btn.btn-ghost", { type: "button", onclick: exitEdit }, "Done"),
   );

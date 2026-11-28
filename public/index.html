@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org; frame-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/@wllama/ 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://raw.githubusercontent.com https://www.googleapis.com https://registry.jsonresume.org https://cdn.jsdelivr.net/npm/@wllama/ https://huggingface.co https://*.huggingface.co https://*.hf.co; frame-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>mz-portfolio</title>
   <meta name="description" content="A fast, mobile-first portfolio with projects, a blog and a printable resume, edited on the page and saved to your GitHub.">
@@ -26,7 +26,7 @@
   <link rel="modulepreload" href="/scripts/index.js?v=5">
   <link rel="modulepreload" href="/scripts/app.js">
   <link rel="preconnect" href="https://api.github.com" crossorigin>
-  <link rel="stylesheet" href="/styles/style.css?v=6">
+  <link rel="stylesheet" href="/styles/style.css?v=7">
 </head>
 <body>
   <div id="app" aria-live="polite" aria-busy="true">

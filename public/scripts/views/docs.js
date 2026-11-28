@@ -161,6 +161,16 @@ Write the post in **Markdown** here.`, "post.md"),
         ),
         note("The link is stored privately in your own accounts (a secret gist and Drive's hidden app folder). This site has no database."),
       ] },
+      { id: "ai", title: "AI chat and Edit with AI", body: () => [
+        p("Visitors can ask an AI about your portfolio from the ", h("strong", "Ask about …"), " button. In edit mode, ", h("strong", "Edit with AI"), " (the sparkles in the toolbar) turns requests like “add Python and move me to Berlin” into changes you accept or reject one by one."),
+        ul(
+          "The model (LFM2.5-1.2B, about 730 MB) runs on the visitor's own device: no account, no key, no shared limit, and nothing typed leaves the device.",
+          "It downloads once, only when someone opens the chat, and is then saved in their browser. On mobile data it asks first.",
+          "Fastest in Chrome and Edge (desktop and Android). Other browsers run it on one thread, which is much slower.",
+          "It answers only from your portfolio, and says so when something isn't there. Edit with AI covers your name, title, bio, city, contact details, current job and skills.",
+        ),
+        note("Turn the visitor chat off in Site settings → Content → AI chat."),
+      ] },
       { id: "drive", title: "Google Drive", body: () => [
         p("Share a ", code("resume.json"), " file, or a folder containing it, as ", h("em", "Anyone with the link"), ", then open ", code(`${host()}<file-or-folder-id>`), ". You can also paste the full Drive link into the box on the home page."),
         note("Drive portfolios are read-only here: edit the file in Drive. Site owners need a Google API key; see the README."),
