@@ -184,6 +184,27 @@ async function route() {
   renderSub(path.sub);
   afterRender();
   if (result.offline) showOfflineBanner(result);
+  // Shown from this browser's saved copy: check GitHub/Drive quietly, and redraw if the owner changed anything
+  else if (result.savedAt && Date.now() - result.savedAt > 60 * 1000) refreshInBackground(path, key, loadId, data);
+}
+
+/** What visitors see, as a comparable string (resume, posts and their versions, repos). */
+const fingerprint = (d) => JSON.stringify([d.resume, (d.posts || []).map((p) => [p.slug, p.updatedAt]), (d.repos || []).map((r) => [r.name, r.pushed_at || r.updated_at])]);
+
+async function refreshInBackground(path, key, loadId, shown) {
+  const fresh = await collectPortfolioData(path.source, path.id, { force: true }).catch(() => null);
+  if (fresh?.status !== "ok" || fresh.offline || loadId !== state.loadId || state.key !== key || isEditing()) return;
+  if (fingerprint(fresh.data) === fingerprint(shown)) return;
+  const y = scrollY;
+  const sub = parsePath().sub;
+  teardownAnimations();
+  resetStyleConfig();
+  state.data = fresh.data;
+  if (!(await showPortfolio(fresh.data, key, path.base, loadId))) return;
+  state.introPlayed = true; // a redraw, not a first visit: no intro again
+  renderSub(sub);
+  scrollTo(0, y);
+  afterRender();
 }
 
 /**
