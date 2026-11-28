@@ -5,15 +5,52 @@
 // Like functions/_middleware.js in production, HTML pages get GOOGLE_API_KEY
 // and GOOGLE_CLIENT_ID filled in, here from .dev.vars (git-ignored,
 // KEY=value lines, the same file `wrangler pages dev` reads).
-// usage: node tools/dev-server.mjs [port]
+// usage: node tools/dev-server.mjs [port] [--posts <folder>]
+//
+// --posts <folder>: preview unpublished blog posts. Every .md file in the
+// folder (and its subfolders, except ones starting with "_") is listed at
+// /__dev/posts, and its other files (images) are served under
+// /__dev/posts/<path>. The preview page (/preview/view) shows them as the
+// blog when the site runs on localhost. Nothing is uploaded anywhere.
 // ============================================================================
 
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { extname, join, normalize, relative, resolve, sep } from "node:path";
 
-const PORT = Number(process.argv[2] || process.env.PORT || 8000);
+const args = process.argv.slice(2);
+const postsFlag = args.indexOf("--posts");
+const POSTS_DIR = postsFlag >= 0 && args[postsFlag + 1] ? resolve(args[postsFlag + 1]) : null;
+const positional = args.filter((a, i) => i !== postsFlag && i !== postsFlag + 1);
+const PORT = Number(positional[0] || process.env.PORT || 8000);
 const PUBLIC_DIR = resolve(import.meta.dirname, "..", "public");
+
+/** Every .md under POSTS_DIR as { path, content }; folders starting with "_" are skipped. */
+async function localPosts(dir = POSTS_DIR) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await localPosts(full)));
+    else if (/\.md$/i.test(entry.name) && !/^(readme|style-guide)\.md$/i.test(entry.name)) {
+      const info = await stat(full);
+      out.push({ path: relative(POSTS_DIR, full).split(sep).join("/"), content: await readFile(full, "utf8"), modified: info.mtime.toISOString() });
+    }
+  }
+  return out;
+}
+
+/** A file inside POSTS_DIR for /__dev/posts/<path>, or null (no ../ escapes). */
+async function postFileFor(urlPath) {
+  const rel = decodeURIComponent(urlPath.split("?")[0].slice("/__dev/posts/".length));
+  const path = normalize(join(POSTS_DIR, rel));
+  if (!path.startsWith(POSTS_DIR + sep)) return null;
+  try {
+    return (await stat(path)).isFile() ? path : null;
+  } catch {
+    return null;
+  }
+}
 
 /** KEY=value lines from .dev.vars, if the file exists. */
 async function devVars() {
@@ -67,6 +104,25 @@ async function fileFor(urlPath) {
 
 const server = createServer(async (req, res) => {
   try {
+    if (req.url.startsWith("/__dev/posts")) {
+      if (!POSTS_DIR) {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Start the dev server with --posts <folder> to preview local posts");
+        return;
+      }
+      if (req.url.split("?")[0] === "/__dev/posts") {
+        res.writeHead(200, { "Content-Type": CONTENT_TYPES[".json"], "Cache-Control": "no-store" });
+        res.end(JSON.stringify(await localPosts()));
+        return;
+      }
+      const file = await postFileFor(req.url);
+      res.writeHead(file ? 200 : 404, {
+        "Content-Type": file ? CONTENT_TYPES[extname(file).toLowerCase()] || "application/octet-stream" : "text/plain",
+        "Cache-Control": "no-store",
+      });
+      res.end(file ? await readFile(file) : "Not found");
+      return;
+    }
     const found = await fileFor(req.url);
     // Assets that don't exist are real 404s; page routes fall back to the app
     const looksLikeAsset = /\.[a-z0-9]+$/i.test(req.url.split("?")[0]);
@@ -90,4 +146,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`mz-portfolio dev server: http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`mz-portfolio dev server: http://localhost:${PORT}`);
+  if (POSTS_DIR) console.log(`local posts from ${POSTS_DIR}: open http://localhost:${PORT}/preview/view/blog`);
+});

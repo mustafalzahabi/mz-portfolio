@@ -43,6 +43,9 @@ export function postFields(metadata = {}, { body = "", filename = "", fallbackTi
     image: String(metadata.cover_image || metadata.image || images[0] || ""),
     canonical: String(metadata.canonical_url || ""),
     draft: metadata.published === false || metadata.draft === true,
+    // A series groups posts in reading order ("part" 1, 2, …)
+    series: String(metadata.series || ""),
+    part: Number.parseInt(metadata.part ?? metadata.series_part, 10) || 0,
   };
 }
 
@@ -56,6 +59,8 @@ export function frontmatter(post) {
   if (post.image) lines.push(`cover_image: ${q(post.image)}`);
   if (post.canonical) lines.push(`canonical_url: ${q(post.canonical)}`);
   if (post.slug) lines.push(`slug: ${post.slug}`);
+  if (post.series) lines.push(`series: ${q(post.series)}`);
+  if (post.series && post.part) lines.push(`part: ${post.part}`);
   lines.push(`published: ${post.draft ? "false" : "true"}`);
   lines.push("---", "");
   return `${lines.join("\n")}\n${String(post.body || "").trim()}\n`;

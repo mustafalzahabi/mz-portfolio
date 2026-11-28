@@ -39,14 +39,17 @@ function iconLabel(icon, label) {
   return [svgIcon(ICONS[icon] || icon), h("span", label)];
 }
 
-function tagList(items, className = "tag", field = null) {
+function tagList(items, className = "tag", field = null, { languageColors = true } = {}) {
   const list = (items || []).filter(Boolean);
   if (!list.length) return null;
   return h("ul.tags", { role: "list", dataset: { list: field } }, list.map((t) => {
     const li = h(`li.${className}`, t);
-    return colorLanguageTags ? paintLanguageTag(li, t) : li;
+    return colorLanguageTags && languageColors ? paintLanguageTag(li, t) : li;
   }));
 }
+
+/** Blog tags are topics, not tech stacks: never language-colored. */
+const postTags = (tags) => tagList(tags, "tag", null, { languageColors: false });
 
 /** Generic timeline/card entry used by work, volunteer, education, awards, … */
 function entryCard({ title, subtitle, subtitleUrl, when, location, summary, highlights, tags, link, linkLabel, extra, fields = {} }) {
@@ -878,11 +881,41 @@ export function buildFooter(vm, cfg, ctx) {
 // BLOG
 // ============================================================================
 
+/** "Main title — subtitle" → [main, subtitle]. */
+export function splitTitle(title) {
+  const m = String(title).match(/^(.+?)\s+[—–]\s+(.+)$/);
+  return m ? [m[1], m[2]] : [String(title), ""];
+}
+
+/** Keeps "Chi-Squared" together: hyphens inside words become non-breaking. */
+const noBreakHyphens = (s) => String(s).replace(/(\w)-(\w)/g, "$1‑$2");
+
+/** The post's picture: its cover, else its first image, else null. */
+export function postImage(post) {
+  return post.image || post.body.match(/!\[[^\]]*\]\(\s*<?([^)\s>]+)/)?.[1] || null;
+}
+
+const seedTone = (seed) => [...String(seed)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7) % 3;
+
+/** A card's picture; posts without one get a generated cover in the palette. */
+function postThumb(post, seed) {
+  const generated = () =>
+    h("div.post-thumb.is-generated", { dataset: { tone: String(seedTone(seed)) }, "aria-hidden": "true" },
+      h("span", initials((post.tags[0] || post.title).replace(/-/g, " "))));
+  const src = postImage(post);
+  return src
+    ? h("div.post-thumb", h("img", { src, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.replaceWith(generated()) }))
+    : generated();
+}
+
 export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 1 }) {
   const wrap = h("section.blog", { "aria-labelledby": "blog-title" });
   wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog"));
 
-  const allTags = [...new Set(vm.posts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b));
+  // Most-used tags first, so the useful filters come before the long tail
+  const tagCount = new Map();
+  for (const t of vm.posts.flatMap((p) => p.tags)) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+  const allTags = [...tagCount.keys()].sort((a, b) => tagCount.get(b) - tagCount.get(a) || a.localeCompare(b));
   const controls = h("div.blog-controls");
   const results = h("div.blog-results", { "aria-live": "polite" });
 
@@ -910,7 +943,25 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         dataset: { tag },
       }, label);
     chips.appendChild(chip("", "All"));
-    allTags.forEach((t) => chips.appendChild(chip(t, t)));
+    // Past a dozen tags, the rest wait behind "More" (always shown if one of them is selected)
+    const SHOWN = 12;
+    allTags.forEach((t, i) => {
+      const c = chip(t, t);
+      if (i >= SHOWN && t !== state.tag) c.hidden = true;
+      chips.appendChild(c);
+    });
+    if (allTags.length > SHOWN) {
+      const more = h("button.chip.chip-more", { type: "button", "aria-expanded": "false" }, `+${allTags.length - SHOWN} more`);
+      more.addEventListener("click", () => {
+        const open = more.getAttribute("aria-expanded") !== "true";
+        more.setAttribute("aria-expanded", String(open));
+        more.textContent = open ? "Fewer" : `+${allTags.length - SHOWN} more`;
+        chips.querySelectorAll(".chip[data-tag]").forEach((c, i) => {
+          if (i > SHOWN) c.hidden = !open && c.dataset.tag !== state.tag;
+        });
+      });
+      chips.appendChild(more);
+    }
     controls.appendChild(chips);
   }
   if (controls.children.length) wrap.appendChild(controls);
@@ -923,27 +974,69 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         (!state.tag || p.tags.includes(state.tag)) &&
         (!q || `${p.title} ${p.description} ${p.tags.join(" ")} ${p.body}`.toLowerCase().includes(q)),
     );
+    // Browsing (no search, no tag): a series shows once, as one card for all its parts
+    const items = [];
+    const seen = new Set();
+    for (const p of filtered) {
+      if (!q && !state.tag && p.series) {
+        if (seen.has(p.series)) continue;
+        const parts = filtered.filter((x) => x.series === p.series);
+        if (parts.length > 1) {
+          seen.add(p.series);
+          items.push({ series: p.series, parts: parts.sort((a, b) => (a.part || 0) - (b.part || 0)) });
+          continue;
+        }
+      }
+      items.push(p);
+    }
+    // Same day: a series card leads the single posts
+    const day = (it) => (it.parts || [it]).map((p) => String(p.date).slice(0, 10)).sort().pop();
+    items.sort((x, y) => day(y).localeCompare(day(x)) || (y.parts ? 1 : 0) - (x.parts ? 1 : 0));
     const per = cfg.blog.perPage;
-    const pages = Math.max(1, Math.ceil(filtered.length / per));
+    const pages = Math.max(1, Math.ceil(items.length / per));
     state.page = Math.min(state.page, pages);
-    const slice = filtered.slice((state.page - 1) * per, state.page * per);
+    const slice = items.slice((state.page - 1) * per, state.page * per);
 
     results.replaceChildren();
     if (!slice.length) {
       results.appendChild(h("p.empty", "No posts match."));
       return;
     }
+    const href = (p) => `${ctx.base}/blog/${encodeURIComponent(p.slug)}`;
     const list = h("div.post-list");
-    for (const post of slice) {
-      const card = h("article.card.post-card");
-      card.appendChild(h("h3.post-title", h("a", { href: `${ctx.base}/blog/${encodeURIComponent(post.slug)}` }, post.title)));
-      card.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
-      const excerpt = post.description || markdownToText(post.body).slice(0, 180);
-      if (excerpt) card.appendChild(h("p.post-excerpt", excerpt.length >= 180 ? `${excerpt}…` : excerpt));
-      if (cfg.blog.showTags) {
-        const tl = tagList(post.tags);
-        if (tl) card.appendChild(tl);
+    for (const item of slice) {
+      if (item.series) {
+        const first = item.parts[0];
+        const minutes = item.parts.reduce((n, p) => n + readingTime(p.body), 0);
+        const card = h("article.post-card.series-card");
+        const bodyEl = h("div.post-card-body");
+        bodyEl.appendChild(h("p.post-series", "Series"));
+        bodyEl.appendChild(h("h3.post-title", h("a", { href: href(first) }, noBreakHyphens(item.series))));
+        bodyEl.appendChild(h("p.post-meta", `${item.parts.length} parts · ${minutes} min read`));
+        bodyEl.appendChild(h("p.post-excerpt", "Starts with ", h("a.series-start", { href: href(first) }, noBreakHyphens(splitTitle(first.title)[0])), item.parts[1] ? `, then ${splitTitle(item.parts[1].title)[0]}${item.parts.length > 2 ? " and more" : ""}.` : "."));
+        card.appendChild(bodyEl);
+        card.appendChild(postThumb(first, item.series));
+        list.appendChild(card);
+        continue;
       }
+      const post = item;
+      const [title, subtitle] = splitTitle(post.title);
+      const card = h("article.post-card");
+      const bodyEl = h("div.post-card-body");
+      if (post.series) bodyEl.appendChild(h("p.post-series", post.part ? `${post.series} · Part ${post.part}` : post.series));
+      bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, noBreakHyphens(title))));
+      if (subtitle) bodyEl.appendChild(h("p.post-subtitle", subtitle));
+      bodyEl.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
+      // A description is shown whole; only text cut from the body gets "…"
+      const text = post.description ? "" : markdownToText(post.body);
+      const excerpt = post.description || (text.length > 180 ? `${text.slice(0, 180).replace(/\s+\S*$/, "")}…` : text);
+      if (excerpt) bodyEl.appendChild(h("p.post-excerpt", excerpt));
+      if (cfg.blog.showTags) {
+        const tl = postTags(post.tags);
+        if (tl) bodyEl.appendChild(tl);
+      }
+      card.appendChild(bodyEl);
+      card.appendChild(postThumb(post, post.series || post.tags[0] || post.title));
       list.appendChild(card);
     }
     results.appendChild(list);
@@ -968,33 +1061,99 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
 }
 
 export function buildBlogPost(post, vm, cfg, ctx) {
-  const index = vm.posts.indexOf(post);
+  const postHref = (p) => `${ctx.base}/blog/${encodeURIComponent(p.slug)}`;
   const page = h("article.detail.post-detail");
-  page.appendChild(h("a.back-link", { href: `${ctx.base}/blog` }, svgIcon(ICONS.arrowLeft), cfg.text.tabs.blog || "Blog"));
 
   const head = h("header.detail-head");
-  head.appendChild(h("h1.detail-title", post.title));
-  head.appendChild(h("p.detail-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
-  const tl = cfg.blog.showTags ? tagList(post.tags) : null;
-  if (tl) head.appendChild(tl);
+  const [mainTitle, subtitle] = splitTitle(post.title);
+  head.appendChild(h("h1.detail-title", noBreakHyphens(mainTitle)));
+  if (subtitle) head.appendChild(h("p.detail-subtitle", subtitle));
   head.appendChild(
-    h("div.detail-actions",
-      h("button.btn.btn-ghost", { type: "button", onclick: async () => toast((await copyText(location.href)) ? "Link copied" : "Couldn't copy") }, svgIcon(ICONS.link), "Copy link"),
-      post.url ? h("a.btn.btn-ghost", { href: post.url }, svgIcon(ICONS.external), "Source") : null),
+    h("p.detail-meta",
+      formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`,
+      h("button.icon-btn.post-copy", { type: "button", "aria-label": "Copy link to this post", title: "Copy link", onclick: async () => toast((await copyText(location.href)) ? "Link copied" : "Couldn't copy") }, svgIcon(ICONS.link)),
+      post.url ? h("a.icon-btn.post-copy", { href: post.url, "aria-label": "View the source of this post", title: "Source" }, svgIcon(ICONS.external)) : null),
   );
-  page.appendChild(head);
+  const tl = cfg.blog.showTags ? postTags(post.tags) : null;
+  if (tl) head.appendChild(tl);
+  // Everything in the reading column; the contents (if any) sit beside it
+  const main = h("div.post-main", head);
 
-  if (post.image) page.appendChild(h("img.post-cover", { src: post.image, alt: "", decoding: "async" }));
+  // Series: where this post sits, and the whole reading order one click away
+  const series = post.series ? vm.posts.filter((p) => p.series === post.series).sort((a, b) => (a.part || 0) - (b.part || 0)) : [];
+  if (series.length > 1) {
+    const pos = series.indexOf(post) + 1;
+    const box = h("details.post-series-box");
+    box.appendChild(h("summary", h("span.muted", `Part ${post.part || pos} of ${series.length}`), " · ", h("strong", post.series)));
+    box.appendChild(h("ol", series.map((p) => h("li", p === post ? h("span", { "aria-current": "page" }, p.title) : h("a", { href: postHref(p) }, p.title)))));
+    main.appendChild(box);
+  }
+
+  if (post.image) main.appendChild(h("img.post-cover", { src: post.image, alt: "", decoding: "async" }));
   const body = h("div.prose");
   body.innerHTML = markdownToHtml(post.body.replace(new RegExp(`^#\\s+${post.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n`), ""));
-  page.appendChild(body);
 
-  const pager = h("nav.pager", { "aria-label": "More posts" });
-  const newer = vm.posts[index - 1];
-  const older = vm.posts[index + 1];
-  if (older) pager.appendChild(h("a.pager-prev", { href: `${ctx.base}/blog/${encodeURIComponent(older.slug)}` }, svgIcon(ICONS.arrowLeft), h("span", older.title)));
-  if (newer) pager.appendChild(h("a.pager-next", { href: `${ctx.base}/blog/${encodeURIComponent(newer.slug)}` }, h("span", newer.title), svgIcon(ICONS.arrowRight)));
+  // Table of contents from the ## headings, for posts long enough to need one
+  const headings = [...body.querySelectorAll("h2")];
+  if (headings.length >= 3) {
+    const used = new Set();
+    const items = headings.map((hd) => {
+      let id = `s-${hd.textContent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section"}`;
+      while (used.has(id)) id += "-";
+      used.add(id);
+      hd.id = id;
+      return h("li", h("a", { href: `#${id}`, onclick: (e) => { e.preventDefault(); hd.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(history.state, "", `#${id}`); } }, hd.textContent));
+    });
+    // Open beside the article on wide screens; a one-line toggle above it on phones
+    const toc = h("details.post-toc", { open: matchMedia("(min-width: 1100px)").matches });
+    toc.appendChild(h("summary", "On this page"));
+    toc.appendChild(h("ol", items));
+    // Phones: the toggle goes between the header and the text
+    main.appendChild(body);
+    const aside = h("aside.post-toc-wrap");
+    const place = () => (matchMedia("(min-width: 1100px)").matches ? aside.appendChild(toc) : main.insertBefore(toc, body));
+    place();
+    matchMedia("(min-width: 1100px)").addEventListener("change", place);
+    page.appendChild(h("div.post-layout", aside, main));
+    // Highlight the section being read
+    const links = new Map(items.map((li, n) => [headings[n], li.firstChild]));
+    const spy = new IntersectionObserver((entries) => {
+      if (!page.isConnected) return spy.disconnect();
+      const top = headings.filter((hd) => hd.getBoundingClientRect().top < innerHeight * 0.35).pop() || headings[0];
+      for (const [hd, a] of links) a.toggleAttribute("aria-current", hd === top);
+    }, { rootMargin: "0px 0px -60% 0px" });
+    headings.forEach((hd) => spy.observe(hd));
+  } else {
+    main.appendChild(body);
+    page.appendChild(main);
+  }
+
+  // Next/previous: within the series when there is one, otherwise by date
+  const seq = series.length > 1 ? series : vm.posts;
+  const i = seq.indexOf(post);
+  const [before, after] = series.length > 1 ? [seq[i - 1], seq[i + 1]] : [seq[i + 1], seq[i - 1]];
+  const pager = h("nav.pager.post-pager", { "aria-label": series.length > 1 ? "More in this series" : "More posts" });
+  const pagerCard = (p, cls, label) =>
+    h(`a.card.${cls}`, { href: postHref(p) },
+      h("span.pager-label", label),
+      h("strong", noBreakHyphens(splitTitle(p.title)[0])),
+      p.description ? h("span.pager-desc", p.description) : null);
+  const inSeries = series.length > 1;
+  if (before) pager.appendChild(pagerCard(before, "pager-prev", inSeries ? "← Previous part" : "← Older"));
+  if (after) pager.appendChild(pagerCard(after, "pager-next", inSeries ? "Next part →" : "Newer →"));
   if (pager.children.length) page.appendChild(pager);
+
+  // Reading progress, a thin bar under the top edge
+  const bar = h("div.read-progress", { "aria-hidden": "true" });
+  page.prepend(bar);
+  const onScroll = () => {
+    if (!page.isConnected) return removeEventListener("scroll", onScroll);
+    const r = main.getBoundingClientRect();
+    const done = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight)));
+    bar.style.transform = `scaleX(${done})`;
+  };
+  addEventListener("scroll", onScroll, { passive: true });
+  requestAnimationFrame(onScroll);
   return page;
 }
 

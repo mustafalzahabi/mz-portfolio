@@ -152,3 +152,14 @@ test("images: uploaded gist images are recognised, other links pass through", as
   assert.equal(await resolveImage("https://example.com/a.jpg"), "https://example.com/a.jpg");
   assert.equal(await resolveImage("javascript:alert(1)"), "");
 });
+
+test("post series: read from frontmatter and written back", () => {
+  const a = postFields({ title: "T", series: "Math, Step by Step", part: "3" }, { body: "", filename: "t.md" });
+  assert.equal(a.series, "Math, Step by Step");
+  assert.equal(a.part, 3);
+  const { metadata, body } = parseFrontmatter(frontmatter({ ...a, body: "Hi" }));
+  const back = postFields(metadata, { body, filename: "t.md" });
+  assert.equal(back.series, "Math, Step by Step");
+  assert.equal(back.part, 3);
+  assert.equal(postFields({ title: "T" }, { filename: "t.md" }).series, "");
+});

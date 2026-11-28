@@ -89,6 +89,29 @@ function buildPost({ content, filename, fallbackTitle, created, updated, url, id
   return { ...fields, updatedAt: updated, body, url, id };
 }
 
+/**
+ * Unpublished posts from the dev server (`node tools/dev-server.mjs --posts
+ * <folder>`), for the preview page on localhost only. Relative image paths
+ * are pointed at the dev server's copy of the folder. [] anywhere else.
+ */
+export async function localDevPosts() {
+  if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return [];
+  try {
+    const res = await fetch("/__dev/posts", { cache: "no-store" });
+    if (!res.ok) return [];
+    const files = await res.json();
+    const posts = files.map(({ path, content, modified }) => {
+      const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+      const base = `/__dev/posts/${dir.split("/").map(encodeURIComponent).join("/")}`;
+      const resolved = content.replace(/(!\[[^\]]*\]\()(?![a-z]+:|\/|#)([^)\s]+)/gi, (_, open, src) => open + base + src);
+      return buildPost({ content: resolved, filename: path.split("/").pop(), created: modified, updated: modified, url: "", id: `local:${path}` });
+    });
+    return dedupeSlugs(posts.filter(Boolean));
+  } catch {
+    return [];
+  }
+}
+
 function dedupeSlugs(posts) {
   const seen = new Map();
   for (const post of posts) {
@@ -96,7 +119,8 @@ function dedupeSlugs(posts) {
     seen.set(post.slug, n + 1);
     if (n) post.slug = `${post.slug}-${n + 1}`;
   }
-  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+  // Newest first; posts from the same day keep series reading order
+  posts.sort((a, b) => new Date(b.date) - new Date(a.date) || (a.series || "").localeCompare(b.series || "") || (a.part || 0) - (b.part || 0) || String(a.title).localeCompare(String(b.title)));
   return posts;
 }
 

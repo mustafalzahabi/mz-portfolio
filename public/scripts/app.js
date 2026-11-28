@@ -12,7 +12,7 @@ import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "
 import { repairSession } from "./github.js";
 import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
-import { collectPortfolioData } from "./data.js";
+import { collectPortfolioData, localDevPosts } from "./data.js";
 import { buildViewModel } from "./merge.js";
 import {
   SECTION_BUILDERS,
@@ -138,7 +138,10 @@ async function route() {
     try {
       if (!json) throw new Error("no preview");
       const { resume } = analyzeResume(json);
-      result = { status: "ok", data: { resume, github: previewGithub(), repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } } };
+      // On localhost, posts the dev server serves with --posts (never in production)
+      const posts = await localDevPosts();
+      if (loadId !== state.loadId) return;
+      result = { status: "ok", data: { resume, github: previewGithub(), repos: [], posts, source: { type: "preview", id: "preview", hasResume: true } } };
     } catch {
       navigate(`${BASE_PATH}preview`, { replace: true });
       return;
@@ -285,7 +288,9 @@ function ensureShell(kind, active) {
   const top =
     kind === "profile"
       ? [buildHeader(vm, config, c), buildTabs(vm, config, c, active)]
-      : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
+      : kind === "post"
+        ? [buildPageBar(vm, config, c, { backHref: `${state.base}/blog`, backLabel: config.text.tabs.blog || "Blog" })]
+        : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
 
   app.replaceChildren(
     ...[
@@ -330,7 +335,20 @@ function renderSub(sub) {
     return;
   }
 
-  const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" || sub.name === "post" ? "blog" : "profile";
+  // Posts get the slim page bar too, so the article starts near the top
+  if (sub.name === "post" && config.blog.enabled && vm.posts.length > 0) {
+    const post = vm.posts.find((p) => p.slug === sub.param);
+    ensureShell("post");
+    teardownAnimations();
+    showView(
+      `post:${sub.param}`,
+      post ? buildBlogPost(post, vm, config, ctx()) : notFoundInline("That post doesn't exist.", `${state.base}/blog`, config.text.tabs.blog || "Blog"),
+      post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`,
+    );
+    return;
+  }
+
+  const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" ? "blog" : "profile";
   ensureShell("profile", tabKey);
   setActiveTab(tabKey);
 
@@ -354,9 +372,6 @@ function renderSub(sub) {
 
   if (sub.name === "blog" && blogOn) {
     showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
-  } else if (sub.name === "post" && blogOn) {
-    const post = vm.posts.find((p) => p.slug === sub.param);
-    showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else if (sub.name === "tab") {
     // Link tabs have no page, except while editing (where they're set up)
     const tab = config.tabs.find((t) => t.slug === sub.param && (t.type !== "link" || isEditing()));
