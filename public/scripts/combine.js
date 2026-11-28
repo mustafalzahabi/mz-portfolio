@@ -14,6 +14,8 @@ export const STORES = ["github", "google"];
 export const STORE_LABEL = { github: "GitHub", google: "Google Drive" };
 const CONFIG_KEY = "mz-portfolio-config";
 
+import { sortPosts } from "./posts.js";
+
 const time = (v) => {
   const t = Date.parse(v || "");
   return Number.isFinite(t) ? t : 0;
@@ -124,7 +126,7 @@ export function combinePosts(lists, sources = {}) {
       if (!had || when(item) > when(had)) bySlug.set(post.slug, item);
     }
   }
-  return [...bySlug.values()].sort((a, b) => time(b.date) - time(a.date));
+  return sortPosts([...bySlug.values()]);
 }
 
 /** Which store was updated last ("" when unknown). */

@@ -10,6 +10,7 @@ import { dropdown, loginUrl, accountMenu } from "./account.js";
 import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
+import { highlightBlocks, tokenizeCode, languageOf } from "./highlight.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile, isRepoHidden } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
@@ -553,6 +554,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
       const about = hidden("readme") ? "" : extractReadmeAbout(text);
       if (about) {
         readmeBox.innerHTML = readmeHtml(project, about);
+        highlightBlocks(readmeBox);
         readmeBlock.hidden = false;
       }
       if (!images.length) {
@@ -949,7 +951,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     input.addEventListener("input", () => {
       state.query = input.value;
       state.page = 1;
-      renderResults();
+      renderResults(false); // no entrance motion while typing
     });
     controls.appendChild(h("label.search", svgIcon(ICONS.search), input));
   }
@@ -1002,7 +1004,8 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
   };
   wrap.appendChild(results);
 
-  function renderResults() {
+  function renderResults(animate = true) {
+    results.dataset.anim = animate ? "1" : "0";
     const q = state.query.trim().toLowerCase();
     const filtered = vm.posts.filter(
       (p) =>
@@ -1075,6 +1078,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
       }
       card.appendChild(bodyEl);
       card.appendChild(postThumb(post, post.series || post.tags[0] || post.title));
+      card.style.setProperty("--i", String(list.children.length));
       list.appendChild(card);
     }
     results.appendChild(list);
@@ -1156,6 +1160,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
     img.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   }
 
+  highlightBlocks(body);
   // Code blocks get a copy button
   for (const pre of body.querySelectorAll("pre")) {
     const btn = h("button.icon-btn.code-copy", { type: "button", "aria-label": "Copy code", title: "Copy code" }, svgIcon(ICONS.copy));
@@ -1245,7 +1250,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   }
 
   // Back to top, once the reader is well into a long post
-  const toTop = h("button.icon-btn.to-top", { type: "button", "aria-label": "Back to top", title: "Back to top", hidden: true, onclick: () => scrollTo({ top: 0, behavior: "smooth" }) }, svgIcon(ICONS.arrowLeft));
+  const toTop = h("button.icon-btn.to-top", { type: "button", "aria-label": "Back to top", title: "Back to top", tabindex: "-1", "aria-hidden": "true", onclick: () => scrollTo({ top: 0, behavior: "smooth" }) }, svgIcon(ICONS.arrowLeft));
   page.appendChild(toTop);
 
   // Reading progress, a thin bar under the top edge
@@ -1256,7 +1261,12 @@ export function buildBlogPost(post, vm, cfg, ctx) {
     const r = main.getBoundingClientRect();
     const done = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight)));
     bar.style.transform = `scaleX(${done})`;
-    toTop.hidden = scrollY < innerHeight * 1.5;
+    const shown = scrollY > innerHeight * 1.5;
+    if (shown !== toTop.classList.contains("is-shown")) {
+      toTop.classList.toggle("is-shown", shown);
+      toTop.tabIndex = shown ? 0 : -1;
+      toTop.setAttribute("aria-hidden", String(!shown));
+    }
   };
   addEventListener("scroll", onScroll, { passive: true });
   requestAnimationFrame(onScroll);
@@ -1282,7 +1292,7 @@ async function loadTabText(tab) {
 function highlight(code, language = "") {
   const pre = h("pre.code-view");
   const el = h("code");
-  const tokens = /^(html|xml|svg|vue)$/i.test(language) ? tokenizeHtml(code) : tokenizeJs(code);
+  const tokens = /^(html|xml|svg|vue)$/i.test(language) ? tokenizeHtml(code) : languageOf(language) ? tokenizeCode(code, language) : tokenizeJs(code);
   for (const [cls, text] of tokens) el.appendChild(cls ? h(`span.tk-${cls}`, text) : document.createTextNode(text));
   pre.appendChild(el);
   return pre;
@@ -1327,6 +1337,7 @@ export function buildTabPage(tab, vm, cfg, ctx) {
       if (tab.type === "markdown") {
         const prose = h("div.prose.card");
         prose.innerHTML = markdownToHtml(text);
+        highlightBlocks(prose);
         body.appendChild(prose);
       } else if (tab.type === "code") {
         const name = tab.url ? decodeURIComponent(tab.url.split("/").pop()) : tab.language || "code";

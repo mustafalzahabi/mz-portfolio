@@ -5,7 +5,7 @@
 import { resolveImage, isGistImage } from "./images.js";
 import { templateResume } from "./template.js";
 import { completeSignIn, isSignInReturn } from "./account.js";
-import { h, svgIcon, safeUrl, traceSources } from "./utils.js";
+import { h, svgIcon, safeUrl, traceSources, prefersReducedMotion } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
 import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "./router.js";
@@ -121,8 +121,18 @@ async function route() {
 
   const key = path.preview ? "preview" : `${path.source}:${path.id.toLowerCase()}`;
   if (state.key === key && state.vm) {
-    renderSub(path.sub);
-    afterRender();
+    const swap = () => {
+      renderSub(path.sub);
+      afterRender();
+    };
+    // Moving to another page of the same portfolio cross-fades (View Transitions);
+    // in-page jumps (#section) and reduced motion swap at once
+    if (document.startViewTransition && !prefersReducedMotion() && state.page && pageKey(path.sub) !== state.page && !isEditing()) {
+      document.documentElement.dataset.nav = /^post:|^project:/.test(pageKey(path.sub)) ? "forward" : /^post:|^project:/.test(state.page) ? "back" : "across";
+      const t = document.startViewTransition(swap);
+      t.ready.catch(() => {}); // a quicker next navigation skips this one: fine
+      t.finished.finally(() => delete document.documentElement.dataset.nav);
+    } else swap();
     return;
   }
 
@@ -391,6 +401,12 @@ function renderSub(sub) {
   } else {
     showView("missing", back("That page doesn't exist."), `Not found — ${vm.basics.name}`);
   }
+}
+
+/** The showView key a route will render (see renderSub). */
+function pageKey(sub) {
+  if (sub.name === "post" || sub.name === "project" || sub.name === "tab") return `${sub.name}:${sub.param}`;
+  return sub.name === "blog" || sub.name === "missing" ? sub.name : "profile";
 }
 
 function showView(page, node, title) {

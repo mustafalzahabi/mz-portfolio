@@ -19,7 +19,8 @@ import {
   downloadDriveFile,
 } from "./api.js";
 import { parseFrontmatter, slugify } from "./utils.js";
-import { postFields } from "./posts.js";
+import { postFields, sortPosts } from "./posts.js";
+export { sortPosts };
 import { debug } from "./log.js";
 import { combineResumes, combinePosts, publicSources } from "./combine.js";
 
@@ -86,7 +87,7 @@ function buildPost({ content, filename, fallbackTitle, created, updated, url, id
   const { metadata, body } = parseFrontmatter(content);
   const fields = postFields(metadata, { body, filename, fallbackTitle, created });
   if (fields.draft) return null;
-  return { ...fields, updatedAt: updated, body, url, id };
+  return { ...fields, createdAt: created || "", updatedAt: updated, body, url, id };
 }
 
 /**
@@ -119,8 +120,7 @@ function dedupeSlugs(posts) {
     seen.set(post.slug, n + 1);
     if (n) post.slug = `${post.slug}-${n + 1}`;
   }
-  // Newest first; posts from the same day keep series reading order
-  posts.sort((a, b) => new Date(b.date) - new Date(a.date) || (a.series || "").localeCompare(b.series || "") || (a.part || 0) - (b.part || 0) || String(a.title).localeCompare(String(b.title)));
+  sortPosts(posts);
   return posts;
 }
 

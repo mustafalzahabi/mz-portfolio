@@ -65,3 +65,25 @@ export function frontmatter(post) {
   lines.push("---", "");
   return `${lines.join("\n")}\n${String(post.body || "").trim()}\n`;
 }
+
+/**
+ * Newest first. Posts sharing a date are ordered by when they were published
+ * (gist creation time), newest first, but a series published together stays
+ * together, in reading order.
+ */
+export function sortPosts(posts) {
+  const day = (p) => String(p.date).slice(0, 10);
+  const time = (p) => Date.parse(p.createdAt || p.date) || 0;
+  const groupTime = new Map();
+  for (const p of posts) {
+    const key = `${day(p)}|${p.series || `#${p.slug}`}`;
+    groupTime.set(key, Math.max(groupTime.get(key) ?? 0, time(p)));
+  }
+  const group = (p) => `${day(p)}|${p.series || `#${p.slug}`}`;
+  return posts.sort((a, b) =>
+    day(b).localeCompare(day(a)) ||
+    groupTime.get(group(b)) - groupTime.get(group(a)) ||
+    group(a).localeCompare(group(b)) ||
+    (a.part || 0) - (b.part || 0) ||
+    String(a.title).localeCompare(String(b.title)));
+}

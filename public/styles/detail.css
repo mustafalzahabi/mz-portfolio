@@ -561,3 +561,10 @@
   color: var(--ink-muted);
   font-weight: 400;
 }
+
+/* Identifiers in tables stay whole; the table scrolls instead (.table-wrap) */
+.prose td code,
+.prose th code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}

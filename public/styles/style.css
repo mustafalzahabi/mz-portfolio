@@ -4,17 +4,17 @@
  * (they must come first: @import is only valid at the top of a file).
  */
 
-@import url("global.css?v=5");
+@import url("global.css?v=6");
 @import url("header.css?v=7");
 @import url("navbar.css?v=5");
 @import url("sections.css?v=6");
 @import url("projects.css?v=5");
-@import url("detail.css?v=6");
+@import url("detail.css?v=7");
 @import url("project-page.css?v=9");
-@import url("blog.css?v=5");
+@import url("blog.css?v=6");
 @import url("home.css?v=5");
 @import url("status.css?v=5");
-@import url("animations.css?v=5");
+@import url("animations.css?v=6");
 @import url("resume-overlay.css?v=6");
 @import url("editor.css?v=5");
 @import url("account.css?v=7");

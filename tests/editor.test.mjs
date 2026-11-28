@@ -163,3 +163,16 @@ test("post series: read from frontmatter and written back", () => {
   assert.equal(back.part, 3);
   assert.equal(postFields({ title: "T" }, { filename: "t.md" }).series, "");
 });
+
+test("posts: same-day posts by publish time, a series kept together in order", async () => {
+  const { sortPosts } = await import("../public/scripts/data.js");
+  const p = (slug, date, createdAt, series = "", part = 0) => ({ slug, title: slug, date, createdAt, series, part });
+  const order = sortPosts([
+    p("old", "2026-01-01", "2026-01-01T09:00:00Z"),
+    p("s2", "2026-02-01", "2026-02-01T08:00:00Z", "S", 2),
+    p("solo-late", "2026-02-01", "2026-02-01T12:00:00Z"),
+    p("s1", "2026-02-01", "2026-02-01T10:00:00Z", "S", 1),
+    p("solo-early", "2026-02-01", "2026-02-01T07:00:00Z"),
+  ]).map((x) => x.slug);
+  assert.deepEqual(order, ["solo-late", "s1", "s2", "solo-early", "old"]);
+});

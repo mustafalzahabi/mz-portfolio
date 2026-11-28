@@ -302,3 +302,150 @@
     display: none;
   }
 }
+
+/* ============================================================================
+   UI MOTION — page changes, disclosures, dialogs, lists. Short and eased with
+   the owner's --anim-ease; the reduced-motion rule in global.css removes it.
+   ============================================================================ */
+
+/* Page changes within a portfolio (View Transitions, see app.js route) */
+::view-transition-old(root) {
+  animation: vt-out 0.16s ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: vt-in 0.36s var(--anim-ease) both;
+}
+
+:root[data-nav="forward"]::view-transition-new(root) {
+  animation-name: vt-in-forward;
+}
+
+:root[data-nav="back"]::view-transition-new(root) {
+  animation-name: vt-in-back;
+}
+
+@keyframes vt-out {
+  to { opacity: 0; }
+}
+
+@keyframes vt-in {
+  from { opacity: 0; }
+}
+
+@keyframes vt-in-forward {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes vt-in-back {
+  from { opacity: 0; transform: translateY(-10px); }
+}
+
+/* Disclosures (contents, series parts) open and close smoothly */
+details {
+  interpolate-size: allow-keywords;
+}
+
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 0.3s var(--anim-ease), content-visibility 0.3s allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: auto;
+}
+
+details > summary::marker {
+  transition: color var(--transition);
+}
+
+/* Lists: rows and chips rise in when they appear */
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.blog-results[data-anim="1"] .post-card,
+.blog-results[data-anim="1"] .series-head,
+.blog-results[data-anim="1"] .post-month {
+  animation: row-in 0.42s var(--anim-ease) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 35ms);
+}
+
+.tag-filter .chip:not([hidden]) {
+  animation: ui-pop 0.25s var(--anim-ease) both;
+}
+
+/* Copy buttons: the new icon pops in */
+.code-copy svg,
+.post-copy svg {
+  animation: ui-pop 0.2s var(--anim-ease) both;
+}
+
+/* Enlarged image */
+.lightbox[open] {
+  transition: opacity 0.25s ease, transform 0.35s var(--anim-ease);
+}
+
+.lightbox[open]::backdrop {
+  transition: opacity 0.25s ease;
+}
+
+@starting-style {
+  .lightbox[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .lightbox[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* Back to top slides up into place */
+.to-top {
+  opacity: 0;
+  transform: translateY(12px);
+  visibility: hidden;
+  transition: opacity 0.25s ease, transform 0.3s var(--anim-ease), visibility 0.3s;
+}
+
+.to-top.is-shown {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+}
+
+/* Reading aids follow smoothly */
+.read-progress {
+  transition: transform 0.12s linear;
+}
+
+.post-toc a {
+  transition: color var(--transition);
+}
+
+/* Post rows: the picture eases in on hover */
+.post-thumb img,
+.post-thumb.is-generated span {
+  transition: transform 0.5s var(--anim-ease);
+}
+
+@media (hover: hover) {
+  .post-card:hover .post-thumb img,
+  .post-card:hover .post-thumb.is-generated span {
+    transform: scale(1.06);
+  }
+
+  .post-card .post-title a {
+    transition: color var(--transition);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
