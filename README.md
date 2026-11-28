@@ -56,27 +56,31 @@ So the id alone tells the sources apart, and you can also paste a full `drive.go
 
 ## Editing your portfolio
 
-There's no separate editor: you edit your portfolio right on the page. Sign in with GitHub, open your own portfolio (or click *Edit my portfolio* in the account menu, or go to `/edit`), then click **Edit portfolio**.
+There's no separate editor: you edit your portfolio right on the page. Sign in with GitHub, open your own portfolio (or click *Edit my portfolio* in the account menu, or go to `/edit`), then click the pencil button. Edit mode is its own page: Back or *Done* leaves it.
 
-Every object has its own **Edit** button. It opens a panel with that object's fields (a bottom sheet on phones, a side panel on desktop), and the page updates live behind it. Nothing is read-only:
+Everything is edited where it's shown; there are no editing panels. Text is typed in place, other details sit in a small strip inside each item, and images change from the image itself:
 
 - **Profile:** name, title, contact details, location, profile links, photo (your GitHub photo, an upload, a link, or none) and header options. **Banner:** gradient or image. The photo and banner choices change only the portfolio, never your resume's photo or your GitHub avatar.
 - **Sections:** each title row has *Add*, move up/down and *Hide*. Empty sections can be added, and hidden ones shown again, at the bottom of the page.
-- **Items:** every job, school, skill group, award, certificate, language and so on opens its full form, with move, duplicate and delete.
+- **Items:** every job, school, skill group, award, certificate, language and so on is edited in place, with move, duplicate and delete.
+- **Pages:** the + at the end of the tabs adds a page (text, code, HTML demo, embedded site or link), edited on the page itself.
 - **Projects** are edited on their own page: name, description, links, keywords, highlights and a cover image (upload or link). A repo that comes from GitHub can be added to your resume (then it's editable) or hidden.
 - **Blog posts:** *New post* on the blog page, *Edit post* on each post. Posts publish on their own.
 - **Resume:** the header button opens the resume viewer. Changing its theme in edit mode saves it to your portfolio; its content comes from your sections.
-- **Customize** (top bar): colors with dark-mode previews and a contrast report, section order, tabs, animations and every other setting from `/docs`, plus all content as forms, blog posts and the raw JSON.
+- **Site settings** (sliders icon in the top bar): opens over the page, grouped with a side menu: colors (dark-mode previews and a contrast report), section order, animations and every other setting from `/docs`, plus the raw JSON.
 - **Undo / redo** (Ctrl+Z, Ctrl+Shift+Z), **Ctrl+S** to publish, **?** for shortcuts. The bottom bar shows what changed; click it for the details. Its ⋯ menu has *Save draft to GitHub*, *Discard changes* and *Copy / Download JSON*.
 
 **Drafts.** Edits are a draft until you click **Publish**. The draft is kept in this browser automatically. **Save draft** also stores it on GitHub in a *secret* gist (`mz-portfolio-draft.json`) so you can continue on another device: the next time you open edit mode, you're offered the newest draft. Secret gists are unlisted (only reachable by their link) and never shown on your portfolio; the draft gist is deleted when you publish.
 
 **Without an account,** `/edit` opens a preview with every section ready to fill in, editable the same way; copy or download the JSON when you're done, or sign in to publish it. Other people's portfolios never show edit controls.
 
-**Signing in.** Click *Sign in*, then choose GitHub or Google. One account is signed in at a time.
+**Signing in.** Click *Sign in*, then choose GitHub or Google. You can be signed in with both, and link them into one account (below).
 - **GitHub** asks for the **gist** scope only. Your portfolio is a `resume.json` gist at `/your-username`. (A personal access token can still be pasted under *Use a personal access token instead*.)
 - **Google** asks for access to the files this app creates in your Drive (`drive.file`) and its hidden app folder (`drive.appdata`), nothing else. Your portfolio is an *mz-portfolio* folder (shared as "anyone with the link can view") holding `resume.json`, posts and images, at `/<folder-id>`. The draft you save to your account goes to the hidden app folder, never the shared one. Google's sign-in lasts about an hour; after that you're asked to sign in again to save.
-- GitHub and Google accounts are separate for now: a portfolio made with one isn't found when you sign in with the other.
+- **One account from both.** In *Account settings* (avatar menu), connect the other provider, or accept the offer shown when you're signed in with both. Signing in to both is the proof; a matching email alone never links accounts. The link is saved privately in both: a secret gist and Drive's hidden app folder (`mz-portfolio-account.json`), so either sign-in, on any device, opens the same account. There's no server database.
+  - Your portfolio then combines both: each resume section comes from whichever was saved last (or the one you pick per section in *Account settings → Sources*), posts come from both (the same post in both shows its newer copy), and publishing writes to both by default. Both addresses (`/username` and `/<folder-id>`) show the same portfolio: the published config lists the two addresses (never your email) so visitors' browsers load and combine them.
+  - Google's sign-in lasts an hour. Publishing to Drive renews it first in a small window that closes itself; if Google needs you, it says so and you reconnect in one click. A place you aren't signed in to on a device is skipped and catches up on the next publish.
+  - *Account settings* also has where new posts and images go, README push permission, drafts, downloading your resume, and *Forget this device*.
 - The token is kept in this browser's `localStorage` until you click *Sign out*, or until it expires or is rejected, so reopening the editor keeps you signed in. Sign out on shared computers.
 - It is sent only to `api.github.com` (GitHub) or `www.googleapis.com` (Google), and never logged or written anywhere else.
 

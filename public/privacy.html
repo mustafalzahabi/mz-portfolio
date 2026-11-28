@@ -7,7 +7,7 @@
   <title>Privacy — mz-portfolio</title>
   <meta name="description" content="What mz-portfolio does with your data: it has no server database; your portfolio is stored in your own GitHub or Google Drive.">
   <link rel="icon" href="/assets/images/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles/style.css?v=5">
+  <link rel="stylesheet" href="/styles/style.css?v=6">
   <style>
     .privacy { max-width: 46rem; margin: 0 auto; padding: 2.5rem var(--gutter) 4rem; line-height: 1.65; }
     .privacy h1 { font-size: clamp(2rem, 6vw, 2.6rem); margin-bottom: 0.25rem; }
@@ -30,6 +30,7 @@
     <ul>
       <li><strong>Signed in with GitHub:</strong> your portfolio is a <code>resume.json</code> gist on your GitHub account, and blog posts are gists you own.</li>
       <li><strong>Signed in with Google:</strong> your portfolio is a folder named "mz-portfolio" in your Google Drive, holding <code>resume.json</code>, your posts and images you upload.</li>
+      <li><strong>Signed in with both, linked into one account:</strong> the link (your GitHub username, your Google email and your Drive folder's id, plus your Account settings choices) is saved privately in both: a secret gist and the app's hidden folder in your Drive. The published portfolio lists only its two public addresses, never your email, so it can be shown combined.</li>
       <li>Unpublished drafts are kept in your browser. If you choose "Save draft to your account", the draft goes to a secret gist (GitHub) or to the app's hidden folder in your Drive (Google), which only you can access.</li>
     </ul>
     <p>Published portfolios are public: anyone with the link can view them. Don't publish anything you want to keep private.</p>
@@ -45,6 +46,9 @@
 
     <h2>Sign-in tokens</h2>
     <p>Signing in gives your browser an access token. It is kept in your browser's local storage until you sign out or it expires (Google tokens last about an hour), and it is only sent to GitHub's or Google's own APIs. Signing in with GitHub uses a small server function on this site to complete the login; it doesn't keep any record.</p>
+
+    <h2>AI chat</h2>
+    <p>The AI chat runs entirely in your browser. Opening it downloads a language model from Hugging Face (and its engine from jsDelivr), which are then saved in your browser. What you type and the answers never leave your device, and no one else can see or use them.</p>
 
     <h2>Analytics and cookies</h2>
     <p>mz-portfolio has no analytics, no advertising and no tracking cookies. During GitHub sign-in a short-lived cookie protects the login from forgery and is deleted right after.</p>

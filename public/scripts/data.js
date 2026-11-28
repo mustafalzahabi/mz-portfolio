@@ -19,7 +19,10 @@ import {
   downloadDriveFile,
 } from "./api.js";
 import { parseFrontmatter, slugify } from "./utils.js";
+import { postFields, sortPosts } from "./posts.js";
+export { sortPosts };
 import { debug } from "./log.js";
+import { combineResumes, combinePosts, publicSources } from "./combine.js";
 
 const SNAPSHOT_PREFIX = "mz-portfolio-data-";
 const SNAPSHOT_TTL = 30 * 60 * 1000; // serve without refetching for 30 min
@@ -82,21 +85,32 @@ export function parseResumeJson(text) {
 
 function buildPost({ content, filename, fallbackTitle, created, updated, url, id }) {
   const { metadata, body } = parseFrontmatter(content);
-  if (metadata.draft === true || metadata.published === false) return null;
-  const firstHeading = body.match(/^#\s+(.+)$/m)?.[1];
-  const title = String(metadata.title || fallbackTitle || firstHeading || filename.replace(/\.md$/i, ""));
-  return {
-    title,
-    slug: slugify(metadata.slug || title),
-    date: metadata.date || created,
-    updatedAt: updated,
-    tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
-    description: String(metadata.description || metadata.preview || ""),
-    image: String(metadata.image || ""),
-    body,
-    url,
-    id,
-  };
+  const fields = postFields(metadata, { body, filename, fallbackTitle, created });
+  if (fields.draft) return null;
+  return { ...fields, createdAt: created || "", updatedAt: updated, body, url, id };
+}
+
+/**
+ * Unpublished posts from the dev server (`node tools/dev-server.mjs --posts
+ * <folder>`), for the preview page on localhost only. Relative image paths
+ * are pointed at the dev server's copy of the folder. [] anywhere else.
+ */
+export async function localDevPosts() {
+  if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return [];
+  try {
+    const res = await fetch("/__dev/posts", { cache: "no-store" });
+    if (!res.ok) return [];
+    const files = await res.json();
+    const posts = files.map(({ path, content, modified }) => {
+      const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+      const base = `/__dev/posts/${dir.split("/").map(encodeURIComponent).join("/")}`;
+      const resolved = content.replace(/(!\[[^\]]*\]\()(?![a-z]+:|\/|#)([^)\s]+)/gi, (_, open, src) => open + base + src);
+      return buildPost({ content: resolved, filename: path.split("/").pop(), created: modified, updated: modified, url: "", id: `local:${path}` });
+    });
+    return dedupeSlugs(posts.filter(Boolean));
+  } catch {
+    return [];
+  }
 }
 
 function dedupeSlugs(posts) {
@@ -106,7 +120,7 @@ function dedupeSlugs(posts) {
     seen.set(post.slug, n + 1);
     if (n) post.slug = `${post.slug}-${n + 1}`;
   }
-  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+  sortPosts(posts);
   return posts;
 }
 
@@ -241,6 +255,52 @@ async function attachGithubToDrive(data) {
 }
 
 // ============================================================================
+// LINKED ACCOUNTS — a portfolio whose owner linked GitHub and Google lists
+// both public addresses in its config ("sources"). Visitors get one
+// portfolio from both: the other half is loaded (capped at 2.5 s, so a slow
+// store just leaves it out) and combined section by section, newest first.
+// ============================================================================
+
+const loadSource = (type, id) => (type === "gd" ? loadFromDrive(id) : loadFromGithub(id));
+
+/** The other half of a linked portfolio, combined in. */
+async function withLinkedSource(data) {
+  const s = publicSources(data.resume);
+  if (!s) return data;
+  const self = data.source.type;
+  const other = self === "gh" ? (s.drive ? { type: "gd", id: s.drive } : null) : s.github ? { type: "gh", id: s.github } : null;
+  if (!other) return data;
+  const loaded = await Promise.race([
+    loadSource(other.type, other.id).catch(() => null),
+    new Promise((r) => setTimeout(() => r(null), 2500)),
+  ]);
+  if (loaded?.status !== "ok" || !loaded.data.resume) return data;
+  const o = loaded.data;
+  const me = self === "gh" ? "github" : "google";
+  const them = me === "github" ? "google" : "github";
+  const { resume } = combineResumes([
+    { store: me, resume: data.resume, updatedAt: data.source.updatedAt },
+    { store: them, resume: o.resume, updatedAt: o.source.updatedAt },
+  ], { resume: s.resume });
+  const posts = combinePosts([{ store: me, posts: data.posts }, { store: them, posts: o.posts }], { posts: s.posts });
+  const gh = self === "gh" ? data : o;
+  return {
+    ...data,
+    resume,
+    posts,
+    github: gh.github || data.github,
+    repos: gh.repos?.length ? gh.repos : data.repos,
+    source: { ...data.source, linked: other },
+  };
+}
+
+/** One store's published resume, read like a visitor does (for a linked account's editor). */
+export async function publicResume(type, id) {
+  const r = await loadSource(type, id);
+  return r.status === "ok" && r.data.resume ? { resume: r.data.resume, updatedAt: r.data.source.updatedAt } : null;
+}
+
+// ============================================================================
 // SNAPSHOTS (offline / rate-limited fallback)
 // ============================================================================
 
@@ -307,6 +367,7 @@ export async function collectPortfolioData(source, id, { force = false } = {}) {
     if (result.status === "ok" && result.data.source.type === "gd") {
       result.data = await attachGithubToDrive(result.data);
     }
+    if (result.status === "ok") result.data = await withLinkedSource(result.data);
   } catch (e) {
     if (e.name === "ResumeParseError") return { status: "invalid", error: e };
     result = { status: "error", message: e.message || "Something went wrong while loading this portfolio." };

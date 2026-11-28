@@ -109,7 +109,9 @@ export function h(tag, props, ...children) {
     if (value === null || value === undefined || value === false) continue;
     if (key === "class" || key === "className") el.className = [el.className, value].filter(Boolean).join(" ");
     else if (key === "style" && typeof value === "object") Object.assign(el.style, value);
-    else if (key === "dataset") Object.assign(el.dataset, value);
+    else if (key === "dataset") {
+      for (const [k, v] of Object.entries(value)) if (v !== null && v !== undefined) el.dataset[k] = v;
+    }
     else if (key.startsWith("on") && typeof value === "function") el.addEventListener(key.slice(2), value);
     else if (key === "href" || key === "src") {
       const safe = safeUrl(String(value), { allowDataImage: key === "src" });

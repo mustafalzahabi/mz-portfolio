@@ -315,3 +315,63 @@ export async function downloadDriveFile(id) {
   const key = getDriveApiKey();
   return fetchText(`${DRIVE_API}/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(key)}`);
 }
+
+// Sections of a README that are about running the code, not about the project
+const README_SKIP = /^(install|setup|set up|getting started|quick ?start|usage|how to (run|use|install)|run(ning)?( locally)?|local development|development|build(ing)?|deploy(ment|ing)?|license|licen[cs]e|contribut|tests?|testing|scripts|commands|requirements|prerequisites|configuration|config|environment|env|faq|credits|acknowledg|changelog|roadmap|table of contents|contents|toc|support|contact|author|screenshots?|demo|preview|api( reference)?|folder structure|project structure|directory structure|file structure|tech stack|built with|technologies|dependencies|badges?|status)/i;
+
+/**
+ * The part of a README that describes the project: its intro paragraphs and
+ * descriptive sections (features, about, overview…), as Markdown without
+ * images, badges, HTML, code, tables or setup / license sections.
+ */
+export function extractReadmeAbout(readme, { maxBlocks = 6 } = {}) {
+  const lines = String(readme || "").replace(/\r\n?/g, "\n").split("\n");
+  const blocks = [];
+  let current = [];
+  let skipping = false;
+  let fence = false;
+  let sawTitle = false;
+  const flush = () => {
+    const text = current.join("\n").trim();
+    current = [];
+    if (!text || skipping) return;
+    if (/^(\||<|>|-{3,}|\*{3,}|_{3,})/.test(text)) return; // tables, HTML, quotes, rules
+    const clean = text
+      .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, "") // linked badges
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
+      .replace(/<[^>]+>/g, "") // inline HTML
+      .replace(/[ \t]+\n/g, "\n")
+      .trim();
+    if (clean.replace(/[-*+\d.\s]/g, "").length < 3) return;
+    blocks.push(clean);
+  };
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      flush();
+      fence = !fence;
+      continue;
+    }
+    if (fence) continue;
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (heading) {
+      flush();
+      const text = heading[2].replace(/[^\w\s&'-]/g, "").trim();
+      if (heading[1].length === 1 && !sawTitle) {
+        sawTitle = true; // the project's name: already the page title
+        continue;
+      }
+      skipping = README_SKIP.test(text);
+      if (!skipping && blocks.length) blocks.push(`**${heading[2].replace(/[*_`]/g, "").trim()}**`);
+      continue;
+    }
+    if (!line.trim()) {
+      flush();
+      continue;
+    }
+    current.push(line);
+  }
+  flush();
+  // Drop a section label left with nothing after it, then cap the length
+  const out = blocks.filter((b, i) => !(/^\*\*.*\*\*$/.test(b) && (i === blocks.length - 1 || /^\*\*.*\*\*$/.test(blocks[i + 1]))));
+  return out.slice(0, maxBlocks).join("\n\n");
+}

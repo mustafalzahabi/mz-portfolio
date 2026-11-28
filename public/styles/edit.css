@@ -3,17 +3,26 @@
    Mobile first: bottom sheet + one-row bar; desktop: side panel.
    ============================================================================ */
 
-/* ---------- "Edit portfolio" (owner / preview) ---------- */
+/* ---------- the pencil (owner / preview) ---------- */
 
 .ed-fab {
   position: fixed;
   right: calc(1rem + env(safe-area-inset-right));
   bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 60;
-  min-height: 52px;
-  padding: 0 1.25rem;
-  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  border-radius: 50%;
   box-shadow: var(--shadow-lg);
+}
+
+.ed-fab .icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 /* ---------- top pill ---------- */
@@ -448,4 +457,1625 @@ body.has-sheet .ed-bar {
 
 .is-editing .preview-bar {
   display: none;
+}
+
+/* ---------- content synced from GitHub: greyed out while editing ---------- */
+
+.is-editing [data-source] {
+  position: relative;
+  border-radius: calc(var(--radius) * 0.6);
+  outline: 1.5px dashed var(--line-strong);
+  outline-offset: 4px;
+  color: var(--ink-muted);
+  user-select: none;
+}
+
+.is-editing [data-source] :is(img, .prose, .tags, .frame-bar) {
+  opacity: 0.55;
+  filter: grayscale(0.7);
+}
+
+.is-editing .ed-gallery-item[data-source] img {
+  opacity: 0.55;
+}
+
+/* ---------- Markdown editor (write + preview) ---------- */
+
+.md-editor {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.md-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.md-tab {
+  min-height: 40px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.md-tab[aria-selected="true"] {
+  border-color: var(--color-c);
+  background: var(--color-c);
+  color: var(--color-b);
+}
+
+.md-panes {
+  display: grid;
+  min-height: 0;
+}
+
+.md-write {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.md-editor[data-view="write"] .md-preview,
+.md-editor[data-view="preview"] .md-write {
+  display: none;
+}
+
+.ed-md-text {
+  min-height: 16rem;
+  height: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.md-preview {
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (min-width: 900px) {
+  .md-tabs {
+    display: none;
+  }
+
+  .md-panes {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .md-editor[data-view] .md-write {
+    display: grid;
+  }
+
+  .md-editor[data-view] .md-preview {
+    display: block;
+  }
+}
+
+/* ---------- README editor overlay ---------- */
+
+.readme-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-b);
+  color: var(--color-c);
+}
+
+.readme-dialog[open] {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.readme-dialog::backdrop {
+  background: color-mix(in oklab, var(--color-c) 45%, transparent);
+}
+
+.readme-head,
+.readme-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem var(--gutter);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.readme-foot {
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 0;
+}
+
+.readme-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.readme-titles h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.readme-titles p {
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.readme-close {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+
+.readme-close:hover {
+  background: var(--well);
+}
+
+.readme-body {
+  min-height: 0;
+  padding: 0.75rem var(--gutter);
+  overflow: auto;
+}
+
+.readme-body .md-editor {
+  height: 100%;
+}
+
+.readme-status {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.readme-status:empty {
+  display: none;
+}
+
+.readme-message-label {
+  display: grid;
+  flex: 1 1 16rem;
+  gap: 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.readme-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.readme-fallback {
+  color: var(--ink-muted);
+}
+
+/* ---------- typing on the page ---------- */
+
+.is-editing .ed-inline {
+  border-radius: 0.3em;
+  outline: 1.5px dashed transparent;
+  outline-offset: 3px;
+  cursor: text;
+  transition: outline-color 0.15s, background 0.15s;
+}
+
+.is-editing .ed-inline:hover {
+  outline-color: color-mix(in oklab, var(--color-a) 55%, transparent);
+}
+
+.is-editing .ed-inline:focus {
+  outline: 2px solid var(--color-a);
+  background: color-mix(in oklab, var(--color-a) 8%, transparent);
+}
+
+/* touch screens: show what's editable without hover */
+@media (hover: none) {
+  .is-editing .ed-inline {
+    outline-color: color-mix(in oklab, var(--color-a) 35%, transparent);
+  }
+}
+
+.is-editing .ed-inline.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-muted);
+  font-style: italic;
+  pointer-events: none;
+}
+
+.is-editing .ed-inline a {
+  pointer-events: none;
+}
+
+/* room for an item's "more details" button, so it never covers typed text */
+.is-editing .ed-host:has(> .ed-edit.is-item) > .entry-head,
+.is-editing .ed-host:has(> .ed-edit.is-item) > .skill-head,
+.is-editing .ed-host:has(> .ed-edit.is-item) > .entry-title {
+  padding-inline-end: 3rem;
+}
+
+/* ============================================================================
+   DIRECT EDITING — tools on cards, detail strips, chips, images
+   ============================================================================ */
+
+.is-editing .ed-card {
+  position: relative;
+}
+
+/* item tools (icons only): top-right of the card */
+.ed-tools {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 6;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--color-b);
+  box-shadow: var(--shadow);
+}
+
+.ed-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-c);
+  cursor: pointer;
+}
+
+.ed-tool:hover,
+.ed-tool[aria-expanded="true"] {
+  background: var(--well);
+}
+
+.ed-tool:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 1px;
+}
+
+.ed-tool.is-danger:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-tool .icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (hover: hover) {
+  .is-editing .ed-card > .ed-tools {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .is-editing .ed-card:hover > .ed-tools,
+  .is-editing .ed-card:focus-within > .ed-tools {
+    opacity: 1;
+  }
+}
+
+/* room for the tools so they never cover typed text */
+.is-editing .ed-card > .entry-head,
+.is-editing .ed-card > .skill-head,
+.is-editing .ed-card > .entry-title,
+.is-editing .ed-card > blockquote {
+  padding-inline-end: 9.5rem;
+}
+
+@media (hover: none) {
+  .is-editing .ed-card {
+    padding-top: 3.25rem;
+  }
+
+  .is-editing .ed-card > .entry-head,
+  .is-editing .ed-card > .skill-head,
+  .is-editing .ed-card > .entry-title,
+  .is-editing .ed-card > blockquote {
+    padding-inline-end: 0;
+  }
+}
+
+.is-editing .project-card.ed-card > .ed-tools,
+.is-editing .post-card.ed-card > .ed-tools {
+  opacity: 1;
+}
+
+/* ---------- detail strip: dates, links, lists ---------- */
+
+.ed-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 0.9rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.ed-strip-field,
+.ed-strip-wide {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ed-strip-wide {
+  flex-basis: 100%;
+}
+
+.ed-strip-label {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.ed-strip-input {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 0.6);
+  background: color-mix(in oklab, var(--color-b) 70%, transparent);
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.ed-strip-input:focus {
+  outline: 2px solid var(--color-a);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.ed-strip-input[aria-invalid="true"] {
+  border-color: var(--color-f);
+}
+
+.ed-strip-text {
+  min-height: 2.2rem;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  white-space: pre-wrap;
+}
+
+.ed-header-strip {
+  justify-content: center;
+}
+
+@media (min-width: 900px) {
+  .ed-header-strip {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- chips ---------- */
+
+.ed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ed-chips > .ed-strip-label {
+  flex-basis: 100%;
+}
+
+.ed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 32px;
+  padding: 0 0.15rem 0 0.65rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+  font-size: 0.85rem;
+}
+
+.ed-chip-x {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.ed-chip-x:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-chip-x .icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ed-chip-input {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  min-height: 32px;
+  padding: 0 0.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.ed-chip-input:focus {
+  outline: 2px solid var(--color-a);
+  border-style: solid;
+}
+
+.ed-link-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.ed-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+/* ---------- "Add section" ---------- */
+
+.ed-add-section-row {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.ed-add-section-row > .ed-add-section-menu {
+  position: relative;
+  display: block;
+}
+
+/* Text at the start, + at the end, the menu opens at the end */
+.ed-add-section {
+  justify-content: space-between;
+  width: 100%;
+  min-height: 56px;
+  padding-inline: 1.25rem;
+  border-radius: var(--radius);
+}
+
+.ed-add-section-menu .account-menu {
+  right: 0;
+  left: auto;
+  translate: none;
+}
+
+/* ---------- images: banner, project cover ---------- */
+
+.ed-banner-tools,
+.ed-media-tools {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 7;
+}
+
+.ed-media {
+  position: relative;
+}
+
+.ed-banner-tools .ed-tool,
+.ed-media-tools .ed-tool {
+  background: color-mix(in oklab, var(--color-b) 88%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.ed-image-menu .account-menu {
+  right: auto;
+  left: 0;
+}
+
+.is-editing .is-drop {
+  outline: 3px dashed var(--color-a);
+  outline-offset: -6px;
+}
+
+.is-editing .is-busy {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ---------- profile photo ---------- */
+
+.ed-photo {
+  position: relative;
+  z-index: 4;
+  width: clamp(6.5rem, 28vw, 10rem);
+  margin-top: calc(clamp(6.5rem, 28vw, 10rem) / -2);
+  border-radius: 50%;
+}
+
+.ed-photo > .profile-photo {
+  margin-top: 0;
+  cursor: pointer;
+}
+
+.ed-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--color-c) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.ed-photo:hover::after,
+.ed-photo.is-drop::after {
+  opacity: 1;
+}
+
+.ed-photo:focus-visible {
+  outline: 3px solid var(--color-a);
+  outline-offset: 3px;
+}
+
+.ed-photo-menu {
+  position: absolute;
+  right: 2%;
+  bottom: 2%;
+  z-index: 5;
+}
+
+.ed-photo-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid var(--color-b);
+  border-radius: 50%;
+  background: var(--color-c);
+  color: var(--color-b);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.ed-photo-btn:focus-visible {
+  outline: 2px solid var(--color-a);
+  outline-offset: 2px;
+}
+
+.ed-photo-menu .account-menu {
+  right: auto;
+  left: 0;
+}
+
+.ed-photo.is-busy::before {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  z-index: 6;
+  border: 4px solid color-mix(in oklab, var(--color-b) 40%, transparent);
+  border-top-color: var(--color-b);
+  border-radius: 50%;
+  animation: ed-spin 0.8s linear infinite;
+}
+
+@keyframes ed-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* crop: the image sits in the circle; drag to move, slider / wheel / pinch to zoom */
+.ed-photo.is-cropping > .profile-photo,
+.ed-photo.is-cropping > .ed-photo-menu,
+.ed-photo.is-cropping::after {
+  visibility: hidden;
+}
+
+.ed-crop-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  width: 100%;
+  height: 100%;
+  border: 4px solid var(--color-a);
+  border-radius: 50%;
+  background: var(--color-s);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ed-crop-canvas:active {
+  cursor: grabbing;
+}
+
+.ed-crop-controls {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 50%;
+  z-index: 8;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-b);
+  box-shadow: var(--shadow-lg);
+  translate: -50% 0;
+}
+
+.ed-crop-hint {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.ed-crop-zoom-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ed-crop-zoom {
+  width: 10rem;
+  accent-color: var(--color-a);
+}
+
+.ed-crop-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ---------- post editor on its own page ---------- */
+
+.ed-post-page {
+  display: grid;
+  gap: 1rem;
+}
+
+/* a project without a cover yet: a place to drop or pick one */
+.is-editing .project-hero-media.ed-media:not(:has(img)) {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.is-editing .project-hero-media.ed-media:not(:has(img)) .ed-media-tools {
+  position: static;
+}
+
+/* ---------- dates and lists edited where they're shown ---------- */
+
+.ed-dates {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ed-date-input {
+  width: 6.5rem;
+  min-height: 32px;
+  padding: 0.15rem 0.45rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: calc(var(--radius) * 0.5);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88em;
+}
+
+.ed-date-input:focus {
+  outline: 2px solid var(--color-a);
+  border-style: solid;
+}
+
+.ed-date-input[aria-invalid="true"] {
+  border-color: var(--color-f);
+}
+
+.ed-date-sep {
+  color: var(--ink-muted);
+}
+
+.ed-card .ed-chips[data-list] {
+  margin-top: 0.6rem;
+}
+
+/* ---------- project gallery ---------- */
+
+.ed-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ed-gallery-item {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--well);
+}
+
+.ed-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ed-gallery-item > .ed-tools {
+  opacity: 1;
+}
+
+.ed-gallery-add {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  aspect-ratio: 4 / 3;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.ed-gallery-add .ed-image-menu .account-menu {
+  left: 50%;
+  translate: -50% 0;
+}
+
+/* ---------- links and buttons rest while editing ---------- */
+
+.is-editing .ed-inert {
+  cursor: default;
+  opacity: 0.75;
+}
+
+/* ---------- a post edited on its own page ---------- */
+
+.ed-post-editing .detail-title {
+  margin-bottom: 0.35rem;
+}
+
+.ed-post-editing .detail-lead {
+  margin: 0 0 0.5rem;
+  color: var(--ink-muted);
+  font-size: 1.1rem;
+}
+
+.ed-post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ed-inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ed-post-cover {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.ed-post-cover:not(.has-image) {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  min-height: 9rem;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+}
+
+.ed-post-cover:not(.has-image) .ed-media-tools {
+  position: static;
+}
+
+.ed-post-cover .post-cover {
+  margin: 0;
+}
+
+.ed-post-body .ed-md-text {
+  min-height: 24rem;
+  font-size: 0.95rem;
+}
+
+.ed-post-bar {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--color-s);
+}
+
+.ed-post-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.ed-check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 36px;
+  font-size: 0.9rem;
+}
+
+.ed-check-inline input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-a);
+}
+
+.ed-post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.ed-post-status {
+  margin-right: auto;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+@media (min-width: 900px) {
+  .ed-post-editing {
+    max-width: min(78rem, 100%);
+  }
+}
+
+/* README-sourced content always shows its edit icon */
+.is-editing [data-source] > .ed-tools {
+  opacity: 1;
+}
+
+/* ---------- what a repo adds, switched on or off ---------- */
+
+.ed-repo-strip .ed-strip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ed-toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+  color: var(--color-c);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-toggle-chip[aria-pressed="false"] {
+  background: transparent;
+  border-style: dashed;
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+.ed-toggle-chip .icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- highlights: remove one, add one ---------- */
+
+.is-editing li:has(> .ed-line-x) {
+  position: relative;
+}
+
+.ed-line-x {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-inline-start: 0.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.ed-line-x:hover {
+  background: color-mix(in oklab, var(--color-f) 14%, transparent);
+  color: var(--color-f);
+}
+
+.ed-line-x .icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (hover: hover) {
+  .ed-line-x {
+    opacity: 0;
+  }
+
+  li:hover > .ed-line-x,
+  li:focus-within > .ed-line-x,
+  .ed-line-x:focus-visible {
+    opacity: 1;
+  }
+}
+
+.ed-add-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  margin-top: 0.4rem;
+  padding: 0 0.6rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-add-line:hover {
+  border-style: solid;
+  color: var(--color-c);
+}
+
+/* ---------- project images while editing: the page's slider, a ⋯ menu on each ---------- */
+
+.ed-slide {
+  position: relative;
+}
+
+.ed-slide-menu {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.ed-slide-menu .ed-image-btn {
+  box-shadow: var(--shadow);
+}
+
+.ed-slide-badge {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-c);
+  color: var(--color-b);
+  font-size: 0.72rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.ed-slide.is-off img {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+.ed-slide.is-drop .slide-open {
+  outline: 3px dashed var(--color-a);
+  outline-offset: -3px;
+}
+
+.ed-image-add {
+  display: flex;
+  justify-content: center;
+  margin-top: -0.5rem;
+}
+
+.ed-image-add-btn {
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+}
+
+/* ---------- site settings: side list of groups, cards of settings ---------- */
+
+/* The overlay: full screen on phones, a large panel on desktop */
+.ed-settings-dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-b);
+  color: var(--color-c);
+}
+
+.ed-settings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ed-settings-dialog::backdrop {
+  background: color-mix(in oklab, var(--color-c) 40%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.ed-settings-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0.5rem;
+}
+
+.ed-settings-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+/* The one scrolling area: the side list sticks to its top */
+.ed-settings {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 1rem 2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ed-set-layout {
+  display: block;
+}
+
+.ed-set-side {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 -1rem 1rem;
+  padding: 0.6rem 1rem;
+  background: color-mix(in oklab, var(--color-b) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.ed-set-side .ed-search-wrap,
+.ed-set-side .ed-search {
+  width: 100%;
+}
+
+/* Phones: the groups are a row of chips that scrolls sideways (within itself) */
+.ed-set-nav {
+  display: flex;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ed-set-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.ed-set-link {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ed-set-link[aria-current] {
+  border-color: transparent;
+  background: var(--color-c);
+  color: var(--color-b);
+  font-weight: 600;
+}
+
+.ed-set-content {
+  min-width: 0;
+}
+
+.ed-set-group {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2.25rem;
+  scroll-margin-top: 8rem;
+}
+
+.ed-set-title {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ed-set-card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 1.2);
+  background: var(--color-s);
+}
+
+.ed-set-head {
+  margin-bottom: 1rem;
+}
+
+.ed-set-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ed-set-head p {
+  margin: 0.2rem 0 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
+
+.ed-set-body {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.ed-set-body .ed-field {
+  margin: 0;
+}
+
+.ed-set-body .ed-sub {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.ed-set-body .ed-json {
+  width: 100%;
+  min-height: 22rem;
+}
+
+/* Colors: one row per token that fits a phone */
+.ed-set-body .ed-colors {
+  min-width: 0;
+}
+
+.ed-set-body .ed-color .input {
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .ed-set-layout {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .ed-set-side {
+    top: 0;
+    margin: 0;
+    padding-top: 0.25rem;
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+  }
+
+  .ed-set-nav {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .ed-set-link {
+    padding: 0.5rem 0.8rem;
+    border: 0;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+  }
+
+  .ed-set-link:hover {
+    background: var(--well);
+    color: var(--color-c);
+  }
+
+  .ed-set-link[aria-current] {
+    background: var(--well);
+    color: var(--color-c);
+    box-shadow: inset 3px 0 0 var(--color-a);
+  }
+
+  .ed-set-group {
+    scroll-margin-top: 1rem;
+  }
+
+  .ed-settings-dialog {
+    width: min(72rem, calc(100vw - 4rem));
+    height: min(52rem, calc(100dvh - 4rem));
+    margin: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: calc(var(--radius) * 1.6);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .ed-settings-head {
+    padding: 1.25rem 1.75rem 0.75rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .ed-settings {
+    padding: 1.25rem 1.75rem 2rem;
+  }
+}
+
+/* ---------- custom pages: add one from the tabs, edit it on the page ---------- */
+
+.tabs .ed-tab-add {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs .ed-tab-add:hover {
+  border-style: solid;
+  color: var(--color-c);
+}
+
+.ed-tab-strip {
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.ed-tab-strip .ed-tools {
+  position: static;
+  margin-inline-start: auto;
+  opacity: 1;
+}
+
+.ed-tab-strip > .ed-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.ed-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--well);
+}
+
+.ed-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ed-seg-btn[aria-pressed="true"] {
+  background: var(--color-b);
+  color: var(--color-c);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.ed-seg-btn .icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ed-tab-editor {
+  margin-bottom: 1.25rem;
+}
+
+.ed-code-text {
+  width: 100%;
+  min-height: 22rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.ed-settings .ed-panel.ed-set-layout {
+  max-width: none;
+  width: 100%;
+}
+
+/* ---------- date picker ---------- */
+
+.dp {
+  position: fixed;
+  z-index: 120;
+  width: 18rem;
+  max-width: calc(100vw - 16px);
+  padding: 0.6rem;
+  border: 1px solid var(--line-soft);
+  border-radius: calc(var(--radius) * 1.2);
+  background: var(--color-b);
+  color: var(--color-c);
+  box-shadow: var(--shadow-lg);
+}
+
+.dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.dp-nav,
+.dp-title,
+.dp-cell,
+.dp-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dp-nav {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.dp-nav:hover,
+.dp-title:hover,
+.dp-cell:hover,
+.dp-link:hover {
+  background: var(--well);
+}
+
+.dp-nav .icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dp-title {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.dp-grid {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.dp-months {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.dp-days {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.dp-wd {
+  padding: 0.2rem 0;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.dp-cell {
+  min-height: 38px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.dp-days .dp-cell {
+  min-height: 34px;
+  border-radius: 50%;
+}
+
+.dp-cell[data-now] {
+  box-shadow: inset 0 0 0 1.5px var(--color-a);
+}
+
+.dp-cell[aria-pressed="true"] {
+  background: var(--color-a);
+  color: var(--color-b);
+  font-weight: 700;
+}
+
+.dp-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dp-link {
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+}
+
+.dp-strong {
+  color: var(--color-a);
+  font-weight: 700;
+}
+
+/* ---------- account settings: rows, status lines, actions ---------- */
+
+.ed-set-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.ed-set-body > .ed-set-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ed-set-row-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ed-set-row .ed-label {
+  font-weight: 600;
+}
+
+.ed-set-row .ed-seg {
+  max-width: 100%;
+}
+
+.ed-set-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.ed-set-status .icon svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 0.15rem;
+}
+
+.ed-set-status[data-tone="ok"] .icon {
+  color: var(--color-o);
+}
+
+.ed-set-status[data-tone="warn"] .icon {
+  color: var(--color-r);
+}
+
+.ed-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ed-set-url {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+/* ---------- "Make these one account?" ---------- */
+
+.link-who {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.link-who li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.link-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }

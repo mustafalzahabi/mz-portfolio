@@ -18,12 +18,14 @@ import { checkPalette, darkHex } from "../palette.js";
 import { CURATED_THEMES } from "../resume/index.js";
 import { SECTIONS, BASICS_FIELDS, LOCATION_FIELDS, PROFILE_FIELDS, blankScaffold } from "../template.js";
 import { getPath, setPath, isEmpty, prune, History, diffSummary, validateField, frontmatter, applyMarkdown } from "../editor-core.js";
+import { postFields } from "../posts.js";
 import { TOKEN_HELP_URL, signIn } from "../github.js";
 import { storage } from "../storage.js";
 import { googleLoginUrl } from "../google.js";
 import { accountMenu, avatarImg, dropdown, loginUrl } from "../account.js";
 import { resolveImage, imageToDataUrl, isGistImage, IMAGE_FILES } from "../images.js";
 import { selectMenu } from "../ui.js";
+import { settingsLayout } from "./settings-ui.js";
 
 /** "photoShape" / "two-column" → "Photo shape" / "Two column" */
 const humanize = (v) => String(v).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
@@ -80,9 +82,13 @@ const store = {
   },
 };
 
-function ago(ts) {
-  if (!ts) return "";
-  const s = Math.max(0, Math.round((Date.now() - new Date(ts).getTime()) / 1000));
+function ago(value) {
+  if (!value) return "";
+  // A linked account's stamp holds one time per store ("<github>|<google>"): the newest counts
+  const times = String(value).split("|").map((t) => Date.parse(t)).filter(Number.isFinite);
+  if (!times.length) return "";
+  const ts = Math.max(...times);
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
   if (s < 45) return "just now";
   const m = Math.round(s / 60);
   if (m < 60) return `${m} min ago`;
@@ -855,8 +861,42 @@ function tabsGroup() {
   );
 }
 
+// Site settings, grouped by what they change. Each group is a card with a
+// plain title and a line about it; a side list (a chip row on phones) jumps
+// between categories, and the search narrows everything down.
+const SETTING_CARDS = {
+  resumeTheme: ["Resume theme", "How the printable resume looks."],
+  colors: ["Colors", "Your palette. Dark mode is generated from it."],
+  theme: ["Light and dark", "Which mode visitors see first, and the switch."],
+  typography: ["Fonts", "Typefaces and text size."],
+  shape: ["Corners and depth", "Roundness and shadows."],
+  header: ["Header", "What the top of your portfolio shows."],
+  profile: ["Profile photo", "Its shape and size. Change the photo itself on the page."],
+  banner: ["Banner", "Behind your name. Change the image on the page."],
+  sections: ["Sections", "Their order, and which are shown."],
+  navbar: ["Section menu", "The quick menu to jump between sections."],
+  footer: ["Footer", "The line at the bottom of every page."],
+  text: ["Wording", "Labels, date format and language."],
+  projects: ["Projects", "Which GitHub repos show, and how."],
+  skills: ["Skills", "How skill groups are shown."],
+  tags: ["Tags", "The small labels on projects and skills."],
+  blog: ["Blog", "Whether and how posts are listed."],
+  resume: ["Resume", "Downloading and printing."],
+  chat: ["AI chat", "A chat that answers visitors' questions from your portfolio, on their own device."],
+  animation: ["Animations", "The intro and scroll effects."],
+  seo: ["Search and sharing", "How your portfolio appears in search results and link previews."],
+  json: ["resume.json", "Everything, as raw JSON. For bulk edits."],
+};
+const SETTING_GROUPS = [
+  ["look", "Look", ["colors", "theme", "typography", "shape", "resumeTheme"]],
+  ["layout", "Layout", ["header", "profile", "banner", "sections", "navbar", "footer"]],
+  ["content", "Content", ["text", "projects", "skills", "tags", "blog", "resume", "chat"]],
+  ["motion", "Motion", ["animation"]],
+  ["sharing", "Sharing", ["seo"]],
+  ["advanced", "Advanced", ["json"]],
+];
+
 function settingsPanel() {
-  const panel = h("div.ed-panel");
   // Migrate legacy config shapes once, so edits land where the app reads them
   const raw = cfgRoot();
   if (raw && Object.keys(raw).length) {
@@ -867,49 +907,56 @@ function settingsPanel() {
     }
   }
   const { config, warnings } = normalizeConfig(ed.resume.meta || {});
-  panel.appendChild(panelTools("settings", panel));
-  if (warnings.length) panel.appendChild(warningsBox(warnings, `${warnings.length} setting(s) need attention`));
 
-  // Resume theme (JSON Resume standard meta.theme)
-  const themeSel = selectMenu({
-    options: [
-      ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
-      ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
-    ],
-    value: config.resume.theme,
-    onChange: (v) => {
-      setPath(ed.resume, ["meta", "theme"], v);
-      changed();
-    },
-  });
-  panel.appendChild(group("settings:theme", [h("strong", "Resume theme"), h("span.muted", "meta.theme")], h("div.ed-group-body", field("Theme for the resume viewer", themeSel))));
-
-  for (const [name, node] of Object.entries(CONFIG_SCHEMA)) {
-    const body = h("div.ed-group-body");
-    const details = group(`settings:${name}`, [h("strong", name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())), node._desc ? h("span.muted", node._desc) : null], body);
-    if (name === "colors") body.appendChild(colorsGroup(config));
+  const bodyFor = (name) => {
+    const body = h("div.ed-set-body");
+    if (name === "json") body.appendChild(jsonPanel());
+    else if (name === "resumeTheme") {
+      body.appendChild(field("Theme", selectMenu({
+        options: [
+          ...CURATED_THEMES.map((t) => ({ value: t.name, label: t.label })),
+          ...(CURATED_THEMES.some((t) => t.name === config.resume.theme) ? [] : [{ value: config.resume.theme, label: config.resume.theme, hint: "From the JSON Resume registry" }]),
+        ],
+        value: config.resume.theme,
+        onChange: (v) => {
+          setPath(ed.resume, ["meta", "theme"], v);
+          changed();
+        },
+      })));
+    } else if (name === "colors") body.appendChild(colorsGroup(config));
     else if (name === "sections") body.appendChild(sectionsGroup(config));
-    else if (name === "tabs") body.appendChild(tabsGroup());
-    else if (isLeaf(node)) body.appendChild(cfgInput([name], node, getPath(config, [name])));
     else {
-      const walk = (n, path) => {
-        for (const [k, child] of Object.entries(n)) {
-          if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
-          if (name === "profile" && k === "photo") body.appendChild(photoPicker());
-          else if (name === "banner" && k === "image") body.appendChild(bannerPicker());
-          else if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
-          else {
-            body.appendChild(h("h3.ed-sub", k));
-            walk(child, [...path, k]);
+      const node = CONFIG_SCHEMA[name];
+      if (!node) return null;
+      if (isLeaf(node)) body.appendChild(cfgInput([name], node, getPath(config, [name])));
+      else {
+        const walk = (n, path) => {
+          for (const [k, child] of Object.entries(n)) {
+            if (k.startsWith("_") || (name === "resume" && k === "theme")) continue;
+            if ((name === "profile" && k === "photo") || (name === "banner" && k === "image")) continue; // edited on the page
+            if (isLeaf(child)) body.appendChild(cfgInput([...path, k], child, getPath(config, [...path, k])));
+            else {
+              body.appendChild(h("h4.ed-sub", humanize(k)));
+              walk(child, [...path, k]);
+            }
           }
-        }
-      };
-      walk(node, [name]);
+        };
+        walk(node, [name]);
+      }
     }
-    panel.appendChild(details);
-  }
-  if (ed.query.settings) queueMicrotask(() => filterPanel(panel, ed.query.settings));
-  return panel;
+    return body.children.length ? body : null;
+  };
+
+  const groups = SETTING_GROUPS.map(([id, title, names]) => ({
+    id, title,
+    cards: names.map((name) => ({ name, title: SETTING_CARDS[name][0], desc: SETTING_CARDS[name][1], body: bodyFor(name) })),
+  }));
+  return settingsLayout({
+    groups,
+    query: ed.query.settings || "",
+    onQuery: (q) => (ed.query.settings = q),
+    notice: warnings.length ? warningsBox(warnings, `${warnings.length} setting(s) need attention`) : null,
+  });
 }
 
 // ============================================================================
@@ -970,7 +1017,7 @@ async function loadPosts() {
   ed.posts = await storage().listPosts(ed.source?.filename || getResumeFilename());
 }
 
-const POST_FIELDS = ["title", "date", "tags", "description", "image", "draft", "body", "slug", "isPublic"];
+const POST_FIELDS = ["title", "date", "tags", "description", "image", "canonical", "draft", "body", "slug", "isPublic"];
 
 function savePostDraft(p) {
   store.set(POST_DRAFT_KEY, { gistId: p.gistId, ...Object.fromEntries(POST_FIELDS.map((k) => [k, p[k]])), editedAt: new Date().toISOString() });
@@ -986,26 +1033,24 @@ function takePostDraft(p) {
   } else if (differs) store.remove(POST_DRAFT_KEY);
 }
 
-async function openPost(post) {
+/** Reads a post's file (once) and fills in its fields; a new, empty post without one. */
+async function loadPost(post) {
   if (post && !post.loaded) {
     const { text, createdAt, updatedAt } = await storage().readPost(post);
     const { metadata, body } = parseFrontmatter(text);
-    Object.assign(post, {
-      loaded: true,
-      title: String(metadata.title || post.title),
-      date: metadata.date ? String(metadata.date).slice(0, 10) : String(createdAt || "").slice(0, 10),
-      tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : metadata.tags ? [String(metadata.tags)] : [],
-      description: String(metadata.description || metadata.preview || ""),
-      image: String(metadata.image || ""),
-      draft: metadata.draft === true || metadata.published === false,
-      body,
-      updatedAt,
-    });
+    const fields = postFields(metadata, { body, filename: post.filename, fallbackTitle: post.title, created: createdAt });
+    // The slug is written back on save, so a later title change keeps the post's URL
+    Object.assign(post, { loaded: true, ...fields, date: fields.date.slice(0, 10), body, updatedAt });
   }
-  ed.post = post || {
-    gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", draft: false, body: "", isPublic: true, loaded: true,
+  const p = post || {
+    gistId: null, filename: "", slug: "", title: "", date: new Date().toISOString().slice(0, 10), tags: [], description: "", image: "", canonical: "", draft: false, body: "", isPublic: true, loaded: true,
   };
-  takePostDraft(ed.post);
+  takePostDraft(p);
+  return p;
+}
+
+async function openPost(post) {
+  ed.post = await loadPost(post);
   renderPanel();
 }
 
@@ -1122,6 +1167,7 @@ function postEditor(panel) {
   const saveBtn = h("button.btn.btn-primary", { type: "button" }, p.gistId ? "Save post" : "Publish post");
   const save = async () => {
     if (!p.title.trim()) return toast("Give the post a title first.", "error");
+    p.slug = slugify(slugInput?.value || p.slug || p.title);
     const content = frontmatter(p);
     saveBtn.disabled = true;
     saveBtn.textContent = "Saving…";
@@ -1436,9 +1482,9 @@ export function bindControls(controls) {
 
 export {
   ed, store, ago, begin, changed, undo, redo, save, saveDraft, readDraft, computeDirty, updateStatus,
-  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPosts,
+  renderPanel, resumePanel, settingsPanel, jsonPanel, blogPanel, revealGroup, openPost, loadPost, loadPosts, savePostDraft, POST_DRAFT_KEY,
   photoPicker, bannerPicker, githubForPreview, openSignIn, showChanges, showShortcuts, choiceDialog,
-  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL,
+  fetchOwnResume, beforeUnload, iconButton, field, setCfg, DRAFT_KEY, LOGIN_URL, MD_ACTIONS,
 };
 
 /** Inputs for some settings of one config group, e.g. cfgFields("footer") or cfgFields("text", ["bio"]). */
@@ -1450,4 +1496,4 @@ export function cfgFields(groupName, keys = null) {
     .map(([k, child]) => cfgInput([groupName, k], child, getPath(config, [groupName, k])));
 }
 
-export { boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };
+export { cfgRoot, boundInput, itemList, imageSource, tabsGroup, colorsGroup, sectionsGroup, humanize, uploadImage };

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 
 import { checkPalette, darkHex, contrast, hexToRgb } from "../public/scripts/palette.js";
 import { parseFrontmatter } from "../public/scripts/utils.js";
+import { postFields } from "../public/scripts/posts.js";
 import { setPath, frontmatter, prune, History, diffSummary, validateField, applyMarkdown } from "../public/scripts/editor-core.js";
 import { SECTIONS, templateResume, blankScaffold } from "../public/scripts/template.js";
 import { validateResume } from "../public/scripts/merge.js";
@@ -53,8 +54,36 @@ test("editor: blog frontmatter round-trips through the parser", () => {
   assert.equal(metadata.title, 'He said "hi"');
   assert.equal(String(metadata.date), "2026-11-03");
   assert.deepEqual(metadata.tags, ["notes", "a b"]);
-  assert.equal(metadata.draft, true);
+  assert.equal(metadata.published, false);
   assert.equal(body, "# Hello\n\nText");
+});
+
+test("posts: dev.to keys are written and read back", () => {
+  const post = { title: "T", date: "2026-11-03", tags: ["a"], description: "D", image: "https://x/c.png", canonical: "https://x/p", slug: "my-post", draft: false, body: "Hi" };
+  const { metadata, body } = parseFrontmatter(frontmatter(post));
+  assert.equal(metadata.cover_image, "https://x/c.png");
+  assert.equal(metadata.canonical_url, "https://x/p");
+  assert.equal(metadata.published, true);
+  const back = postFields(metadata, { body, filename: "x.md" });
+  assert.equal(back.slug, "my-post");
+  assert.equal(back.image, "https://x/c.png");
+  assert.equal(back.canonical, "https://x/p");
+  assert.equal(back.draft, false);
+});
+
+test("posts: lenient reading and fallbacks", () => {
+  const a = postFields({ summary: "S", image: "i.png", tags: "a, b", draft: true }, { body: "# Heading\n", filename: "2025-04-01-hello-there.md" });
+  assert.equal(a.title, "Heading");
+  assert.equal(a.description, "S");
+  assert.equal(a.image, "i.png");
+  assert.deepEqual(a.tags, ["a", "b"]);
+  assert.equal(a.date, "2025-04-01");
+  assert.equal(a.draft, true);
+  const b = postFields({ images: ["one.png"] }, { body: "no heading", filename: "2025-04-01-hello-there.md", fallbackTitle: "From gist" });
+  assert.equal(b.title, "From gist");
+  assert.equal(b.image, "one.png");
+  assert.equal(postFields({}, { filename: "2025-04-01-hello-there.md" }).title, "hello-there");
+  assert.equal(postFields({}, { filename: "x.md", created: "2024-01-02T00:00:00Z" }).date, "2024-01-02T00:00:00Z");
 });
 
 test("logo: logo.svg carries its own color", () => {
@@ -122,4 +151,39 @@ test("images: uploaded gist images are recognised, other links pass through", as
   assert.equal(isGistImage("https://gist.githubusercontent.com/u/abc/raw/photo.png"), false);
   assert.equal(await resolveImage("https://example.com/a.jpg"), "https://example.com/a.jpg");
   assert.equal(await resolveImage("javascript:alert(1)"), "");
+});
+
+test("post series: read from frontmatter and written back", () => {
+  const a = postFields({ title: "T", series: "Math, Step by Step", part: "3" }, { body: "", filename: "t.md" });
+  assert.equal(a.series, "Math, Step by Step");
+  assert.equal(a.part, 3);
+  const { metadata, body } = parseFrontmatter(frontmatter({ ...a, body: "Hi" }));
+  const back = postFields(metadata, { body, filename: "t.md" });
+  assert.equal(back.series, "Math, Step by Step");
+  assert.equal(back.part, 3);
+  assert.equal(postFields({ title: "T" }, { filename: "t.md" }).series, "");
+});
+
+test("posts: same-day posts by publish time, a series kept together in order", async () => {
+  const { sortPosts } = await import("../public/scripts/data.js");
+  const p = (slug, date, createdAt, series = "", part = 0) => ({ slug, title: slug, date, createdAt, series, part });
+  const order = sortPosts([
+    p("old", "2026-01-01", "2026-01-01T09:00:00Z"),
+    p("s2", "2026-02-01", "2026-02-01T08:00:00Z", "S", 2),
+    p("solo-late", "2026-02-01", "2026-02-01T12:00:00Z"),
+    p("s1", "2026-02-01", "2026-02-01T10:00:00Z", "S", 1),
+    p("solo-early", "2026-02-01", "2026-02-01T07:00:00Z"),
+  ]).map((x) => x.slug);
+  assert.deepEqual(order, ["solo-late", "s1", "s2", "solo-early", "old"]);
+});
+
+test("post addresses: series parts live under their series", async () => {
+  const { postPath, seriesSlug } = await import("../public/scripts/posts.js");
+  assert.equal(postPath({ slug: "sql-in-practice", series: "Databases, from Design to Scale" }), "databases-from-design-to-scale/sql-in-practice");
+  assert.equal(postPath({ slug: "solo", series: "" }), "solo");
+  assert.equal(seriesSlug("Mathematics, Step by Step"), "mathematics-step-by-step");
+  const { parsePath } = await import("../public/scripts/router.js");
+  assert.deepEqual(parsePath("/octo/blog/s/p", "/").sub, { name: "post", param: "p", series: "s" });
+  assert.deepEqual(parsePath("/octo/blog/s", "/").sub, { name: "post", param: "s" });
+  assert.equal(parsePath("/octo/blog/a/b/c", "/").sub.name, "missing");
 });

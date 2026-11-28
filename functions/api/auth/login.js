@@ -1,5 +1,5 @@
-// GET /api/auth/login?return=/edit → GitHub's authorize page
-import { SCOPE, safeReturn, cookie, backTo } from "./_shared.js";
+// GET /api/auth/login?return=/edit[&scope=public_repo] → GitHub's authorize page
+import { scopeFor, safeReturn, cookie, backTo } from "./_shared.js";
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
@@ -11,7 +11,7 @@ export async function onRequestGet({ request, env }) {
   const auth = new URL("https://github.com/login/oauth/authorize");
   auth.searchParams.set("client_id", env.GITHUB_CLIENT_ID);
   auth.searchParams.set("redirect_uri", `${url.origin}/api/auth/callback`);
-  auth.searchParams.set("scope", SCOPE);
+  auth.searchParams.set("scope", scopeFor(url.searchParams.get("scope")));
   auth.searchParams.set("state", nonce);
   auth.searchParams.set("allow_signup", "true");
   return new Response(null, {

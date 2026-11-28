@@ -68,20 +68,14 @@ export function setOwnerDefault(mode) {
   applyTheme(getThemeMode(), { persist: false });
 }
 
-function nextMode(mode) {
-  return MODES[(MODES.indexOf(mode) + 1) % MODES.length];
-}
-
 const MODE_LABEL = { auto: "Theme: automatic", light: "Theme: light", dark: "Theme: dark" };
 
 // ============================================================================
-// TOGGLE BUILDERS — "switch" | "icon" | "slider" | "none"
+// THE THEME SWITCH
 // ============================================================================
 
-export function buildThemeToggle(style = "switch") {
-  if (style === "none") return null;
-  if (style === "icon") return buildIconToggle();
-  if (style === "slider") return buildSegmentedToggle();
+/** The light / dark / auto switch (the only theme toggle). */
+export function buildThemeToggle() {
   return buildSwitchToggle();
 }
 
@@ -89,60 +83,6 @@ function onThemeChange(el, update) {
   update();
   const handler = () => (el.isConnected ? update() : document.removeEventListener("mz-themechange", handler));
   document.addEventListener("mz-themechange", handler);
-}
-
-// Icon button: cycles auto → light → dark
-function buildIconToggle() {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "theme-toggle theme-toggle--icon";
-  const update = () => {
-    const mode = getThemeMode();
-    btn.innerHTML = ICONS[mode === "auto" ? "auto" : mode === "dark" ? "moon" : "sun"];
-    btn.setAttribute("aria-label", `${MODE_LABEL[mode]}. Click to change.`);
-    btn.title = MODE_LABEL[mode];
-  };
-  btn.addEventListener("click", () => applyTheme(nextMode(getThemeMode())));
-  onThemeChange(btn, update);
-  return btn;
-}
-
-// Segmented control: three radio buttons
-function buildSegmentedToggle() {
-  const group = document.createElement("div");
-  group.className = "theme-toggle theme-toggle--slider";
-  group.setAttribute("role", "radiogroup");
-  group.setAttribute("aria-label", "Color theme");
-  const buttons = MODES.map((mode) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.setAttribute("role", "radio");
-    b.dataset.mode = mode;
-    b.innerHTML = ICONS[mode === "auto" ? "auto" : mode === "dark" ? "moon" : "sun"];
-    b.setAttribute("aria-label", mode[0].toUpperCase() + mode.slice(1));
-    b.title = MODE_LABEL[mode];
-    b.addEventListener("click", () => applyTheme(mode));
-    group.appendChild(b);
-    return b;
-  });
-  group.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    e.preventDefault();
-    const i = MODES.indexOf(getThemeMode());
-    const mode = MODES[(i + (e.key === "ArrowRight" ? 1 : MODES.length - 1)) % MODES.length];
-    applyTheme(mode);
-    buttons[MODES.indexOf(mode)].focus();
-  });
-  onThemeChange(group, () => {
-    const mode = getThemeMode();
-    buttons.forEach((b) => {
-      const on = b.dataset.mode === mode;
-      b.setAttribute("aria-checked", String(on));
-      b.tabIndex = on ? 0 : -1;
-    });
-    group.dataset.mode = mode;
-  });
-  return group;
 }
 
 // Draggable switch: drag/tap left = dark, right = light, throw it off = auto

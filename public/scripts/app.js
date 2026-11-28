@@ -5,13 +5,17 @@
 import { resolveImage, isGistImage } from "./images.js";
 import { templateResume } from "./template.js";
 import { completeSignIn, isSignInReturn } from "./account.js";
-import { h, svgIcon, safeUrl, traceSources } from "./utils.js";
+import { h, svgIcon, safeUrl, traceSources, prefersReducedMotion } from "./utils.js";
 import { ICONS } from "./icons.js";
 import { debug } from "./log.js";
 import { BASE_PATH, parsePath, rescueRedirect, interceptLinks, navigate } from "./router.js";
+import { repairSession } from "./github.js";
 import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
-import { collectPortfolioData } from "./data.js";
+import { collectPortfolioData, localDevPosts } from "./data.js";
+import { postPath, seriesSlug } from "./posts.js";
+import { checkOnVisit } from "./subscriptions.js";
+import { syncFollows } from "./follow-sync.js";
 import { buildViewModel } from "./merge.js";
 import {
   SECTION_BUILDERS,
@@ -31,8 +35,9 @@ import { loadLanguageColors } from "./languages.js";
 import { setupAnimations, teardownAnimations } from "./animations/index.js";
 import { openResumeOverlay } from "./resume/index.js";
 import { renderLanding } from "./views/landing.js";
+import { setChatSource } from "./ai/chat.js";
 import { renderDocs } from "./views/docs.js";
-import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme } from "./edit/mode.js";
+import { setupEditing, afterRender, routeEdit, leaveEditing, setResumeTheme, isEditing } from "./edit/mode.js";
 import { renderPreviewEditor, getPreviewJson, analyzeResume } from "./views/preview.js";
 import {
   showLoading,
@@ -61,6 +66,7 @@ const state = {
   introPlayed: false,
   profileScroll: 0,
   blogState: { query: "", tag: "", page: 1 },
+  blogScroll: 0,
   resumeOverlay: null,
 };
 
@@ -119,8 +125,18 @@ async function route() {
 
   const key = path.preview ? "preview" : `${path.source}:${path.id.toLowerCase()}`;
   if (state.key === key && state.vm) {
-    renderSub(path.sub);
-    afterRender();
+    const swap = () => {
+      renderSub(path.sub);
+      afterRender();
+    };
+    // Moving to another page of the same portfolio cross-fades (View Transitions);
+    // in-page jumps (#section) and reduced motion swap at once
+    if (document.startViewTransition && !prefersReducedMotion() && state.page && pageKey(path.sub) !== state.page && !isEditing()) {
+      document.documentElement.dataset.nav = /^post:|^project:/.test(pageKey(path.sub)) ? "forward" : /^post:|^project:/.test(state.page) ? "back" : "across";
+      const t = document.startViewTransition(swap);
+      t.ready.catch(() => {}); // a quicker next navigation skips this one: fine
+      t.finished.finally(() => delete document.documentElement.dataset.nav);
+    } else swap();
     return;
   }
 
@@ -137,7 +153,10 @@ async function route() {
     try {
       if (!json) throw new Error("no preview");
       const { resume } = analyzeResume(json);
-      result = { status: "ok", data: { resume, github: previewGithub(), repos: [], posts: [], source: { type: "preview", id: "preview", hasResume: true } } };
+      // On localhost, posts the dev server serves with --posts (never in production)
+      const posts = await localDevPosts();
+      if (loadId !== state.loadId) return;
+      result = { status: "ok", data: { resume, github: previewGithub(), repos: [], posts, source: { type: "preview", id: "preview", hasResume: true } } };
     } catch {
       navigate(`${BASE_PATH}preview`, { replace: true });
       return;
@@ -166,6 +185,27 @@ async function route() {
   renderSub(path.sub);
   afterRender();
   if (result.offline) showOfflineBanner(result);
+  // Shown from this browser's saved copy: check GitHub/Drive quietly, and redraw if the owner changed anything
+  else if (result.savedAt && Date.now() - result.savedAt > 60 * 1000) refreshInBackground(path, key, loadId, data);
+}
+
+/** What visitors see, as a comparable string (resume, posts and their versions, repos). */
+const fingerprint = (d) => JSON.stringify([d.resume, (d.posts || []).map((p) => [p.slug, p.updatedAt]), (d.repos || []).map((r) => [r.name, r.pushed_at || r.updated_at])]);
+
+async function refreshInBackground(path, key, loadId, shown) {
+  const fresh = await collectPortfolioData(path.source, path.id, { force: true }).catch(() => null);
+  if (fresh?.status !== "ok" || fresh.offline || loadId !== state.loadId || state.key !== key || isEditing()) return;
+  if (fingerprint(fresh.data) === fingerprint(shown)) return;
+  const y = scrollY;
+  const sub = parsePath().sub;
+  teardownAnimations();
+  resetStyleConfig();
+  state.data = fresh.data;
+  if (!(await showPortfolio(fresh.data, key, path.base, loadId))) return;
+  state.introPlayed = true; // a redraw, not a first visit: no intro again
+  renderSub(sub);
+  scrollTo(0, y);
+  afterRender();
 }
 
 /**
@@ -191,6 +231,7 @@ async function rerenderPortfolio(resume) {
 // theme default) so the next page never inherits another owner's look.
 function resetPortfolio() {
   state.loadId++;
+  setChatSource(null);
   closeResume(); // its overlay must not stay over the next page
   document.body.classList.remove("is-sparse");
   teardownAnimations();
@@ -203,6 +244,7 @@ function resetPortfolio() {
   state.introPlayed = false;
   state.profileScroll = 0;
   state.blogState = { query: "", tag: "", page: 1 };
+  state.blogScroll = 0;
   setOwnerDefault("auto");
 }
 
@@ -218,7 +260,7 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   const vm = buildViewModel(data, config);
   // README covers (raw host) and GitHub language colors, with a capped wait
   await Promise.race([
-    Promise.all([enrichProjectCovers(vm.projects), config.tags.languageColors ? loadLanguageColors() : null]),
+    Promise.all([enrichProjectCovers(vm.projects, 8, config.projects), config.tags.languageColors ? loadLanguageColors() : null]),
     new Promise((r) => setTimeout(r, 2500)),
   ]);
   if (loadId !== state.loadId) return false;
@@ -245,6 +287,8 @@ async function showPortfolio(data, key, base, loadId = state.loadId) {
   state.shell = null;
   state.page = null;
   state.introPlayed = false;
+  // Visitors' AI chat (runs on their device; nothing loads until they open it)
+  setChatSource(config.chat.enabled && data.resume && !EMBEDDED ? () => state.data?.resume || data.resume : null);
   return true;
 }
 
@@ -264,8 +308,10 @@ function ctx() {
     photo: state.photo,
     bannerImage: state.banner,
     homeHref: BASE_PATH,
+    // GitHub-backed portfolios have an RSS feed (functions/_post-meta.js)
+    feedHref: /^(gh|auto):/.test(state.key || "") ? `${state.base}/feed.xml` : "",
     embedded: EMBEDDED,
-    openResume: () => navigate(`${state.base}/resume`),
+    openResume: () => navigate(`${state.base}/resume${isEditing() ? "?edit" : ""}`),
   };
 }
 
@@ -284,7 +330,9 @@ function ensureShell(kind, active) {
   const top =
     kind === "profile"
       ? [buildHeader(vm, config, c), buildTabs(vm, config, c, active)]
-      : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
+      : kind === "post"
+        ? [buildPageBar(vm, config, c, { backHref: `${state.base}/blog`, backLabel: config.text.tabs.blog || "Blog" })]
+        : [buildPageBar(vm, config, c, { backHref: `${state.base}#projects`, backLabel: "Projects" })];
 
   app.replaceChildren(
     ...[
@@ -329,7 +377,36 @@ function renderSub(sub) {
     return;
   }
 
-  const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" || sub.name === "post" ? "blog" : "profile";
+  // Posts get the slim page bar too, so the article starts near the top
+  if (sub.name === "post" && config.blog.enabled && vm.posts.length > 0) {
+    const post = vm.posts.find((p) => p.slug === sub.param);
+    // blog/<slug> naming a series, not a post: that series' page
+    const series = !post && !sub.series ? vm.posts.find((p) => p.series && seriesSlug(p.series) === sub.param)?.series : "";
+    if (series) {
+      ensureShell("profile", "blog");
+      setActiveTab("blog");
+      teardownAnimations();
+      const fresh = state.page !== `series:${sub.param}`;
+      showView(`series:${sub.param}`, buildBlogList(vm, config, ctx(), { query: "", tag: "", page: 1, series }), `${series} — ${vm.basics.name}`);
+      restoreBlogScroll(fresh);
+      return;
+    }
+    // Every post answers at its own address: series parts live under their series
+    if (post && `${state.base}/blog/${postPath(post)}` !== location.pathname) {
+      history.replaceState(history.state, "", `${state.base}/blog/${postPath(post)}${location.search}${location.hash}`);
+    }
+    if (state.page === "blog" || state.page?.startsWith("series:")) state.blogScroll = scrollY; // back to the same spot in the list
+    ensureShell("post");
+    teardownAnimations();
+    showView(
+      `post:${sub.param}`,
+      post ? buildBlogPost(post, vm, config, ctx()) : notFoundInline("That post doesn't exist.", `${state.base}/blog`, config.text.tabs.blog || "Blog"),
+      post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`,
+    );
+    return;
+  }
+
+  const tabKey = sub.name === "tab" ? sub.param : sub.name === "blog" ? "blog" : "profile";
   ensureShell("profile", tabKey);
   setActiveTab(tabKey);
 
@@ -352,16 +429,31 @@ function renderSub(sub) {
   const back = (msg) => notFoundInline(msg, state.base, config.text.tabs.profile || "Profile");
 
   if (sub.name === "blog" && blogOn) {
+    const fresh = state.page !== "blog";
     showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
-  } else if (sub.name === "post" && blogOn) {
-    const post = vm.posts.find((p) => p.slug === sub.param);
-    showView(`post:${sub.param}`, post ? buildBlogPost(post, vm, config, ctx()) : back("That post doesn't exist."), post ? `${post.title} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
+    restoreBlogScroll(fresh);
   } else if (sub.name === "tab") {
-    const tab = config.tabs.find((t) => t.slug === sub.param && t.type !== "link");
+    // Link tabs have no page, except while editing (where they're set up)
+    const tab = config.tabs.find((t) => t.slug === sub.param && (t.type !== "link" || isEditing()));
     showView(`tab:${sub.param}`, tab ? buildTabPage(tab, vm, config, ctx()) : back("That page doesn't exist."), tab ? `${tab.label} — ${vm.basics.name}` : `Not found — ${vm.basics.name}`);
   } else {
     showView("missing", back("That page doesn't exist."), `Not found — ${vm.basics.name}`);
   }
+}
+
+/** Back from a post: the list scrolls to where the reader left it. */
+function restoreBlogScroll(fresh) {
+  if (!fresh || !state.blogScroll) return;
+  const top = state.blogScroll;
+  scrollTo({ top });
+  requestAnimationFrame(() => scrollTo({ top })); // again once late layout settles
+  state.blogScroll = 0;
+}
+
+/** The showView key a route will render (see renderSub). */
+function pageKey(sub) {
+  if (sub.name === "post" || sub.name === "project" || sub.name === "tab") return `${sub.name}:${sub.param}`;
+  return sub.name === "blog" || sub.name === "missing" ? sub.name : "profile";
 }
 
 function showView(page, node, title) {
@@ -533,10 +625,19 @@ function focusMain() {
 export function init() {
   rescueRedirect();
   initTheme();
+  // A stored GitHub token without its user: restore it, then redraw what shows the account
+  repairSession().then((ok) => ok && dispatchEvent(new CustomEvent("mz-auth", { detail: {} })));
   interceptLinks();
   setupEditing({
     state,
     rerender: rerenderPortfolio,
+    // Colors, fonts and theme only (while site settings are open over the page)
+    restyle: (resume) => {
+      const { config } = normalizeConfig(resume?.meta || {});
+      resetStyleConfig();
+      applyStyleConfig(config);
+      setOwnerDefault(config.theme.mode);
+    },
     setPublished: (resume) => {
       state.data = { ...state.data, resume };
     },
@@ -558,7 +659,13 @@ export function init() {
   addEventListener("mz-auth", () => {
     const view = parsePath().view;
     if (view === "edit" || view === "landing") route();
-    else if (view === "portfolio") afterRender();
+    else if (view === "portfolio" && state.vm) {
+      // The header shows the account (avatar or "Sign in"): rebuild the page around it
+      state.shell = null;
+      state.page = null;
+      renderSub(parsePath().sub);
+      afterRender();
+    }
   });
 
   // Back from a sign-in: store the token before the first render. Google
@@ -572,6 +679,13 @@ export function init() {
   } else onNavigate();
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
-    navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).catch(() => {});
+    navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).then(() => checkOnVisit()).catch(() => {});
+    // Signed in with "Sync followed blogs" on: follow what this account follows (at most hourly)
+    try {
+      if (Date.now() - Number(localStorage.getItem("mz-follows-synced") || 0) > 60 * 60 * 1000) {
+        localStorage.setItem("mz-follows-synced", String(Date.now()));
+        syncFollows().catch(() => {});
+      }
+    } catch { /* storage blocked */ }
   }
 }

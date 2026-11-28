@@ -85,11 +85,15 @@ const GUIDE = [
     group: "Editing",
     pages: [
       { id: "edit-mode", title: "Edit mode", body: () => [
-        p("Open your own portfolio while signed in and click ", h("strong", "Edit portfolio"), ". Other people's portfolios never show edit controls."),
+        p("Open your own portfolio while signed in and click the pencil button (bottom right). Edit mode is a page of its own: links inside your portfolio stay in it, and Back or ", h("strong", "Done"), " leaves it. Other people's portfolios never show edit controls."),
         ul(
-          [h("strong", "Edit buttons."), " Every object (your profile, the banner, each job, school, skill group, project and post) has one. It opens a panel: a bottom sheet on phones, a side panel on desktop, with the page updating live beside it."],
+          [h("strong", "Type on the page."), " Your name, title, section headings, job titles, companies, summaries and highlights are edited right where they are. Enter starts the next highlight, Backspace in an empty one removes it, Escape undoes what you just typed."],
+          [h("strong", "Everything else in place too."), " Dates, links, locations and lists sit in a small strip inside each item; the photo, banner and project images change from the image itself. There are no editing panels."],
+          [h("strong", "Projects and posts"), " have their own pages, and that's where they're edited. On the profile and the blog list they only show an Edit button that takes you there."],
+          [h("strong", "From GitHub."), " Text that comes from a repo (its description or README) is shown greyed out while editing. Edit the README from the project page: saving it asks for permission to change your public repositories, once or always."],
           [h("strong", "Sections."), " Each section title has Add, move up/down and Hide. Hidden and empty sections can be brought back at the bottom of the page."],
-          [h("strong", "Customize"), " (top bar) holds colors, layout, animations, tabs and every setting in the ", link("#reference", "reference"), " below."],
+          [h("strong", "Pages."), " The + at the end of the tabs (or Add section → Page) adds a page. Its name, kind (text, code, HTML demo, embedded site or link) and content are edited on the page itself."],
+          [h("strong", "Site settings"), " (the sliders icon in the top bar) opens over the page, grouped into Look, Layout, Content, Motion, Sharing and Advanced: colors, layout, animations, SEO, every setting in the ", link("#reference", "reference"), " below, and the raw JSON."],
           [h("strong", "Undo and redo"), " with Ctrl+Z and Ctrl+Shift+Z; Ctrl+S publishes; ? lists all shortcuts."],
         ),
       ] },
@@ -106,7 +110,26 @@ const GUIDE = [
       ] },
       { id: "blog", title: "Blog", body: () => [
         p("Click ", h("strong", "New post"), " on the blog page while editing. Posts are written in Markdown, and each one is saved as its own gist (or Markdown file in your Drive folder), published separately from the rest of the portfolio."),
-        p("Public gists with a ", code(".md"), " file show up as posts. For Drive portfolios, ", code(".md"), " files in the folder do."),
+        p("Public gists with a ", code(".md"), " file show up as posts. For Drive portfolios, ", code(".md"), " files in the folder do. If you already blog from gists, nothing needs to change."),
+        p("Each post is one Markdown file with optional frontmatter at the top. The keys are the ones dev.to uses (plus ", code("date"), " and ", code("slug"), "), so a post can be copied to dev.to, Hashnode, Jekyll or Hugo as is:"),
+        codeBlock(`---
+title: "Shipping a portfolio without a backend"
+description: "What I learned building on gists."
+date: 2026-11-20
+tags: [javascript, webdev]
+cover_image: "https://example.com/cover.png"
+canonical_url: "https://example.com/original-post"
+slug: no-backend-portfolio
+published: true
+---
+
+Write the post in **Markdown** here.`, "post.md"),
+        ul(
+          ["Without a ", code("title"), ", the gist's description is used, then the first ", code("# heading"), ", then the file name."],
+          ["Without a ", code("date"), ", a ", code("YYYY-MM-DD-"), " file name prefix is used, then the gist's creation date."],
+          [code("published: false"), " (or ", code("draft: true"), ") hides a post. ", code("summary"), ", ", code("image"), " and comma-separated tags are read too."],
+          [code("slug"), " keeps the post's address stable when you rename it. The editor writes it for you."],
+        ),
       ] },
       { id: "images", title: "Photos and images", body: () => [
         p("Your photo can be your GitHub avatar, an upload, a link, or none. The banner can be a gradient or an image. Uploads are resized in the browser and stored in your own account (a gist, or your Drive folder), so nothing depends on a third-party host."),
@@ -127,6 +150,26 @@ const GUIDE = [
       ] },
       { id: "import", title: "Import a JSON Resume", body: () => [
         p("Already have a resume.json from another tool? Open ", link(`${BASE_PATH}preview`, "Try it"), ", drop the file in, and choose Edit it. Unknown fields are kept as they are."),
+      ] },
+      { id: "accounts", title: "GitHub and Google as one account", body: () => [
+        p("Signed in with one, open ", h("strong", "Account settings"), " from your avatar and connect the other (or accept the offer when you're signed in with both). Either sign-in then opens the same account, on any device."),
+        ul(
+          "Signing in to both is the proof they're yours. A matching email alone never links accounts.",
+          "Your portfolio combines both: each resume section comes from whichever was saved last, or the one you choose in Account settings → Sources. Posts come from both; the same post in both shows its newer copy.",
+          "Publishing writes to both by default, so the two stay the same. Both addresses show the same portfolio.",
+          "Google's sign-in lasts an hour: publishing renews it in a small window that closes itself.",
+        ),
+        note("The link is stored privately in your own accounts (a secret gist and Drive's hidden app folder). This site has no database."),
+      ] },
+      { id: "ai", title: "AI chat and Edit with AI", body: () => [
+        p("Visitors can ask an AI about your portfolio from the ", h("strong", "Ask about …"), " button. In edit mode, ", h("strong", "Edit with AI"), " (the sparkles in the toolbar) turns requests like “add Python and move me to Berlin” into changes you accept or reject one by one."),
+        ul(
+          "The model (LFM2.5-1.2B, about 730 MB) runs on the visitor's own device: no account, no key, no shared limit, and nothing typed leaves the device.",
+          "It downloads once, only when someone opens the chat, and is then saved in their browser. On mobile data it asks first.",
+          "Fastest in Chrome and Edge (desktop and Android). Other browsers run it on one thread, which is much slower.",
+          "It answers only from your portfolio, and says so when something isn't there. Edit with AI covers your name, title, bio, city, contact details, current job and skills.",
+        ),
+        note("Turn the visitor chat off in Site settings → Content → AI chat."),
       ] },
       { id: "drive", title: "Google Drive", body: () => [
         p("Share a ", code("resume.json"), " file, or a folder containing it, as ", h("em", "Anyone with the link"), ", then open ", code(`${host()}<file-or-folder-id>`), ". You can also paste the full Drive link into the box on the home page."),
@@ -196,7 +239,7 @@ const THEMES = ["even", "elegant", "flat", "kendall", "stackoverflow", "macchiat
 
 function referencePages() {
   const intro = { id: "reference", title: "Settings reference", body: () => [
-    p("Everything here can be changed from ", h("strong", "Customize"), " while editing, so you rarely need this page. It's the full list, for when you want to know exactly what an option does or edit the JSON by hand. Every option is optional."),
+    p("Everything here can be changed from ", h("strong", "Site settings"), " while editing, so you rarely need this page. It's the full list, for when you want to know exactly what an option does or edit the JSON by hand. Every option is optional."),
     codeBlock(EXAMPLE, "resume.json"),
     p("Resume themes: ", THEMES.map((t, i) => [i ? ", " : "", code(t)]), ". Any other name is looked up in the JSON Resume theme registry, falling back to ", code("even"), "."),
   ] };

@@ -10,10 +10,13 @@ import { dropdown, loginUrl, accountMenu } from "./account.js";
 import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
+import { highlightBlocks, tokenizeCode, languageOf } from "./highlight.js";
+import { postPath, seriesSlug } from "./posts.js";
+import * as subs from "./subscriptions.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
-import { findProfile } from "./merge.js";
+import { findProfile, isRepoHidden } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
-import { fetchReadme, extractReadmeImages, extractReadmeSummary } from "./api.js";
+import { fetchReadme, extractReadmeImages, extractReadmeSummary, extractReadmeAbout } from "./api.js";
 import { paintLanguageTag } from "./languages.js";
 import { tokenizeJs, tokenizeHtml } from "./animations/code-reveal.js";
 
@@ -31,7 +34,7 @@ export function setTagOptions({ languageColors }) {
 function createSection(key, title, cfg) {
   const heading = cfg?.text?.sections?.[key] || title;
   const section = h("section.section", { id: key, "aria-labelledby": `${key}-title`, dataset: { section: key } });
-  section.appendChild(h("h2.section-title", { id: `${key}-title` }, heading));
+  section.appendChild(h("h2.section-title", { id: `${key}-title`, dataset: { path: `@text.sections.${key}` } }, heading));
   return section;
 }
 
@@ -39,33 +42,40 @@ function iconLabel(icon, label) {
   return [svgIcon(ICONS[icon] || icon), h("span", label)];
 }
 
-function tagList(items, className = "tag") {
+function tagList(items, className = "tag", field = null, { languageColors = true } = {}) {
   const list = (items || []).filter(Boolean);
   if (!list.length) return null;
-  return h("ul.tags", { role: "list" }, list.map((t) => {
+  return h("ul.tags", { role: "list", dataset: { list: field } }, list.map((t) => {
     const li = h(`li.${className}`, t);
-    return colorLanguageTags ? paintLanguageTag(li, t) : li;
+    return colorLanguageTags && languageColors ? paintLanguageTag(li, t) : li;
   }));
 }
 
+/** Blog tags are topics, not tech stacks: never language-colored. */
+const postTags = (tags) => tagList(tags, "tag", null, { languageColors: false });
+
 /** Generic timeline/card entry used by work, volunteer, education, awards, … */
-function entryCard({ title, subtitle, subtitleUrl, when, location, summary, highlights, tags, link, linkLabel, extra }) {
+function entryCard({ title, subtitle, subtitleUrl, when, location, summary, highlights, tags, link, linkLabel, extra, fields = {} }) {
   const card = h("article.card.entry");
   const head = h("header.entry-head");
-  head.appendChild(h("h3.entry-title", title || subtitle || ""));
+  const titleField = title || !subtitle ? fields.title : fields.subtitle;
+  head.appendChild(h("h3.entry-title", { dataset: { field: titleField || null } }, title || subtitle || ""));
   if (subtitle && title) {
     head.appendChild(
-      h("p.entry-subtitle", subtitleUrl ? h("a", { href: subtitleUrl }, subtitle) : subtitle),
+      h("p.entry-subtitle", { dataset: { field: fields.subtitle || null } }, subtitleUrl ? h("a", { href: subtitleUrl }, subtitle) : subtitle),
     );
   }
-  const meta = [when && h("span.entry-when", when), location && h("span.entry-where", svgIcon(ICONS.pin), location)].filter(Boolean);
+  const meta = [
+    when && h("span.entry-when", { dataset: { dates: fields.dates || null } }, when),
+    location && h("span.entry-where", svgIcon(ICONS.pin), h("span", { dataset: { field: fields.location || null } }, location)),
+  ].filter(Boolean);
   if (meta.length) head.appendChild(h("p.entry-meta", meta));
   card.appendChild(head);
 
-  if (summary) card.appendChild(h("p.entry-summary", summary));
-  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x) => h("li", x))));
+  if (summary) card.appendChild(h("p.entry-summary", { dataset: { field: fields.summary || null } }, summary));
+  if (highlights?.length) card.appendChild(h("ul.entry-highlights", highlights.map((x, i) => h("li", h("span", { dataset: { field: fields.highlights ? `${fields.highlights}.${i}` : null } }, x)))));
   if (extra) card.appendChild(extra);
-  const tl = tagList(tags);
+  const tl = tagList(tags, "tag", fields.tags || null);
   if (tl) card.appendChild(tl);
   if (link) card.appendChild(h("a.entry-link", { href: link }, linkLabel || "View", svgIcon(ICONS.external)));
   return card;
@@ -86,7 +96,7 @@ export function buildHeader(vm, cfg, ctx) {
     banner.classList.add("has-image");
     if (cfg.banner.overlay) banner.classList.add("has-overlay");
   }
-  const toggle = buildThemeToggle(cfg.theme.toggle);
+  const toggle = buildThemeToggle();
   const account = signedInMenu(ctx);
   if (toggle || account) banner.appendChild(h("div.banner-toggle", toggle, account));
 
@@ -111,9 +121,9 @@ export function buildHeader(vm, cfg, ctx) {
   }
 
   const details = h("div.profile-details");
-  details.appendChild(h("h1.profile-name", b.name));
+  details.appendChild(h("h1.profile-name", { dataset: { path: "basics.name" } }, b.name));
   const tagline = cfg.text.tagline || b.label;
-  if (tagline) details.appendChild(h("p.profile-title", tagline));
+  if (tagline) details.appendChild(h("p.profile-title", { dataset: { path: cfg.text.tagline ? "@text.tagline" : "basics.label" } }, tagline));
 
   const facts = h("ul.profile-facts", { role: "list" });
   if (cfg.header.showLocation && b.location) facts.appendChild(h("li", iconLabel("pin", b.location)));
@@ -284,7 +294,7 @@ export function buildAbout(vm, cfg) {
   // One readable column; the resume opens from the header button
   const section = createSection("about", "About", cfg);
   const text = h("div.about-text");
-  const prose = h("div.prose.about-lead");
+  const prose = h("div.prose.about-lead", { dataset: { path: cfg.text.bio ? "@text.bio" : "basics.summary", multiline: "1" } });
   prose.innerHTML = markdownToHtml(bio);
   text.appendChild(prose);
   section.appendChild(text);
@@ -309,6 +319,7 @@ export function buildWork(vm, cfg, ctx) {
         location: job.location,
         summary: job.summary || job.description,
         highlights: job.highlights,
+        fields: { title: "position", subtitle: job.name ? "name" : "company", summary: job.summary || !job.description ? "summary" : "description", highlights: "highlights", dates: "startDate,endDate", location: "location" },
       }),
     );
   }
@@ -329,6 +340,7 @@ export function buildVolunteer(vm, cfg, ctx) {
         when: formatDateRange(v.startDate, v.endDate, ctx.locale, ctx.present),
         summary: v.summary,
         highlights: v.highlights,
+        fields: { title: "position", subtitle: "organization", summary: "summary", highlights: "highlights", dates: "startDate,endDate" },
       }),
     );
   }
@@ -352,6 +364,7 @@ export function buildEducation(vm, cfg, ctx) {
         location: typeof edu.location === "string" ? edu.location : edu.location?.city,
         tags: edu.courses,
         extra,
+        fields: { title: degree ? null : "institution", subtitle: "institution", dates: "startDate,endDate", tags: "courses" },
       }),
     );
   }
@@ -385,7 +398,7 @@ export function buildProjects(vm, cfg, ctx) {
     body.appendChild(title);
     const meta = [p.entity, p.type, formatDateRange(p.startDate, p.endDate, ctx.locale, ctx.present)].filter(Boolean).join(" · ");
     if (meta) body.appendChild(h("p.project-meta", meta));
-    if (p.description) body.appendChild(h("p.project-desc", p.description));
+    if (p.description) body.appendChild(h("p.project-desc", { dataset: { source: p.sources?.description || null } }, p.description));
     const tl = tagList(p.keywords.slice(0, 6));
     if (tl) body.appendChild(tl);
     card.appendChild(body);
@@ -396,15 +409,20 @@ export function buildProjects(vm, cfg, ctx) {
 }
 
 /** Loads README covers for GitHub-backed projects that have no image yet. */
-export async function enrichProjectCovers(projects, max = 8) {
+export async function enrichProjectCovers(projects, max = 8, projectsCfg = {}) {
   const targets = projects.filter((p) => p.repo && !p.image && !p.images.length).slice(0, max);
   await Promise.all(
     targets.map(async (p) => {
       const readme = await fetchReadme(p.repo.owner, p.repo.name, p.repo.branch);
       if (!readme) return;
       p.readme = readme;
-      p.images = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch);
-      if (!p.description) p.description = extractReadmeSummary(readme);
+      p.readmeImages = extractReadmeImages(readme, p.repo.owner, p.repo.name, p.repo.branch); // all of them, hidden too (edit mode)
+      p.images = p.readmeImages.filter((src) => !isRepoHidden(projectsCfg, p.repo.name, "image", src));
+      p.sources = { ...p.sources, images: "readme" };
+      if (!p.description) {
+        p.description = extractReadmeSummary(readme);
+        p.sources.description = "readme";
+      }
     }),
   );
 }
@@ -421,7 +439,7 @@ export function buildPageBar(vm, cfg, ctx, { backHref, backLabel }) {
   if (ctx.photo) back.appendChild(h("img.page-bar-avatar", { src: ctx.photo, alt: "", width: 32, height: 32, decoding: "async" }));
   back.appendChild(h("span.page-bar-text", h("strong", vm.basics.name), h("span.muted", backLabel)));
   bar.appendChild(back);
-  const toggle = buildThemeToggle(cfg.theme.toggle === "none" ? "none" : "icon");
+  const toggle = buildThemeToggle();
   const account = signedInMenu(ctx);
   if (toggle || account) bar.appendChild(h("div.page-bar-tools", toggle, account));
   return bar;
@@ -439,7 +457,7 @@ function factRow(label, value) {
   return h("div.fact", h("dt", label), h("dd", value));
 }
 
-function readmeHtml(project, text) {
+export function readmeHtml(project, text) {
   const { owner, name, branch } = project.repo;
   return markdownToHtml(text, {
     baseUrl: `https://github.com/${owner}/${name}/blob/${branch}/`,
@@ -453,13 +471,31 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   const page = h("article.project-page");
   const when = formatDateRange(project.startDate, project.endDate, ctx.locale, ctx.present);
   const live = project.demo || project.url;
-  let images = [...new Set([project.image, ...project.images].filter(Boolean))];
+  const repoName = project.repo?.name || "";
+  const hidden = (kind, value) => Boolean(repoName) && isRepoHidden(cfg.projects, repoName, kind, value);
 
-  // ---- Hero
+  // ---- Images first: one slider, every image fitted to the same frame
+  const sliderSlot = h("div.project-slider-slot");
+  page.appendChild(sliderSlot);
+  let images = [...new Set([project.image, ...project.images].filter(Boolean))];
+  // The project cards may already have taken images from the README
+  let imagesFromReadme = project.sources?.images === "readme";
+  if (imagesFromReadme) {
+    project.readmeImages ||= images;
+    images = images.filter((src) => !hidden("image", src));
+  }
+  const renderSlider = () => {
+    sliderSlot.replaceChildren(...(images.length ? [buildSlider(images, project.name, { source: imagesFromReadme ? "readme" : null })] : []));
+  };
+  renderSlider();
+  // Edit mode puts the image editor here
+  page.appendChild(h("div.project-gallery-slot"));
+
+  // ---- Text
   const hero = h("section.project-hero");
   const intro = h("div.project-hero-text");
-  intro.appendChild(h("h1.project-hero-title", project.name));
-  if (project.description) intro.appendChild(h("p.project-hero-lead", project.description));
+  intro.appendChild(h("h1.project-hero-title", { dataset: { field: "name", source: project.sources?.name || null } }, project.name));
+  if (project.description) intro.appendChild(h("p.project-hero-lead", { dataset: { field: "description", source: project.sources?.description || null } }, project.description));
   const actions = h("div.project-hero-actions");
   if (live) actions.appendChild(h("a.btn.btn-primary", { href: live }, svgIcon(ICONS.external), "Visit project"));
   if (project.github) actions.appendChild(h("a.btn.btn-ghost", { href: project.github }, svgIcon(ICONS.github), "Source code"));
@@ -467,50 +503,25 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   const chips = [
     (project.type || project.entity) && [ICONS.folder, [project.type, project.entity].filter(Boolean).join(" · ")],
     project.roles.length && [ICONS.contact, project.roles.join(", ")],
-    when && [ICONS.clock, when],
+    when && [ICONS.clock, when, "startDate,endDate"],
     project.stars && [ICONS.star, plural(project.stars, "star")],
   ].filter(Boolean);
-  if (chips.length) intro.appendChild(h("ul.project-hero-chips", { role: "list" }, chips.map(([icon, text]) => h("li", svgIcon(icon), text))));
+  if (chips.length) intro.appendChild(h("ul.project-hero-chips", { role: "list" }, chips.map(([icon, text, dates]) => h("li", svgIcon(icon), h("span", { dataset: { dates: dates || null } }, text)))));
   hero.appendChild(intro);
-
-  const media = h("figure.project-hero-media");
-  const showCover = (src) => {
-    media.replaceChildren(
-      h("div.frame-bar", { "aria-hidden": "true" }, h("span"), h("span"), h("span")),
-      h("img", { src, alt: `${project.name} preview`, decoding: "async", onerror: () => media.remove() }),
-    );
-    hero.classList.add("has-media");
-  };
-  if (images[0]) showCover(images[0]);
-  hero.appendChild(media);
   page.appendChild(hero);
 
   // ---- Body: content + "at a glance" sidebar
   const layout = h("div.project-layout");
   const main = h("div.project-main");
 
-  if (project.highlights.length) {
-    main.appendChild(
-      h("section.project-block", { "aria-labelledby": "p-highlights" },
-        h("h2.project-block-title", { id: "p-highlights" }, "Highlights"),
-        h("ul.highlight-grid", { role: "list" }, project.highlights.map((x) => h("li.card", svgIcon(ICONS.check), h("span", x))))),
-    );
-  }
+  main.appendChild(h("section.project-block.project-highlights", { "aria-labelledby": "p-highlights", hidden: project.highlights.length ? null : true },
+    h("h2.project-block-title", { id: "p-highlights" }, "Highlights"),
+    h("ul.highlight-grid", { role: "list" }, project.highlights.map((x, i) => h("li.card", svgIcon(ICONS.check), h("span", { dataset: { field: `highlights.${i}` } }, x))))));
 
-  const gallerySlot = h("div");
-  main.appendChild(gallerySlot);
-  const renderGallery = () => {
-    if (images.length > 1) {
-      gallerySlot.replaceChildren(
-        h("section.project-block", { "aria-labelledby": "p-gallery" }, h("h2.project-block-title", { id: "p-gallery" }, "Gallery"), buildGallery(images, project.name)),
-      );
-    }
-  };
-  renderGallery();
-
-  const readmeBlock = h("section.project-block.project-readme", { "aria-labelledby": "p-readme", hidden: true },
+  // The README's description only: no images, setup steps, badges or code
+  const readmeBlock = h("section.project-block.project-readme", { "aria-labelledby": "p-readme", hidden: true, dataset: { source: "readme" } },
     h("h2.project-block-title", { id: "p-readme" }, "About this project"));
-  const readmeBox = h("div.prose.card");
+  const readmeBox = h("div.prose");
   readmeBlock.appendChild(readmeBox);
   main.appendChild(readmeBlock);
   layout.appendChild(main);
@@ -527,7 +538,7 @@ export function buildProjectPage(project, vm, cfg, ctx) {
     factRow("Last update", project.updatedAt ? formatDate(project.updatedAt.slice(0, 10), ctx.locale, { long: true }) : ""),
   );
   if (facts.children.length) glance.appendChild(facts);
-  const tl = tagList(project.keywords);
+  const tl = tagList(project.keywords, "tag", "keywords");
   if (tl) glance.append(h("h3.glance-sub", "Built with"), tl);
   const links = [live && [ICONS.external, "Live site", live], project.github && [ICONS.github, "Repository", project.github]].filter(Boolean);
   if (links.length) {
@@ -541,20 +552,25 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   if (project.repo) {
     const render = (text) => {
       if (!text) return;
-      readmeBox.innerHTML = readmeHtml(project, text);
-      readmeBlock.hidden = false;
-      if (!images.length) {
-        images = extractReadmeImages(text, project.repo.owner, project.repo.name, project.repo.branch);
-        if (images[0]) showCover(images[0]);
-        renderGallery();
+      project.readme = text;
+      const about = hidden("readme") ? "" : extractReadmeAbout(text);
+      if (about) {
+        readmeBox.innerHTML = readmeHtml(project, about);
+        highlightBlocks(readmeBox);
+        readmeBlock.hidden = false;
       }
+      if (!images.length) {
+        project.readmeImages = extractReadmeImages(text, project.repo.owner, project.repo.name, project.repo.branch);
+        images = project.readmeImages.filter((src) => !hidden("image", src));
+        imagesFromReadme = true;
+        renderSlider();
+      }
+      page.dispatchEvent(new CustomEvent("mz:readme", { bubbles: true }));
     };
     if (project.readme) render(project.readme);
-    else fetchReadme(project.repo.owner, project.repo.name, project.repo.branch).then((text) => {
-      project.readme = text;
-      render(text);
-    });
+    else fetchReadme(project.repo.owner, project.repo.name, project.repo.branch).then(render);
   }
+
 
   // ---- More projects
   const others = [vm.projects[index - 1], vm.projects[index + 1]].filter(Boolean);
@@ -577,22 +593,122 @@ export function buildProjectPage(project, vm, cfg, ctx) {
   return page;
 }
 
-/** Scroll-snap gallery with buttons (swipe on touch, arrows on desktop). */
-export function buildGallery(images, label) {
-  const wrap = h("div.gallery", { role: "region", "aria-roledescription": "carousel", "aria-label": `${label} images` });
-  const track = h("div.gallery-track", { tabindex: "0" });
-  images.forEach((src, i) => {
-    track.appendChild(
-      h("figure.gallery-slide", { "aria-label": `${i + 1} of ${images.length}` },
-        h("img", { src, alt: i === 0 ? `${label} preview` : "", loading: i ? "lazy" : "eager", decoding: "async", onerror: (e) => e.target.closest("figure").remove() })),
-    );
+/**
+ * Project images as a filmstrip: every image at the same height and its own
+ * shape (portrait, landscape, square: nothing cropped, no empty bars), side
+ * by side, centred when they all fit, swiped or stepped through when not.
+ * Clicking one opens it full size (arrows / swipe / Escape).
+ */
+export function buildSlider(images, label, { source = null } = {}) {
+  const wrap = h("section.slider", { "aria-roledescription": "carousel", "aria-label": `${label} images`, dataset: { source, count: String(images.length) } });
+  const track = h("div.slider-track", { tabindex: "0", "aria-label": `${label} images, use the arrow keys to move` });
+  const slides = images.map((src, i) => {
+    const img = h("img", {
+      src, alt: i === 0 ? `${label} preview` : `${label}, image ${i + 1}`, loading: i < 3 ? "eager" : "lazy", decoding: "async",
+      onerror: (e) => {
+        e.target.closest("figure")?.remove();
+        update();
+      },
+      onload: (e) => {
+        // Very tall or very wide images get a gentler frame (CSS)
+        const r = e.target.naturalWidth / Math.max(1, e.target.naturalHeight);
+        e.target.closest("figure").dataset.shape = r < 0.7 ? "tall" : r > 2.2 ? "wide" : "";
+        update();
+      },
+    });
+    return h("figure.slide", { "aria-roledescription": "slide", "aria-label": `${i + 1} of ${images.length}` },
+      h("button.slide-open", { type: "button", "aria-label": `Open image ${i + 1} full size`, onclick: () => openLightbox(i) }, img));
   });
+  track.append(...slides);
   wrap.appendChild(track);
-  if (images.length > 1) {
-    const go = (dir) => track.scrollBy({ left: dir * track.clientWidth, behavior: "smooth" });
-    wrap.appendChild(h("button.gallery-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(-1) }, svgIcon(ICONS.arrowLeft)));
-    wrap.appendChild(h("button.gallery-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(1) }, svgIcon(ICONS.arrowRight)));
+
+  const live = () => [...track.querySelectorAll(".slide")];
+  // The slide nearest the middle of the track
+  const current = () => {
+    const mid = track.scrollLeft + track.clientWidth / 2;
+    let best = 0;
+    let dist = Infinity;
+    live().forEach((s, i) => {
+      const d = Math.abs(s.offsetLeft + s.offsetWidth / 2 - mid);
+      if (d < dist) [best, dist] = [i, d];
+    });
+    return best;
+  };
+  const go = (i) => {
+    const all = live();
+    const s = all[Math.max(0, Math.min(all.length - 1, i))];
+    if (s) track.scrollTo({ left: s.offsetLeft - (track.clientWidth - s.offsetWidth) / 2, behavior: "smooth" });
+  };
+  const prev = h("button.slider-btn.prev", { type: "button", "aria-label": "Previous image", onclick: () => go(current() - 1) }, svgIcon(ICONS.arrowLeft));
+  const next = h("button.slider-btn.next", { type: "button", "aria-label": "Next image", onclick: () => go(current() + 1) }, svgIcon(ICONS.arrowRight));
+  const dots = h("div.slider-dots");
+  wrap.append(prev, next, dots);
+
+  // Controls only when the strip is wider than the page
+  const update = () => {
+    const all = live();
+    const overflows = track.scrollWidth > track.clientWidth + 2;
+    wrap.classList.toggle("is-scrollable", overflows);
+    if (dots.children.length !== all.length) {
+      dots.replaceChildren(...all.map((_, i) => h("button.slider-dot", { type: "button", "aria-label": `Show image ${i + 1}`, onclick: () => go(i) })));
+    }
+    const at = current();
+    [...dots.children].forEach((d, i) => d.setAttribute("aria-current", String(i === at)));
+    prev.disabled = track.scrollLeft <= 2;
+    next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+  };
+  track.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  track.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") go(current() + 1);
+    else if (e.key === "ArrowLeft") go(current() - 1);
+    else return;
+    e.preventDefault();
+  });
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => update()).observe(track);
+  requestAnimationFrame(update);
+
+  function openLightbox(start) {
+    if (document.body.classList.contains("is-editing")) return;
+    const srcs = live().map((s) => s.querySelector("img").src);
+    let at = Math.min(start, srcs.length - 1);
+    const img = h("img.lightbox-img", { alt: "" });
+    const count = h("span.lightbox-count");
+    const show = (i) => {
+      at = (i + srcs.length) % srcs.length;
+      img.src = srcs[at];
+      img.alt = `${label}, image ${at + 1} of ${srcs.length}`;
+      count.textContent = srcs.length > 1 ? `${at + 1} / ${srcs.length}` : "";
+    };
+    const many = srcs.length > 1;
+    const dialog = h("dialog.lightbox", { "aria-label": `${label} images` },
+      img,
+      h("div.lightbox-bar",
+        count,
+        h("button.lightbox-btn", { type: "button", "aria-label": "Close", onclick: () => dialog.close() }, svgIcon(ICONS.close))),
+      many ? h("button.lightbox-btn.lightbox-prev", { type: "button", "aria-label": "Previous image", onclick: () => show(at - 1) }, svgIcon(ICONS.arrowLeft)) : null,
+      many ? h("button.lightbox-btn.lightbox-next", { type: "button", "aria-label": "Next image", onclick: () => show(at + 1) }, svgIcon(ICONS.arrowRight)) : null,
+    );
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && many) show(at + 1);
+      if (e.key === "ArrowLeft" && many) show(at - 1);
+    });
+    // Click outside the image closes; swipe steps
+    dialog.addEventListener("click", (e) => e.target === dialog && dialog.close());
+    let x0 = null;
+    dialog.addEventListener("pointerdown", (e) => (x0 = e.clientX));
+    dialog.addEventListener("pointerup", (e) => {
+      if (x0 !== null && many && Math.abs(e.clientX - x0) > 50) show(at + (e.clientX < x0 ? 1 : -1));
+      x0 = null;
+    });
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      go(at);
+    });
+    show(at);
+    document.body.appendChild(dialog);
+    dialog.showModal();
   }
+
   return wrap;
 }
 
@@ -608,14 +724,14 @@ export function buildSkills(vm, cfg) {
 
   for (const group of vm.skills) {
     const card = h("article.card.skill-group");
-    const head = h("header.skill-head", h("h3.skill-name", group.name));
+    const head = h("header.skill-head", h("h3.skill-name", { dataset: { field: "name" } }, group.name));
     if (group.level) head.appendChild(h("span.skill-level", group.level));
     card.appendChild(head);
 
     if (display === "progress" && (group.percent !== null || group.weights)) {
       if (group.percent !== null) {
         card.appendChild(h("div.meter", { role: "meter", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(Math.round(group.percent)), "aria-label": `${group.name}: ${group.level}` }, h("span.meter-fill", { style: { width: `${group.percent}%` } })));
-        const tl = tagList(group.keywords);
+        const tl = tagList(group.keywords, "tag", "keywords");
         if (tl) card.appendChild(tl);
       } else {
         const list = h("ul.meter-list");
@@ -626,9 +742,9 @@ export function buildSkills(vm, cfg) {
         card.appendChild(list);
       }
     } else if (display === "list") {
-      card.appendChild(h("ul.plain-list", group.keywords.map((k) => h("li", k))));
+      card.appendChild(h("ul.plain-list", { dataset: { list: "keywords" } }, group.keywords.map((k) => h("li", k))));
     } else {
-      const tl = tagList(group.keywords);
+      const tl = tagList(group.keywords, "tag", "keywords");
       if (tl) card.appendChild(tl);
     }
     grid.appendChild(card);
@@ -642,7 +758,7 @@ export function buildLanguages(vm, cfg) {
   const section = createSection("languages", "Languages", cfg);
   const list = h("ul.chip-list", { role: "list" });
   for (const lang of vm.languages) {
-    list.appendChild(h("li.card.chip-card", h("strong", lang.language || lang.name || ""), lang.fluency ? h("span.muted", lang.fluency) : null));
+    list.appendChild(h("li.card.chip-card", h("strong", { dataset: { field: lang.language || !lang.name ? "language" : "name" } }, lang.language || lang.name || ""), lang.fluency ? h("span.muted", { dataset: { field: "fluency" } }, lang.fluency) : null));
   }
   section.appendChild(list);
   return section;
@@ -653,7 +769,7 @@ export function buildInterests(vm, cfg) {
   const section = createSection("interests", "Interests", cfg);
   const grid = h("div.card-grid");
   for (const it of vm.interests) {
-    grid.appendChild(h("article.card", h("h3.entry-title", it.name || ""), tagList(it.keywords)));
+    grid.appendChild(h("article.card", h("h3.entry-title", { dataset: { field: "name" } }, it.name || ""), tagList(it.keywords, "tag", "keywords")));
   }
   section.appendChild(grid);
   return section;
@@ -668,7 +784,7 @@ export function buildAwards(vm, cfg, ctx) {
   const section = createSection("awards", "Awards", cfg);
   const grid = h("div.card-grid");
   for (const a of vm.awards) {
-    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary }));
+    grid.appendChild(entryCard({ title: a.title, subtitle: a.awarder, when: formatDate(a.date, ctx.locale), summary: a.summary, fields: { title: "title", subtitle: "awarder", summary: "summary", dates: "date" } }));
   }
   section.appendChild(grid);
   return section;
@@ -679,7 +795,7 @@ export function buildCertificates(vm, cfg, ctx) {
   const section = createSection("certificates", "Certificates", cfg);
   const grid = h("div.card-grid");
   for (const c of vm.certificates) {
-    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate" }));
+    grid.appendChild(entryCard({ title: c.name, subtitle: c.issuer, when: formatDate(c.date, ctx.locale), link: c.url, linkLabel: "View certificate", fields: { title: "name", subtitle: "issuer", dates: "date" } }));
   }
   section.appendChild(grid);
   return section;
@@ -690,7 +806,7 @@ export function buildPublications(vm, cfg, ctx) {
   const section = createSection("publications", "Publications", cfg);
   const grid = h("div.card-grid");
   for (const p of vm.publications) {
-    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read" }));
+    grid.appendChild(entryCard({ title: p.name, subtitle: p.publisher, when: formatDate(p.releaseDate, ctx.locale), summary: p.summary, link: p.url, linkLabel: "Read", fields: { title: "name", subtitle: "publisher", summary: "summary", dates: "releaseDate" } }));
   }
   section.appendChild(grid);
   return section;
@@ -701,7 +817,7 @@ export function buildReferences(vm, cfg) {
   const section = createSection("references", "References", cfg);
   const grid = h("div.card-grid");
   for (const r of vm.references) {
-    grid.appendChild(h("figure.card.quote", h("blockquote", r.reference || ""), r.name ? h("figcaption", r.name) : null));
+    grid.appendChild(h("figure.card.quote", h("blockquote", { dataset: { field: "reference" } }, r.reference || ""), h("figcaption", { dataset: { field: "name" } }, r.name || "")));
   }
   section.appendChild(grid);
   return section;
@@ -741,7 +857,7 @@ export function buildContact(vm, cfg, ctx) {
   if (!links.length && !message) return null;
 
   const section = createSection("contact", "Get in touch", cfg);
-  if (message) section.appendChild(h("p.contact-message", message));
+  if (message) section.appendChild(h("p.contact-message", { dataset: { path: "@text.contact_message" } }, message));
   section.appendChild(h("ul.contact-links", { role: "list" }, links.map((l) => h("li", h("a.contact-link.card", { href: l.href }, svgIcon(l.icon), h("span", l.label))))));
   return section;
 }
@@ -769,11 +885,124 @@ export function buildFooter(vm, cfg, ctx) {
 // BLOG
 // ============================================================================
 
+/** Address of a series page, or of one post (under its series when it has one). */
+const seriesHref = (base, series) => `${base}/blog/${encodeURIComponent(seriesSlug(series))}`;
+const postUrl = (base, post) => `${base}/blog/${postPath(post).split("/").map(encodeURIComponent).join("/")}`;
+
+/** The current address with ?page=N (page 1 drops it), other parameters kept. */
+function withPage(n) {
+  const params = new URLSearchParams(location.search);
+  if (n > 1) params.set("page", String(n));
+  else params.delete("page");
+  const qs = params.toString().replace(/=(?=&|$)/g, "");
+  return `${location.pathname}${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * One "Follow" button, no account needed. It turns on notifications, which
+ * read the blog's RSS feed in this browser (see subscriptions.js); where that
+ * isn't possible, or once following, a menu offers the feed for a feed reader.
+ * GitHub portfolios only, since the feed comes from their gists.
+ */
+function followButton(vm, ctx, { compact = false } = {}) {
+  if (!ctx.feedHref) return null;
+  const feed = new URL(ctx.feedHref, location.origin).href;
+  const name = vm.basics.name || "this blog";
+  const slot = h("span.follow");
+  const feedItems = [
+    { label: "Copy feed link (for a feed reader)", icon: "link", onclick: async () => toast((await copyText(feed)) ? "Feed link copied. Paste it into Feedly, Inoreader or any feed reader." : "Couldn't copy") },
+    { label: "Open the RSS feed", icon: "rss", href: ctx.feedHref, newTab: true },
+  ];
+  const pill = (label, pressed) =>
+    h("button.btn.btn-ghost.follow-btn", { type: "button", "aria-pressed": pressed == null ? null : String(pressed) }, svgIcon(ICONS.bell), compact ? h("span.follow-label", label) : label);
+
+  const canNotify = () => subs.supported() && Notification.permission !== "denied";
+  const draw = (following) => {
+    if (following) {
+      const btn = pill("Following", true);
+      slot.replaceChildren(dropdown({ button: btn, label: `Following ${name}: options`, className: ".follow-menu", items: [
+        { label: "Stop notifications", icon: "close", onclick: async () => { await subs.unsubscribe(feed); toast("You no longer follow this blog here"); draw(false); } },
+        "sep",
+        ...feedItems,
+      ] }));
+    } else if (canNotify()) {
+      const btn = pill("Follow", false);
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const mode = await subs.subscribe({ feed, name, blogUrl: `${location.origin}${ctx.base}/blog` }).catch(() => "error");
+        btn.disabled = false;
+        if (mode === "denied" || mode === "error") {
+          toast("Notifications aren't available here. You can follow with a feed reader instead.");
+          return draw(false);
+        }
+        toast(mode === "background"
+          ? "Following. You'll get a notification when a new post is out."
+          : "Following. You'll be notified of new posts when you open this site. Install it as an app (Chrome or Edge) to be notified anytime.");
+        draw(true);
+      });
+      slot.replaceChildren(btn);
+    } else {
+      // No notifications in this browser (or blocked): a feed reader is the way
+      slot.replaceChildren(dropdown({ button: pill("Follow", null), label: `Follow ${name}`, className: ".follow-menu",
+        head: h("p.follow-note", "Notifications aren't available in this browser. Follow with a feed reader app instead:"),
+        items: feedItems }));
+    }
+  };
+  draw(false);
+  if (subs.supported()) subs.isSubscribed(feed).then((on) => on && draw(true));
+  return slot;
+}
+
+/** "Main title — subtitle" → [main, subtitle]. */
+export function splitTitle(title) {
+  const m = String(title).match(/^(.+?)\s+[—–]\s+(.+)$/);
+  return m ? [m[1], m[2]] : [String(title), ""];
+}
+
+/** Keeps "Chi-Squared" together: hyphens inside words become non-breaking. */
+const noBreakHyphens = (s) => String(s).replace(/(\w)-(\w)/g, "$1‑$2");
+
+/** The post's picture: its cover, else its first image, else null. */
+export function postImage(post) {
+  return post.image || post.body.match(/!\[[^\]]*\]\(\s*<?([^)\s>]+)/)?.[1] || null;
+}
+
+/** Text with every match of q wrapped in <mark>. */
+function markMatches(text, q) {
+  text = String(text);
+  if (!q) return text;
+  const out = [];
+  const lower = text.toLowerCase();
+  let at = 0;
+  for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, at)) {
+    out.push(text.slice(at, i), h("mark", text.slice(i, i + q.length)));
+    at = i + q.length;
+  }
+  out.push(text.slice(at));
+  return out;
+}
+
+const seedTone = (seed) => [...String(seed)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7) % 3;
+
+/** A card's picture; posts without one get a generated cover in the palette. */
+function postThumb(post, seed) {
+  const generated = () =>
+    h("div.post-thumb.is-generated", { dataset: { tone: String(seedTone(seed)) }, "aria-hidden": "true" },
+      h("span", initials((post.tags[0] || post.title).replace(/-/g, " "))));
+  const src = postImage(post);
+  return src
+    ? h("div.post-thumb", h("img", { src, alt: "", loading: "lazy", decoding: "async", onerror: (e) => e.target.parentElement.replaceWith(generated()) }))
+    : generated();
+}
+
 export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 1 }) {
   const wrap = h("section.blog", { "aria-labelledby": "blog-title" });
-  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog"));
+  wrap.appendChild(h("div.blog-head", h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog"), followButton(vm, ctx, { compact: true })));
 
-  const allTags = [...new Set(vm.posts.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b));
+  // Most-used tags first, so the useful filters come before the long tail
+  const tagCount = new Map();
+  for (const t of vm.posts.flatMap((p) => p.tags)) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+  const allTags = [...tagCount.keys()].sort((a, b) => tagCount.get(b) - tagCount.get(a) || a.localeCompare(b));
   const controls = h("div.blog-controls");
   const results = h("div.blog-results", { "aria-live": "polite" });
 
@@ -782,7 +1011,8 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     input.addEventListener("input", () => {
       state.query = input.value;
       state.page = 1;
-      renderResults();
+      history.replaceState(history.state, "", withPage(1));
+      renderResults(false); // no entrance motion while typing
     });
     controls.appendChild(h("label.search", svgIcon(ICONS.search), input));
   }
@@ -795,46 +1025,114 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         onclick: () => {
           state.tag = tag;
           state.page = 1;
+          history.replaceState(history.state, "", withPage(1));
           chips.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.tag === tag)));
           renderResults();
         },
         dataset: { tag },
       }, label);
     chips.appendChild(chip("", "All"));
-    allTags.forEach((t) => chips.appendChild(chip(t, t)));
+    // Past a dozen tags, the rest wait behind "More" (always shown if one of them is selected)
+    const SHOWN = 12;
+    allTags.forEach((t, i) => {
+      const c = chip(t, t);
+      if (i >= SHOWN && t !== state.tag) c.hidden = true;
+      chips.appendChild(c);
+    });
+    if (allTags.length > SHOWN) {
+      const more = h("button.chip.chip-more", { type: "button", "aria-expanded": "false" }, `+${allTags.length - SHOWN} more`);
+      more.addEventListener("click", () => {
+        const open = more.getAttribute("aria-expanded") !== "true";
+        more.setAttribute("aria-expanded", String(open));
+        more.textContent = open ? "Fewer" : `+${allTags.length - SHOWN} more`;
+        chips.querySelectorAll(".chip[data-tag]").forEach((c, i) => {
+          if (i > SHOWN) c.hidden = !open && c.dataset.tag !== state.tag;
+        });
+      });
+      chips.appendChild(more);
+    }
     controls.appendChild(chips);
   }
   if (controls.children.length) wrap.appendChild(controls);
+  // The page number lives in the address (?page=N), so refresh, share and Back keep it
+  state.page = Math.max(1, Number.parseInt(new URLSearchParams(location.search).get("page"), 10) || 1);
   wrap.appendChild(results);
 
-  function renderResults() {
+  function renderResults(animate = true) {
+    results.dataset.anim = animate ? "1" : "0";
     const q = state.query.trim().toLowerCase();
     const filtered = vm.posts.filter(
       (p) =>
         (!state.tag || p.tags.includes(state.tag)) &&
+        (!state.series || p.series === state.series) &&
         (!q || `${p.title} ${p.description} ${p.tags.join(" ")} ${p.body}`.toLowerCase().includes(q)),
     );
+    // Every post is its own row (already newest first, series parts in order)
+    // One series: its parts in reading order
+    const items = state.series ? [...filtered].sort((a, b) => (a.part || 0) - (b.part || 0)) : filtered;
+    const day = (p) => String(p.date).slice(0, 10);
     const per = cfg.blog.perPage;
-    const pages = Math.max(1, Math.ceil(filtered.length / per));
+    const pages = Math.max(1, Math.ceil(items.length / per));
     state.page = Math.min(state.page, pages);
-    const slice = filtered.slice((state.page - 1) * per, state.page * per);
+    const slice = items.slice((state.page - 1) * per, state.page * per);
 
     results.replaceChildren();
+    if (state.series) {
+      const all = vm.posts.filter((p) => p.series === state.series);
+      results.appendChild(h("div.series-head",
+        h("div",
+          h("p.post-series", "Series"),
+          h("h3.series-name", state.series),
+          h("p.post-meta", `${all.length} parts · ${all.reduce((n, p) => n + readingTime(p.body), 0)} min read`)),
+        h("a.btn.btn-ghost", { href: `${ctx.base}/blog` }, "All posts")));
+    }
     if (!slice.length) {
       results.appendChild(h("p.empty", "No posts match."));
       return;
     }
+    const href = (p) => postUrl(ctx.base, p);
     const list = h("div.post-list");
-    for (const post of slice) {
-      const card = h("article.card.post-card");
-      card.appendChild(h("h3.post-title", h("a", { href: `${ctx.base}/blog/${encodeURIComponent(post.slug)}` }, post.title)));
-      card.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
-      const excerpt = post.description || markdownToText(post.body).slice(0, 180);
-      if (excerpt) card.appendChild(h("p.post-excerpt", excerpt.length >= 180 ? `${excerpt}…` : excerpt));
-      if (cfg.blog.showTags) {
-        const tl = tagList(post.tags);
-        if (tl) card.appendChild(tl);
+    // Archive: month headings, once the posts span more than one month
+    const month = (it) => day(it).slice(0, 7);
+    const months = new Set(items.map(month));
+    let lastMonth = "";
+    for (const item of slice) {
+      if (months.size > 1 && month(item) !== lastMonth) {
+        lastMonth = month(item);
+        const d = new Date(`${lastMonth}-01T00:00:00`);
+        list.appendChild(h("h3.post-month", Number.isNaN(d.getTime()) ? lastMonth : d.toLocaleDateString(ctx.locale || undefined, { month: "long", year: "numeric" })));
       }
+      const post = item;
+      const [title, subtitle] = splitTitle(post.title);
+      const card = h("article.post-card");
+      const bodyEl = h("div.post-card-body");
+      if (post.series) {
+        const total = vm.posts.filter((p) => p.series === post.series).length;
+        const label = post.part && total > 1 ? [h("span.series-label-name", post.series), ` · Part ${post.part} of ${total}`] : post.series;
+        bodyEl.appendChild(state.series
+          ? h("p.post-series", `Part ${post.part || "?"} of ${total}`)
+          : h("a.post-series.series-link", { href: seriesHref(ctx.base, post.series), title: `All parts of ${post.series}` }, label));
+      }
+      bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, markMatches(noBreakHyphens(title), q.replace(/-/g, "‑")))));
+      if (subtitle) bodyEl.appendChild(h("p.post-subtitle", markMatches(subtitle, q)));
+      bodyEl.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
+      // A description is shown whole; only text cut from the body gets "…"
+      const text = post.description ? "" : markdownToText(post.body);
+      let excerpt = post.description || (text.length > 180 ? `${text.slice(0, 180).replace(/\s+\S*$/, "")}…` : text);
+      // Searching: when the match is only in the text, show the passage around it
+      if (q && !`${post.title} ${excerpt}`.toLowerCase().includes(q)) {
+        const full = markdownToText(post.body);
+        const i = full.toLowerCase().indexOf(q);
+        if (i !== -1) excerpt = `…${full.slice(Math.max(0, i - 70), i + q.length + 110).replace(/^\S*\s/, "").replace(/\s\S*$/, "")}…`;
+      }
+      if (excerpt) bodyEl.appendChild(h("p.post-excerpt", markMatches(excerpt, q)));
+      if (cfg.blog.showTags) {
+        const tl = postTags(post.tags);
+        if (tl) bodyEl.appendChild(tl);
+      }
+      card.appendChild(bodyEl);
+      card.appendChild(postThumb(post, post.series || post.tags[0] || post.title));
+      card.style.setProperty("--i", String(list.children.length));
       list.appendChild(card);
     }
     results.appendChild(list);
@@ -845,6 +1143,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         pager.appendChild(
           h("button.chip", { type: "button", "aria-current": i === state.page ? "page" : null, onclick: () => {
             state.page = i;
+            history.replaceState(history.state, "", withPage(i));
             renderResults();
             wrap.scrollIntoView({ behavior: "smooth", block: "start" });
           } }, String(i)),
@@ -859,33 +1158,177 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
 }
 
 export function buildBlogPost(post, vm, cfg, ctx) {
-  const index = vm.posts.indexOf(post);
+  const postHref = (p) => postUrl(ctx.base, p);
   const page = h("article.detail.post-detail");
-  page.appendChild(h("a.back-link", { href: `${ctx.base}/blog` }, svgIcon(ICONS.arrowLeft), cfg.text.tabs.blog || "Blog"));
 
   const head = h("header.detail-head");
-  head.appendChild(h("h1.detail-title", post.title));
-  head.appendChild(h("p.detail-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
-  const tl = cfg.blog.showTags ? tagList(post.tags) : null;
-  if (tl) head.appendChild(tl);
+  const [mainTitle, subtitle] = splitTitle(post.title);
+  const seriesCount = post.series ? vm.posts.filter((p) => p.series === post.series).length : 0;
+  if (seriesCount > 1) {
+    head.appendChild(h("a.post-kicker", { href: seriesHref(ctx.base, post.series), title: `All parts of ${post.series}` },
+      h("span.series-label-name", post.series), post.part ? ` · Part ${post.part} of ${seriesCount}` : ""));
+  }
+  head.appendChild(h("h1.detail-title", noBreakHyphens(mainTitle)));
+  if (subtitle) head.appendChild(h("p.detail-subtitle", subtitle));
   head.appendChild(
-    h("div.detail-actions",
-      h("button.btn.btn-ghost", { type: "button", onclick: async () => toast((await copyText(location.href)) ? "Link copied" : "Couldn't copy") }, svgIcon(ICONS.link), "Copy link"),
-      post.url ? h("a.btn.btn-ghost", { href: post.url }, svgIcon(ICONS.external), "Source") : null),
+    h("p.detail-meta",
+      formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`,
+      h("button.icon-btn.post-copy", { type: "button", "aria-label": "Copy link to this post", title: "Copy link", onclick: async () => toast((await copyText(location.href)) ? "Link copied" : "Couldn't copy") }, svgIcon(ICONS.link)),
+      post.url ? h("a.icon-btn.post-copy", { href: post.url, "aria-label": "View the source of this post", title: "Source" }, svgIcon(ICONS.external)) : null),
   );
-  page.appendChild(head);
+  const tl = cfg.blog.showTags ? postTags(post.tags) : null;
+  if (tl) head.appendChild(tl);
+  // Everything in the reading column; the contents (if any) sit beside it
+  const main = h("div.post-main", head);
 
-  if (post.image) page.appendChild(h("img.post-cover", { src: post.image, alt: "", decoding: "async" }));
+  // Series: where this post sits, and the whole reading order one click away
+  const series = post.series ? vm.posts.filter((p) => p.series === post.series).sort((a, b) => (a.part || 0) - (b.part || 0)) : [];
+  if (series.length > 1) {
+    const box = h("details.post-series-box");
+    box.appendChild(h("summary", `Browse all ${series.length} parts`));
+    box.appendChild(h("ol", series.map((p) => h("li", p === post
+      ? h("span", { "aria-current": "page" }, noBreakHyphens(splitTitle(p.title)[0]), h("span.muted", " · you are here"))
+      : h("a", { href: postHref(p) }, noBreakHyphens(splitTitle(p.title)[0]))))));
+    main.appendChild(box);
+  }
+
+  if (post.image) main.appendChild(h("img.post-cover", { src: post.image, alt: "", decoding: "async" }));
   const body = h("div.prose");
   body.innerHTML = markdownToHtml(post.body.replace(new RegExp(`^#\\s+${post.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n`), ""));
-  page.appendChild(body);
 
-  const pager = h("nav.pager", { "aria-label": "More posts" });
-  const newer = vm.posts[index - 1];
-  const older = vm.posts[index + 1];
-  if (older) pager.appendChild(h("a.pager-prev", { href: `${ctx.base}/blog/${encodeURIComponent(older.slug)}` }, svgIcon(ICONS.arrowLeft), h("span", older.title)));
-  if (newer) pager.appendChild(h("a.pager-next", { href: `${ctx.base}/blog/${encodeURIComponent(newer.slug)}` }, h("span", newer.title), svgIcon(ICONS.arrowRight)));
+  // Pictures open full size (diagrams are hard to read at text width)
+  for (const img of body.querySelectorAll("img")) {
+    img.classList.add("zoomable");
+    img.tabIndex = 0;
+    img.setAttribute("role", "button");
+    img.setAttribute("aria-label", `Enlarge image${img.alt ? `: ${img.alt}` : ""}`);
+    const open = () => {
+      const dlg = h("dialog.lightbox", { "aria-label": img.alt || "Image" },
+        h("img", { src: img.currentSrc || img.src, alt: img.alt }),
+        h("button.icon-btn.lightbox-close", { type: "button", "aria-label": "Close" }, svgIcon(ICONS.close)));
+      dlg.addEventListener("click", () => dlg.close());
+      dlg.addEventListener("close", () => { dlg.remove(); img.focus(); });
+      document.body.appendChild(dlg);
+      dlg.showModal();
+    };
+    img.addEventListener("click", open);
+    img.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  }
+
+  highlightBlocks(body);
+  // Code blocks get a copy button
+  for (const pre of body.querySelectorAll("pre")) {
+    const btn = h("button.icon-btn.code-copy", { type: "button", "aria-label": "Copy code", title: "Copy code" }, svgIcon(ICONS.copy));
+    btn.addEventListener("click", async () => {
+      const ok = await copyText(pre.querySelector("code")?.textContent ?? pre.textContent);
+      btn.replaceChildren(svgIcon(ok ? ICONS.check : ICONS.alert));
+      setTimeout(() => btn.replaceChildren(svgIcon(ICONS.copy)), 1500);
+    });
+    pre.before(h("div.code-wrap", btn));
+    btn.parentElement.prepend(pre);
+  }
+
+  // Table of contents from the ## headings, for posts long enough to need one
+  const headings = [...body.querySelectorAll("h2")];
+  const usedIds = new Set();
+  for (const hd of body.querySelectorAll("h2, h3")) {
+    let id = `s-${hd.textContent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section"}`;
+    while (usedIds.has(id)) id += "-";
+    usedIds.add(id);
+    hd.id = id;
+    // A # beside each heading links straight to it
+    hd.appendChild(h("a.heading-anchor", { href: `#${id}`, "aria-label": `Link to “${hd.textContent}”`, onclick: async (e) => {
+      e.preventDefault();
+      history.replaceState(history.state, "", `#${id}`);
+      hd.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (await copyText(location.href)) toast("Link to section copied");
+    } }, "#"));
+  }
+  if (headings.length >= 3) {
+    const items = headings.map((hd) => {
+      const id = hd.id;
+      const label = hd.textContent.replace(/#$/, "");
+      return h("li", h("a", { href: `#${id}`, onclick: (e) => { e.preventDefault(); hd.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(history.state, "", `#${id}`); } }, label));
+    });
+    // Open beside the article on wide screens; a one-line toggle above it on phones
+    const toc = h("details.post-toc", { open: matchMedia("(min-width: 1100px)").matches });
+    toc.appendChild(h("summary", "On this page"));
+    toc.appendChild(h("ol", items));
+    // Phones: the toggle goes between the header and the text
+    main.appendChild(body);
+    const aside = h("aside.post-toc-wrap");
+    const place = () => (matchMedia("(min-width: 1100px)").matches ? aside.appendChild(toc) : main.insertBefore(toc, body));
+    place();
+    matchMedia("(min-width: 1100px)").addEventListener("change", place);
+    page.appendChild(h("div.post-layout", aside, main));
+    // Highlight the section being read
+    const links = new Map(items.map((li, n) => [headings[n], li.firstChild]));
+    const spy = new IntersectionObserver((entries) => {
+      if (!page.isConnected) return spy.disconnect();
+      const top = headings.filter((hd) => hd.getBoundingClientRect().top < innerHeight * 0.35).pop() || headings[0];
+      for (const [hd, a] of links) a.toggleAttribute("aria-current", hd === top);
+    }, { rootMargin: "0px 0px -60% 0px" });
+    headings.forEach((hd) => spy.observe(hd));
+  } else {
+    main.appendChild(body);
+    page.appendChild(main);
+  }
+
+  // Next/previous: within the series when there is one, otherwise by date
+  const seq = series.length > 1 ? series : vm.posts;
+  const i = seq.indexOf(post);
+  const [before, after] = series.length > 1 ? [seq[i - 1], seq[i + 1]] : [seq[i + 1], seq[i - 1]];
+  const pager = h("nav.pager.post-pager", { "aria-label": series.length > 1 ? "More in this series" : "More posts" });
+  const pagerCard = (p, cls, label) =>
+    h(`a.card.${cls}`, { href: postHref(p) },
+      h("span.pager-label", label),
+      h("strong", noBreakHyphens(splitTitle(p.title)[0])),
+      p.description ? h("span.pager-desc", p.description) : null);
+  const inSeries = series.length > 1;
+  if (before) pager.appendChild(pagerCard(before, "pager-prev", inSeries ? "← Previous part" : "← Older"));
+  if (after) pager.appendChild(pagerCard(after, "pager-next", inSeries ? "Next part →" : "Newer →"));
   if (pager.children.length) page.appendChild(pager);
+
+  // Readers who arrive from a shared link can follow from here
+  const follow = followButton(vm, ctx);
+  if (follow) page.appendChild(h("section.post-follow", h("p", `Get new posts from ${vm.basics.name || "this blog"}`), follow));
+
+  // Outside a series: up to three posts sharing the most tags
+  if (!inSeries && post.tags.length) {
+    const related = vm.posts
+      .filter((p) => p !== post)
+      .map((p) => ({ p, n: p.tags.filter((t) => post.tags.includes(t)).length }))
+      .filter((x) => x.n)
+      .sort((a, b) => b.n - a.n || new Date(b.p.date) - new Date(a.p.date))
+      .slice(0, 3);
+    if (related.length) {
+      page.appendChild(h("section.related", { "aria-labelledby": "related-title" },
+        h("h2.related-title", { id: "related-title" }, "Related posts"),
+        h("ul", related.map(({ p }) => h("li", h("a", { href: postHref(p) }, noBreakHyphens(splitTitle(p.title)[0])), p.description ? h("span.muted", p.description) : null)))));
+    }
+  }
+
+  // Back to top, once the reader is well into a long post
+  const toTop = h("button.icon-btn.to-top", { type: "button", "aria-label": "Back to top", title: "Back to top", tabindex: "-1", "aria-hidden": "true", onclick: () => scrollTo({ top: 0, behavior: "smooth" }) }, svgIcon(ICONS.arrowLeft));
+  page.appendChild(toTop);
+
+  // Reading progress, a thin bar under the top edge
+  const bar = h("div.read-progress", { "aria-hidden": "true" });
+  page.prepend(bar);
+  const onScroll = () => {
+    if (!page.isConnected) return removeEventListener("scroll", onScroll);
+    const r = main.getBoundingClientRect();
+    const done = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight)));
+    bar.style.transform = `scaleX(${done})`;
+    const shown = scrollY > innerHeight * 1.5;
+    if (shown !== toTop.classList.contains("is-shown")) {
+      toTop.classList.toggle("is-shown", shown);
+      toTop.tabIndex = shown ? 0 : -1;
+      toTop.setAttribute("aria-hidden", String(!shown));
+    }
+  };
+  addEventListener("scroll", onScroll, { passive: true });
+  requestAnimationFrame(onScroll);
   return page;
 }
 
@@ -898,7 +1341,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
 const SANDBOX_URL = new URL("../markup/sandbox.html", import.meta.url).href;
 
 async function loadTabText(tab) {
-  if (tab.content) return tab.content;
+  if (typeof tab.content === "string") return tab.content;
   const res = await fetch(tab.url);
   if (!res.ok) throw new Error(`Couldn't load ${tab.url} (${res.status}).`);
   const text = await res.text();
@@ -908,7 +1351,7 @@ async function loadTabText(tab) {
 function highlight(code, language = "") {
   const pre = h("pre.code-view");
   const el = h("code");
-  const tokens = /^(html|xml|svg|vue)$/i.test(language) ? tokenizeHtml(code) : tokenizeJs(code);
+  const tokens = /^(html|xml|svg|vue)$/i.test(language) ? tokenizeHtml(code) : languageOf(language) ? tokenizeCode(code, language) : tokenizeJs(code);
   for (const [cls, text] of tokens) el.appendChild(cls ? h(`span.tk-${cls}`, text) : document.createTextNode(text));
   pre.appendChild(el);
   return pre;
@@ -920,6 +1363,11 @@ export function buildTabPage(tab, vm, cfg, ctx) {
   page.appendChild(head);
   const body = h("div.tab-page-body");
   page.appendChild(body);
+
+  if (tab.type === "link") {
+    body.appendChild(h("p.muted", "Visitors who click this tab go straight to ", h("a", { href: tab.url, target: "_blank", rel: "noopener" }, tab.url), "."));
+    return page;
+  }
 
   if (tab.type === "embed") {
     if (new URL(tab.url).origin === location.origin) {
@@ -948,6 +1396,7 @@ export function buildTabPage(tab, vm, cfg, ctx) {
       if (tab.type === "markdown") {
         const prose = h("div.prose.card");
         prose.innerHTML = markdownToHtml(text);
+        highlightBlocks(prose);
         body.appendChild(prose);
       } else if (tab.type === "code") {
         const name = tab.url ? decodeURIComponent(tab.url.split("/").pop()) : tab.language || "code";

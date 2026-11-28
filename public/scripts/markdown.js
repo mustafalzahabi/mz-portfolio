@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { escapeHtml, safeUrl } from "./utils.js";
+import { latexToMathml } from "./latex.js";
 
 /**
  * @param {string} markdown
@@ -91,6 +92,10 @@ function parseBlocks(lines, ctx) {
         i++;
       }
       i++; // closing fence
+      if (lang === "math") {
+        out.push(`<div class="math-block">${latexToMathml(body.join("\n"), { display: true })}</div>`);
+        continue;
+      }
       const cls = lang ? ` class="language-${escapeHtml(lang)}"` : "";
       out.push(`<pre><code${cls}>${escapeHtml(body.join("\n"))}</code></pre>`);
       continue;
@@ -377,8 +382,11 @@ export function renderInline(text, ctx = { baseUrl: "", rawBaseUrl: "", refs: {}
   // Code spans
   s = s.replace(/(`+)([\s\S]*?[^`])\1(?!`)/g, (_, __, code) => stash(`<code>${escapeHtml(code.trim())}</code>`));
 
+  // Inline math $…$ (GitHub's rule: no space just inside the dollars, no digit after)
+  s = s.replace(/(^|[^\\$])\$(?=[^\s$])((?:\\.|[^$\\\n])*?[^\s\\])\$(?![\d$])/g, (_, pre, tex) => pre + stash(latexToMathml(tex)));
+
   // Backslash escapes
-  s = s.replace(/\\([\\`*_{}[\]()#+\-.!|~<>])/g, (_, ch) => stash(escapeHtml(ch)));
+  s = s.replace(/\\([\\`*_{}[\]()#+\-.!|~<>$])/g, (_, ch) => stash(escapeHtml(ch)));
 
   // Whitelisted inline HTML (before escaping)
   s = s.replace(/<\/?[a-z][a-z0-9]*\b[^<>]*>/gi, (tag) => {

@@ -57,9 +57,8 @@ export const CONFIG_SCHEMA = {
     prime: color("Brand: hero, logo and large type."),
   },
   theme: {
-    _desc: "Light / dark behaviour and the theme toggle.",
+    _desc: "Light / dark behaviour.",
     mode: oneOf(["auto", "light", "dark"], "auto", "Default mode for first-time visitors. A visitor's own choice is remembered."),
-    toggle: oneOf(["switch", "icon", "slider", "none"], "switch", "Theme toggle style shown in the banner."),
   },
   typography: {
     _desc: "Fonts and text size (system fonts only, nothing is downloaded).",
@@ -117,6 +116,7 @@ export const CONFIG_SCHEMA = {
     sort: oneOf(["resume", "stars", "name", "recent"], "resume", "Sort order. \"resume\" keeps your resume order, then GitHub repos by stars."),
     github: oneOf(["all", "matched", "none"], "all", "Which GitHub repos to include: all public repos, only those matching a resume project, or none."),
     exclude: list("Repo or project names to hide."),
+    hideFromRepos: list("Single things from GitHub to leave out, each as \"repo|kind|value\": kind is image (value = its link), keyword, language, readme or description."),
     limit: num("Maximum number of projects (0 = no limit).", 0, 0, 200),
     showStars: bool("Show GitHub star counts.", true),
     showForks: bool("Include forked repositories.", false),
@@ -171,6 +171,10 @@ export const CONFIG_SCHEMA = {
     theme: str("Resume theme. Same as meta.theme; meta.theme wins if both are set."),
     download: bool("Show a Download resume.json button.", true),
     print: bool("Show a Print / PDF button.", true),
+  },
+  chat: {
+    _desc: "AI chat for visitors. The model runs on each visitor's own device (a one-time download they choose), so there's no account, key or shared limit.",
+    enabled: bool("Show the \"Ask about …\" AI chat button on your portfolio.", true),
   },
   seo: {
     _desc: "Search and link previews.",
@@ -231,11 +235,9 @@ export function migrateLegacy(raw) {
       delete cfg.theme.dark;
     }
   }
-  // themeToggle.style → theme.toggle
-  if (cfg.themeToggle && typeof cfg.themeToggle === "object") {
-    cfg.theme = { ...(cfg.theme || {}), toggle: cfg.theme?.toggle || cfg.themeToggle.style };
-    delete cfg.themeToggle;
-  }
+  // The theme toggle is always the switch now: older style choices are dropped
+  delete cfg.themeToggle;
+  if (cfg.theme && typeof cfg.theme === "object") delete cfg.theme.toggle;
   // blog: false shorthand
   if (typeof cfg.blog === "boolean") cfg.blog = { enabled: cfg.blog };
   // animation.type / transitionDuration / shadowOnHover / glowOnHover (v1)
@@ -371,7 +373,7 @@ function normalizeTabs(items, path, warnings) {
       const u = httpsUrl(item.url);
       if (!u) return warnings.push(`${p}.url: needs an https:// address.`);
       tab.url = u.href;
-    } else if (typeof item.content === "string" && item.content.trim()) {
+    } else if (typeof item.content === "string" && (item.content.trim() || !item.url)) {
       tab.content = item.content.slice(0, MAX_TAB_CONTENT);
     } else {
       const u = httpsUrl(item.url);
@@ -390,6 +392,7 @@ function normalizeTabs(items, path, warnings) {
     for (let n = 2; used.has(slug); n++) slug = `${tabSlug(label)}-${n}`;
     used.add(slug);
     tab.slug = slug;
+    tab.index = i; // where it sits in the resume's list (edit mode)
     out.push(tab);
   });
   if (items.length > 8) warnings.push(`${path}: only the first 8 tabs are used.`);
@@ -412,7 +415,8 @@ function normalizeNode(schema, raw, path, warnings) {
     }
   }
   for (const key of Object.keys(input)) {
-    if (!(key in schema)) warnings.push(`${path ? path + "." : ""}${key}: unknown option (ignored).`);
+    // "sources" is written by Account settings (linked GitHub + Google), not a site setting
+    if (!(key in schema) && !(!path && key === "sources")) warnings.push(`${path ? path + "." : ""}${key}: unknown option (ignored).`);
   }
   return out;
 }

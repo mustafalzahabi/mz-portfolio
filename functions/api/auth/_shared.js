@@ -9,6 +9,13 @@
 
 export const STATE_COOKIE = "mz_gh_state";
 export const SCOPE = "gist";
+// Asked for only when someone saves a repo README in the app (and they've agreed)
+const EXTRA_SCOPES = new Set(["public_repo"]);
+
+/** "gist", or "gist public_repo" when that allow-listed extra was asked for. */
+export function scopeFor(extra) {
+  return EXTRA_SCOPES.has(extra) ? `${SCOPE} ${extra}` : SCOPE;
+}
 
 /** Only same-site paths, so the login can't be used to redirect elsewhere. */
 export function safeReturn(path) {

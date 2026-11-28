@@ -72,7 +72,7 @@ export const setGoogleHome = (folderId) => write(HOME_KEY, folderId || null);
  * The address that starts a Google sign-in and comes back to returnPath.
  * The redirect URI is always the site root (register it once in Google Cloud).
  */
-export function googleLoginUrl(returnPath = location.pathname + location.search) {
+export function googleLoginUrl(returnPath = location.pathname + location.search, { silent = false, hint = "" } = {}) {
   const clientId = googleClientId();
   if (!clientId) return "";
   let nonce = "";
@@ -91,9 +91,12 @@ export function googleLoginUrl(returnPath = location.pathname + location.search)
     response_type: "token",
     scope: SCOPES.join(" "),
     include_granted_scopes: "true",
-    prompt: "select_account",
-    state: `${nonce}.${encodeURIComponent(safeReturn(returnPath))}`,
+    // Silent: no account picker or consent, only a fresh token for the same account (fails if Google needs to ask)
+    prompt: silent ? "none" : "select_account",
+    state: `${nonce}.${silent ? "renew" : encodeURIComponent(safeReturn(returnPath))}`,
   });
+  const loginHint = silent ? hint || read(USER_KEY)?.email : "";
+  if (loginHint) params.set("login_hint", loginHint);
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
@@ -108,11 +111,16 @@ function safeReturn(path) {
  */
 export async function completeGoogleSignIn() {
   const params = new URLSearchParams(location.hash.slice(1));
+  if (!params.get("state") || (!params.get("access_token") && !params.get("error"))) return null;
+  history.replaceState(history.state, "", location.pathname + location.search);
+  return acceptGoogleReturn(params);
+}
+
+/** Checks a Google redirect's parameters and keeps the token. Returns { user, returnPath } or { error }. */
+async function acceptGoogleReturn(params, { renew = false } = {}) {
   const token = params.get("access_token");
   const error = params.get("error");
-  const state = params.get("state");
-  if (!state || (!token && !error)) return null;
-  history.replaceState(history.state, "", location.pathname + location.search);
+  const state = params.get("state") || "";
 
   let expected = "";
   try {
@@ -129,6 +137,8 @@ export async function completeGoogleSignIn() {
   if (!scopes.includes(SCOPES[0])) return { error: "Google Drive access wasn't granted, so your portfolio can't be saved. Please try again and allow it." };
 
   write(TOKEN_KEY, { token, expiresAt: Date.now() + Number(params.get("expires_in") || 3600) * 1000 });
+  // A renewal is for the account already signed in: keep its details
+  if (renew && read(USER_KEY)) return { user: read(USER_KEY), returnPath: "" };
   try {
     const about = await driveRequest("/about?fields=user(displayName,photoLink,emailAddress,permissionId)");
     const u = about.user || {};
@@ -173,4 +183,50 @@ export async function driveRequest(path, { method = "GET", body, headers = {}, r
   }
   if (res.status === 204) return null;
   return raw ? res.text() : res.json();
+}
+
+// ============================================================================
+// SILENT RENEWAL — the token lasts an hour and there's no refresh token
+// without a server. Before a save that needs Drive, a small window asks
+// Google for a new token for the same account with prompt=none: no picker,
+// no consent screen, it closes itself. Called from a click (so it isn't
+// blocked as a pop-up); if Google needs the person, it returns false and the
+// UI offers "Reconnect Google".
+// ============================================================================
+
+export const RENEW_WINDOW = "mz-google-renew";
+
+/** True when this page is that renewal window (the app must not start in it). */
+export const isRenewWindow = () => typeof window !== "undefined" && window.name === RENEW_WINDOW && !!window.opener;
+
+/** @param {{ hint?: string }} [o] the account's email when this device hasn't signed in to Google yet */
+export function renewGoogleToken({ hint = "" } = {}) {
+  return new Promise((resolve) => {
+    if (getGoogleToken()) return resolve(true);
+    const url = googleLoginUrl(BASE_PATH, { silent: true, hint });
+    const popup = url ? window.open(url, RENEW_WINDOW, "popup,width=420,height=560") : null;
+    if (!popup) return resolve(false);
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      let hash = "";
+      try {
+        if (popup.closed) {
+          clearInterval(timer);
+          return resolve(Boolean(getGoogleToken()));
+        }
+        if (popup.location.origin === location.origin) hash = popup.location.hash; // back on this site
+      } catch {
+        /* still on Google's pages */
+      }
+      if (!hash && Date.now() - started < 45_000) return;
+      clearInterval(timer);
+      try {
+        popup.close();
+      } catch {
+        /* already closed */
+      }
+      const result = hash ? await acceptGoogleReturn(new URLSearchParams(hash.slice(1)), { renew: true }) : null;
+      resolve(Boolean(result && !result.error && getGoogleToken()));
+    }, 250);
+  });
 }
