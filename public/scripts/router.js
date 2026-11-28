@@ -98,7 +98,10 @@ export function parsePath(pathname = location.pathname, base = BASE_PATH) {
 function parseSub(parts) {
   const [kind, slug, ...rest] = parts.map((p) => p.trim());
   if (!kind) return { name: "profile" };
+  // blog/<series>/<post>: a part of a series
+  if (kind === "blog" && slug && rest.length === 1 && rest[0]) return { name: "post", param: rest[0], series: slug };
   if (rest.length) return { name: "missing" };
+  // blog/<slug>: a post, or a series page (app.js decides)
   if (kind === "blog") return slug ? { name: "post", param: slug } : { name: "blog" };
   if (kind === "project" && slug) return { name: "project", param: slug };
   if (kind === "tab" && slug) return { name: "tab", param: slug };

@@ -13,6 +13,7 @@ import { repairSession } from "./github.js";
 import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
 import { collectPortfolioData, localDevPosts } from "./data.js";
+import { postPath, seriesSlug } from "./posts.js";
 import { buildViewModel } from "./merge.js";
 import {
   SECTION_BUILDERS,
@@ -352,7 +353,22 @@ function renderSub(sub) {
   // Posts get the slim page bar too, so the article starts near the top
   if (sub.name === "post" && config.blog.enabled && vm.posts.length > 0) {
     const post = vm.posts.find((p) => p.slug === sub.param);
-    if (state.page === "blog") state.blogScroll = scrollY; // back to the same spot in the list
+    // blog/<slug> naming a series, not a post: that series' page
+    const series = !post && !sub.series ? vm.posts.find((p) => p.series && seriesSlug(p.series) === sub.param)?.series : "";
+    if (series) {
+      ensureShell("profile", "blog");
+      setActiveTab("blog");
+      teardownAnimations();
+      const fresh = state.page !== `series:${sub.param}`;
+      showView(`series:${sub.param}`, buildBlogList(vm, config, ctx(), { query: "", tag: "", page: 1, series }), `${series} — ${vm.basics.name}`);
+      restoreBlogScroll(fresh);
+      return;
+    }
+    // Every post answers at its own address: series parts live under their series
+    if (post && `${state.base}/blog/${postPath(post)}` !== location.pathname) {
+      history.replaceState(history.state, "", `${state.base}/blog/${postPath(post)}${location.search}${location.hash}`);
+    }
+    if (state.page === "blog" || state.page?.startsWith("series:")) state.blogScroll = scrollY; // back to the same spot in the list
     ensureShell("post");
     teardownAnimations();
     showView(
@@ -388,12 +404,7 @@ function renderSub(sub) {
   if (sub.name === "blog" && blogOn) {
     const fresh = state.page !== "blog";
     showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
-    if (fresh && state.blogScroll) {
-      const top = state.blogScroll;
-      scrollTo({ top });
-      requestAnimationFrame(() => scrollTo({ top })); // again once late layout settles
-      state.blogScroll = 0;
-    }
+    restoreBlogScroll(fresh);
   } else if (sub.name === "tab") {
     // Link tabs have no page, except while editing (where they're set up)
     const tab = config.tabs.find((t) => t.slug === sub.param && (t.type !== "link" || isEditing()));
@@ -401,6 +412,15 @@ function renderSub(sub) {
   } else {
     showView("missing", back("That page doesn't exist."), `Not found — ${vm.basics.name}`);
   }
+}
+
+/** Back from a post: the list scrolls to where the reader left it. */
+function restoreBlogScroll(fresh) {
+  if (!fresh || !state.blogScroll) return;
+  const top = state.blogScroll;
+  scrollTo({ top });
+  requestAnimationFrame(() => scrollTo({ top })); // again once late layout settles
+  state.blogScroll = 0;
 }
 
 /** The showView key a route will render (see renderSub). */

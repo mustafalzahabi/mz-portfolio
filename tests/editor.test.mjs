@@ -176,3 +176,14 @@ test("posts: same-day posts by publish time, a series kept together in order", a
   ]).map((x) => x.slug);
   assert.deepEqual(order, ["solo-late", "s1", "s2", "solo-early", "old"]);
 });
+
+test("post addresses: series parts live under their series", async () => {
+  const { postPath, seriesSlug } = await import("../public/scripts/posts.js");
+  assert.equal(postPath({ slug: "sql-in-practice", series: "Databases, from Design to Scale" }), "databases-from-design-to-scale/sql-in-practice");
+  assert.equal(postPath({ slug: "solo", series: "" }), "solo");
+  assert.equal(seriesSlug("Mathematics, Step by Step"), "mathematics-step-by-step");
+  const { parsePath } = await import("../public/scripts/router.js");
+  assert.deepEqual(parsePath("/octo/blog/s/p", "/").sub, { name: "post", param: "p", series: "s" });
+  assert.deepEqual(parsePath("/octo/blog/s", "/").sub, { name: "post", param: "s" });
+  assert.equal(parsePath("/octo/blog/a/b/c", "/").sub.name, "missing");
+});

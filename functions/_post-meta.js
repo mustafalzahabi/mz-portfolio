@@ -7,12 +7,13 @@
 // ============================================================================
 
 import { parseFrontmatter } from "../public/scripts/utils.js";
-import { postFields } from "../public/scripts/posts.js";
+import { postFields, postPath } from "../public/scripts/posts.js";
 
 export const CRAWLER_RE =
   /bot\b|crawler|spider|facebookexternalhit|linkedin|slack|twitter|discord|whatsapp|telegram|skype|embedly|pinterest|redditbot|mastodon|bluesky|preview/i;
 
-const POST_PATH_RE = /^\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/blog\/([^/]+)\/?$/;
+// /<user>/blog/<post> or /<user>/blog/<series>/<post>
+const POST_PATH_RE = /^\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/blog\/(?:[^/]+\/)?([^/]+)\/?$/;
 
 /** { user, slug } for a blog post path, else null. */
 export function matchPostPath(pathname) {
@@ -43,7 +44,7 @@ export async function buildIndex(gists, fetchText) {
       const { metadata, body } = parseFrontmatter(content);
       const fields = postFields(metadata, { body, filename: file.filename, fallbackTitle: gist.description, created: gist.created_at });
       if (fields.draft || index[fields.slug]) return;
-      index[fields.slug] = { title: fields.title, description: fields.description, image: absoluteImage(fields, body), date: fields.date };
+      index[fields.slug] = { title: fields.title, description: fields.description, image: absoluteImage(fields, body), date: fields.date, path: postPath(fields) };
     }),
   );
   return index;
@@ -57,7 +58,7 @@ export function rssFeed(index, { origin, user }) {
   const items = Object.entries(index)
     .sort(([, a], [, b]) => String(b.date).localeCompare(String(a.date)))
     .map(([slug, p]) => {
-      const link = `${base}/blog/${encodeURIComponent(slug)}`;
+      const link = `${base}/blog/${(p.path || slug).split("/").map(encodeURIComponent).join("/")}`;
       const date = new Date(p.date);
       return [
         "<item>",
@@ -89,7 +90,7 @@ export async function feedResponse(request, waitUntil) {
 
 /** Feed readers find the feed from a <link rel="alternate"> on the blog pages. */
 export function withFeedLink(request, response) {
-  const m = new URL(request.url).pathname.match(/^\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/blog(?:\/[^/]+)?\/?$/);
+  const m = new URL(request.url).pathname.match(/^\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/blog(?:\/[^/]+){0,2}\/?$/);
   if (!m) return response;
   return new HTMLRewriter()
     .on("head", { element(el) { el.append(`<link rel="alternate" type="application/rss+xml" title="Blog" href="/${m[1]}/feed.xml">`, { html: true }); } })

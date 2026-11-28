@@ -87,3 +87,11 @@ export function sortPosts(posts) {
     (a.part || 0) - (b.part || 0) ||
     String(a.title).localeCompare(String(b.title)));
 }
+
+/** A series' address segment ("Databases, from Design to Scale" → databases-from-design-to-scale). */
+export const seriesSlug = (name) => slugify(name);
+
+/** A post's address under /blog/: "series/post" for a series part, else "post". */
+export function postPath(post) {
+  return post.series ? `${seriesSlug(post.series)}/${post.slug}` : post.slug;
+}

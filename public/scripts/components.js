@@ -11,6 +11,7 @@ import { session } from "./storage.js";
 import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast, plural, readingTime, initials } from "./utils.js";
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { highlightBlocks, tokenizeCode, languageOf } from "./highlight.js";
+import { postPath, seriesSlug } from "./posts.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile, isRepoHidden } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
@@ -883,13 +884,17 @@ export function buildFooter(vm, cfg, ctx) {
 // BLOG
 // ============================================================================
 
-/** The blog list showing one series, keeping the page's other query parameters. */
-function seriesHref(base, series) {
+/** Address of a series page, or of one post (under its series when it has one). */
+const seriesHref = (base, series) => `${base}/blog/${encodeURIComponent(seriesSlug(series))}`;
+const postUrl = (base, post) => `${base}/blog/${postPath(post).split("/").map(encodeURIComponent).join("/")}`;
+
+/** The current address with ?page=N (page 1 drops it), other parameters kept. */
+function withPage(n) {
   const params = new URLSearchParams(location.search);
-  if (series) params.set("series", series);
-  else params.delete("series");
+  if (n > 1) params.set("page", String(n));
+  else params.delete("page");
   const qs = params.toString().replace(/=(?=&|$)/g, "");
-  return `${base}/blog${qs ? `?${qs}` : ""}`;
+  return `${location.pathname}${qs ? `?${qs}` : ""}`;
 }
 
 /** "Main title — subtitle" → [main, subtitle]. */
@@ -951,6 +956,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     input.addEventListener("input", () => {
       state.query = input.value;
       state.page = 1;
+      history.replaceState(history.state, "", withPage(1));
       renderResults(false); // no entrance motion while typing
     });
     controls.appendChild(h("label.search", svgIcon(ICONS.search), input));
@@ -964,6 +970,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         onclick: () => {
           state.tag = tag;
           state.page = 1;
+          history.replaceState(history.state, "", withPage(1));
           chips.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.tag === tag)));
           renderResults();
         },
@@ -992,16 +999,8 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     controls.appendChild(chips);
   }
   if (controls.children.length) wrap.appendChild(controls);
-  // A series opened from a post (?series=…) or from a row's series label
-  const fromUrl = new URLSearchParams(location.search).get("series");
-  state.series = fromUrl && vm.posts.some((p) => p.series === fromUrl) ? fromUrl : "";
-  const showSeries = (name) => {
-    state.series = name;
-    state.page = 1;
-    history.replaceState(history.state, "", seriesHref(ctx.base, name));
-    renderResults();
-    wrap.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  // The page number lives in the address (?page=N), so refresh, share and Back keep it
+  state.page = Math.max(1, Number.parseInt(new URLSearchParams(location.search).get("page"), 10) || 1);
   wrap.appendChild(results);
 
   function renderResults(animate = true) {
@@ -1030,13 +1029,13 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
           h("p.post-series", "Series"),
           h("h3.series-name", state.series),
           h("p.post-meta", `${all.length} parts · ${all.reduce((n, p) => n + readingTime(p.body), 0)} min read`)),
-        h("button.btn.btn-ghost", { type: "button", onclick: () => showSeries("") }, "All posts")));
+        h("a.btn.btn-ghost", { href: `${ctx.base}/blog` }, "All posts")));
     }
     if (!slice.length) {
       results.appendChild(h("p.empty", "No posts match."));
       return;
     }
-    const href = (p) => `${ctx.base}/blog/${encodeURIComponent(p.slug)}`;
+    const href = (p) => postUrl(ctx.base, p);
     const list = h("div.post-list");
     // Archive: month headings, once the posts span more than one month
     const month = (it) => day(it).slice(0, 7);
@@ -1057,7 +1056,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         const label = post.part && total > 1 ? [h("span.series-label-name", post.series), ` · Part ${post.part} of ${total}`] : post.series;
         bodyEl.appendChild(state.series
           ? h("p.post-series", `Part ${post.part || "?"} of ${total}`)
-          : h("button.post-series.series-link", { type: "button", title: `All parts of ${post.series}`, onclick: () => showSeries(post.series) }, label));
+          : h("a.post-series.series-link", { href: seriesHref(ctx.base, post.series), title: `All parts of ${post.series}` }, label));
       }
       bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, markMatches(noBreakHyphens(title), q.replace(/-/g, "‑")))));
       if (subtitle) bodyEl.appendChild(h("p.post-subtitle", markMatches(subtitle, q)));
@@ -1089,6 +1088,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         pager.appendChild(
           h("button.chip", { type: "button", "aria-current": i === state.page ? "page" : null, onclick: () => {
             state.page = i;
+            history.replaceState(history.state, "", withPage(i));
             renderResults();
             wrap.scrollIntoView({ behavior: "smooth", block: "start" });
           } }, String(i)),
@@ -1103,7 +1103,7 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
 }
 
 export function buildBlogPost(post, vm, cfg, ctx) {
-  const postHref = (p) => `${ctx.base}/blog/${encodeURIComponent(p.slug)}`;
+  const postHref = (p) => postUrl(ctx.base, p);
   const page = h("article.detail.post-detail");
 
   const head = h("header.detail-head");

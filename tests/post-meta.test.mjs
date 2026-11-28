@@ -21,7 +21,7 @@ test("post meta: index by slug, skipping drafts, only https images", async () =>
   };
   const index = await buildIndex(gists, async (u) => texts[u] || "");
   assert.deepEqual(Object.keys(index), ["hello-world"]);
-  assert.deepEqual(index["hello-world"], { title: "Hello — World", description: "Hi there", image: "https://e.com/p.png", date: "2026-01-01" });
+  assert.deepEqual(index["hello-world"], { title: "Hello — World", description: "Hi there", image: "https://e.com/p.png", date: "2026-01-01", path: "hello-world" });
   assert.equal(absoluteImage({ image: "images/x.png" }, ""), "");
 });
 
@@ -41,4 +41,8 @@ test("post meta: RSS feed escapes text and orders newest first", async () => {
   assert.ok(xml.includes("<title>A &amp; &lt;B&gt;</title>"));
   assert.ok(xml.indexOf("a-b") < xml.indexOf("/old"));
   assert.ok(xml.includes("<link>https://e.com/octo/blog/a-b</link>"));
+});
+
+test("post meta: series posts answer at /blog/<series>/<post>", () => {
+  assert.deepEqual(matchPostPath("/octo/blog/my-series/part-one"), { user: "octo", slug: "part-one" });
 });

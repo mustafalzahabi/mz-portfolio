@@ -259,6 +259,8 @@
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
+  color: var(--color-a);
+  text-decoration: none;
   cursor: pointer;
 }
 
