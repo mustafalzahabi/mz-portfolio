@@ -249,3 +249,19 @@
 .signin-close:hover {
   background: var(--well);
 }
+
+/* Account settings → Following */
+.ed-follow-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ed-follow-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}

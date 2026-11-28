@@ -899,41 +899,58 @@ function withPage(n) {
 }
 
 /**
- * Follow this blog without an account: a bell (notifications, remembered only
- * in this browser, see subscriptions.js) and the RSS feed. GitHub portfolios only,
- * since the feed comes from their gists.
+ * One "Follow" button, no account needed. It turns on notifications, which
+ * read the blog's RSS feed in this browser (see subscriptions.js); where that
+ * isn't possible, or once following, a menu offers the feed for a feed reader.
+ * GitHub portfolios only, since the feed comes from their gists.
  */
-function followButtons(vm, ctx, { labels = false } = {}) {
-  if (!ctx.feedHref) return [];
+function followButton(vm, ctx, { compact = false } = {}) {
+  if (!ctx.feedHref) return null;
   const feed = new URL(ctx.feedHref, location.origin).href;
-  const rss = h("a.icon-btn.blog-feed", { href: ctx.feedHref, "aria-label": "RSS feed", title: "RSS feed" }, svgIcon(ICONS.rss), labels ? h("span", "RSS") : null);
-  if (!subs.supported()) return [rss];
-  const label = h("span", labels ? "Notify me" : "");
-  const bell = h("button.icon-btn.blog-feed.blog-bell", { type: "button", "aria-pressed": "false", "aria-label": "Notify me of new posts", title: "Notify me of new posts" }, svgIcon(ICONS.bell), labels ? label : null);
-  const show = (on) => {
-    bell.setAttribute("aria-pressed", String(on));
-    const text = on ? "Notifications on (click to stop)" : "Notify me of new posts";
-    bell.title = text;
-    bell.setAttribute("aria-label", text);
-    if (labels) label.textContent = on ? "Notifications on" : "Notify me";
-  };
-  subs.isSubscribed(feed).then(show);
-  bell.addEventListener("click", async () => {
-    if (bell.getAttribute("aria-pressed") === "true") {
-      await subs.unsubscribe(feed);
-      show(false);
-      toast("Notifications off for this blog");
-      return;
+  const name = vm.basics.name || "this blog";
+  const slot = h("span.follow");
+  const feedItems = [
+    { label: "Copy feed link (for a feed reader)", icon: "link", onclick: async () => toast((await copyText(feed)) ? "Feed link copied. Paste it into Feedly, Inoreader or any feed reader." : "Couldn't copy") },
+    { label: "Open the RSS feed", icon: "rss", href: ctx.feedHref, newTab: true },
+  ];
+  const pill = (label, pressed) =>
+    h("button.btn.btn-ghost.follow-btn", { type: "button", "aria-pressed": pressed == null ? null : String(pressed) }, svgIcon(ICONS.bell), compact ? h("span.follow-label", label) : label);
+
+  const canNotify = () => subs.supported() && Notification.permission !== "denied";
+  const draw = (following) => {
+    if (following) {
+      const btn = pill("Following", true);
+      slot.replaceChildren(dropdown({ button: btn, label: `Following ${name}: options`, className: ".follow-menu", items: [
+        { label: "Stop notifications", icon: "close", onclick: async () => { await subs.unsubscribe(feed); toast("You no longer follow this blog here"); draw(false); } },
+        "sep",
+        ...feedItems,
+      ] }));
+    } else if (canNotify()) {
+      const btn = pill("Follow", false);
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const mode = await subs.subscribe({ feed, name, blogUrl: `${location.origin}${ctx.base}/blog` }).catch(() => "error");
+        btn.disabled = false;
+        if (mode === "denied" || mode === "error") {
+          toast("Notifications aren't available here. You can follow with a feed reader instead.");
+          return draw(false);
+        }
+        toast(mode === "background"
+          ? "Following. You'll get a notification when a new post is out."
+          : "Following. You'll be notified of new posts when you open this site. Install it as an app (Chrome or Edge) to be notified anytime.");
+        draw(true);
+      });
+      slot.replaceChildren(btn);
+    } else {
+      // No notifications in this browser (or blocked): a feed reader is the way
+      slot.replaceChildren(dropdown({ button: pill("Follow", null), label: `Follow ${name}`, className: ".follow-menu",
+        head: h("p.follow-note", "Notifications aren't available in this browser. Follow with a feed reader app instead:"),
+        items: feedItems }));
     }
-    const mode = await subs.subscribe({ feed, name: vm.basics.name || "Blog", blogUrl: `${location.origin}${ctx.base}/blog` }).catch(() => "error");
-    if (mode === "denied") return toast("Notifications are blocked for this site in your browser settings");
-    if (mode === "error") return toast("Couldn't turn on notifications here. The RSS feed works in any feed reader.");
-    show(true);
-    toast(mode === "background"
-      ? "Subscribed. You'll get a notification when a new post is out."
-      : "Subscribed. You'll be notified when you next open this site. Install it as an app (Chrome or Edge) for alerts in the background, or use the RSS feed.");
-  });
-  return [bell, rss];
+  };
+  draw(false);
+  if (subs.supported()) subs.isSubscribed(feed).then((on) => on && draw(true));
+  return slot;
 }
 
 /** "Main title — subtitle" → [main, subtitle]. */
@@ -980,7 +997,7 @@ function postThumb(post, seed) {
 
 export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 1 }) {
   const wrap = h("section.blog", { "aria-labelledby": "blog-title" });
-  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog", ...followButtons(vm, ctx)));
+  wrap.appendChild(h("div.blog-head", h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog"), followButton(vm, ctx, { compact: true })));
 
   // Most-used tags first, so the useful filters come before the long tail
   const tagCount = new Map();
@@ -1273,8 +1290,8 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   if (pager.children.length) page.appendChild(pager);
 
   // Readers who arrive from a shared link can follow from here
-  const follow = followButtons(vm, ctx, { labels: true });
-  if (follow.length) page.appendChild(h("section.post-follow", h("p", "Follow this blog"), h("div.post-follow-actions", ...follow)));
+  const follow = followButton(vm, ctx);
+  if (follow) page.appendChild(h("section.post-follow", h("p", `Get new posts from ${vm.basics.name || "this blog"}`), follow));
 
   // Outside a series: up to three posts sharing the most tags
   if (!inSeries && post.tags.length) {

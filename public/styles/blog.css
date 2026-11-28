@@ -216,15 +216,6 @@
   }
 }
 
-.blog-feed {
-  margin-left: 0.5rem;
-  color: var(--ink-muted);
-  vertical-align: middle;
-}
-
-.blog-feed:hover {
-  color: var(--color-v);
-}
 
 .post-month {
   padding: 1.5rem 0 0.25rem;
@@ -286,10 +277,45 @@
   font-size: 1.5rem;
 }
 
-.blog-bell[aria-pressed="true"] {
+
+/* ---------- follow: one button (notifications, or a feed reader) ---------- */
+
+.blog-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.blog-head .section-title {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.follow {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.follow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+}
+
+.follow-btn[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--color-v) 45%, transparent);
   color: var(--color-v);
 }
 
-.blog-bell[aria-pressed="true"] svg {
+.follow-btn[aria-pressed="true"] svg {
   fill: currentColor;
+}
+
+.follow-note {
+  max-width: 17rem;
+  padding: 0.5rem 0.6rem 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
 }

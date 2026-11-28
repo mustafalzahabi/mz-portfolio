@@ -9,6 +9,7 @@
 //                where new posts and images go, where publishing writes
 //   Addresses    both public addresses of the portfolio
 //   Editing      README push permission, drafts on this device / in your account
+//   Following    blogs followed here; sync them through this account (optional)
 //   Data         download resume.json, sign out everywhere, forget this device
 // ============================================================================
 
@@ -23,12 +24,17 @@ import { getResumeFilename } from "../data.js";
 import { session, storage, signOutOf, signOutAll, linkNow, unlinkAccount, updateAccountPrefs, createCopyIn } from "../storage.js";
 import { connectProvider, signOut } from "../account.js";
 import { settingsLayout, openOverlay, settingRow, segmented } from "../edit/settings-ui.js";
+import * as subs from "../subscriptions.js";
+import { syncEnabled, setSync, syncFollows } from "../follow-sync.js";
 
 let dialog = null;
 let query = "";
+// Following: loaded when the overlay opens (both live outside the account record)
+let follows = { loaded: false, sync: null, list: [] };
 
 /** Opens the overlay (scrolled to `group`, e.g. "accounts"). */
 export function openAccountSettings(group = "") {
+  follows = { loaded: false, sync: null, list: [] };
   if (dialog) return;
   const s = session();
   if (!s) return toast("Sign in first.", "error");
@@ -220,6 +226,60 @@ function groups(redraw) {
     },
   ] };
 
+  // ---------- Following ----------
+  if (!follows.loaded) {
+    follows.loaded = true;
+    Promise.all([syncEnabled().catch(() => null), subs.list()]).then(([sync, list]) => {
+      follows = { loaded: true, sync: Boolean(sync), list, ready: true };
+      redraw();
+    });
+  }
+  const permission = subs.supported() ? Notification.permission : "unsupported";
+  const followingCard = {
+    name: "following",
+    title: "Blogs you follow",
+    desc: "Following needs no account: it's kept in this browser, and new posts arrive as notifications.",
+    body: h("div.ed-set-body",
+      follows.list.length
+        ? h("ul.ed-follow-list", follows.list.map((b) => h("li",
+            h("a", { href: b.blogUrl }, b.name),
+            button("Unfollow", busy(async () => {
+              await subs.unsubscribe(b.feed);
+              follows.list = follows.list.filter((x) => x.feed !== b.feed);
+            }, redraw)))))
+        : h("p.muted", "You don't follow any blogs on this device yet. Use Follow on a blog to get its new posts."),
+      permission === "default" && follows.list.length
+        ? settingRow("Notifications on this device", button("Allow notifications", busy(async () => {
+            if ((await Notification.requestPermission()) === "granted") toast("Notifications allowed on this device.");
+          }, redraw), "primary", "bell"), "Needed for followed blogs to notify you here.")
+        : permission === "denied"
+          ? h("p.ed-set-status", { dataset: { tone: "warn" } }, svgIcon(ICONS.alert), "Notifications are blocked for this site in your browser settings.")
+          : null),
+  };
+  const syncCard = {
+    name: "follow-sync",
+    title: "Sync followed blogs",
+    desc: "Optional. Every device signed in to this account follows the same blogs. The list is a private file in your own GitHub or Google Drive.",
+    body: h("div.ed-set-body",
+      !follows.ready
+        ? h("p.muted", "Checking…")
+        : settingRow("Sync through this account", segmented([["off", "Off"], ["on", "On"]], follows.sync ? "on" : "off", (v) => {
+            setSync(v === "on")
+              .then(async () => {
+                follows = { loaded: true, ready: true, sync: v === "on", list: await subs.list() };
+                toast(v === "on" ? "Followed blogs now sync with this account." : "Sync is off. Each device keeps its own list.");
+                redraw();
+              })
+              .catch((e) => toast(e.message, "error"));
+          }, "Sync followed blogs")),
+      follows.sync ? h("div.ed-set-actions", button("Sync now", busy(async () => {
+        await syncFollows();
+        follows.list = await subs.list();
+        toast("Synced.");
+      }, redraw))) : null),
+  };
+  const following = subs.supported() ? { id: "following", title: "Following", cards: [followingCard, syncCard] } : null;
+
   // ---------- Data ----------
   const data = { id: "data", title: "Data", cards: [{
     name: "data",
@@ -249,5 +309,5 @@ function groups(redraw) {
       }, "ghost", "trash"), "Drafts on this device that you haven't published or saved are lost.")),
   }] };
 
-  return [accounts, sources, addressCard, editing, data].filter(Boolean);
+  return [accounts, sources, addressCard, editing, following, data].filter(Boolean);
 }

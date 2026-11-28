@@ -659,3 +659,41 @@ export async function createCopyIn(store) {
   accountStore.forgetCache();
   return true;
 }
+
+// ============================================================================
+// FOLLOWED BLOGS, synced (optional): a private file in the signed-in person's
+// own GitHub (secret gist) or Drive (app folder). See follow-sync.js.
+// { enabled, blogs: [{ feed, name, blogUrl, added }], removed: { feed: time } }
+// ============================================================================
+
+const FOLLOWS_FILE = "mz-follows.json";
+
+/** The synced list from every signed-in store, combined; null when there is none. */
+export async function readFollows() {
+  const copies = await Promise.all(STORES.filter(hasToken).map(async (store) => {
+    try {
+      const found = await BACKENDS[store].readPrivate(FOLLOWS_FILE);
+      return found?.text ? JSON.parse(found.text) : null;
+    } catch {
+      return null;
+    }
+  }));
+  const found = copies.filter(Boolean);
+  if (!found.length) return null;
+  const blogs = new Map();
+  const removed = {};
+  for (const c of found) {
+    for (const b of c.blogs || []) if (!blogs.has(b.feed) || b.added > blogs.get(b.feed).added) blogs.set(b.feed, b);
+    for (const [feed, at] of Object.entries(c.removed || {})) if (!removed[feed] || at > removed[feed]) removed[feed] = at;
+  }
+  const newest = found.reduce((a, b) => (String(b.updatedAt) > String(a.updatedAt) ? b : a));
+  return { enabled: Boolean(newest.enabled), blogs: [...blogs.values()], removed };
+}
+
+/** Saves the synced list to every signed-in store. */
+export async function writeFollows(data) {
+  const content = `${JSON.stringify({ ...data, updatedAt: new Date().toISOString() }, null, 2)}
+`;
+  await Promise.all(STORES.filter(hasToken).map((s) =>
+    BACKENDS[s].writePrivate(FOLLOWS_FILE, content, "mz-portfolio followed blogs (synced between your devices)").catch(() => null)));
+}

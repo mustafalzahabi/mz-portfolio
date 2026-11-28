@@ -15,6 +15,7 @@ import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js
 import { collectPortfolioData, localDevPosts } from "./data.js";
 import { postPath, seriesSlug } from "./posts.js";
 import { checkOnVisit } from "./subscriptions.js";
+import { syncFollows } from "./follow-sync.js";
 import { buildViewModel } from "./merge.js";
 import {
   SECTION_BUILDERS,
@@ -654,5 +655,12 @@ export function init() {
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).then(() => checkOnVisit()).catch(() => {});
+    // Signed in with "Sync followed blogs" on: follow what this account follows (at most hourly)
+    try {
+      if (Date.now() - Number(localStorage.getItem("mz-follows-synced") || 0) > 60 * 60 * 1000) {
+        localStorage.setItem("mz-follows-synced", String(Date.now()));
+        syncFollows().catch(() => {});
+      }
+    } catch { /* storage blocked */ }
   }
 }

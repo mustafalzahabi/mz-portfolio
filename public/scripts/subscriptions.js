@@ -67,11 +67,41 @@ export async function subscribe({ feed, name, blogUrl }) {
     if (res.ok) seen = feedItems(await res.text()).map((i) => i.guid);
   } catch { /* offline: the first check marks what it finds */ }
   await tx("readwrite", (s) => s.put({ feed, name, blogUrl, seen, added: new Date().toISOString() }));
+  changed(feed, "follow", { feed, name, blogUrl });
   return (await enableBackgroundChecks()) ? "background" : "on-visit";
+}
+
+/** Followed blogs in this browser: [{ feed, name, blogUrl, added }]. */
+export async function list() {
+  try {
+    return (await tx("readonly", (s) => s.getAll())) || [];
+  } catch {
+    return [];
+  }
+}
+
+/** Follows a blog here without asking (a synced follow from another device). */
+export async function addLocal({ feed, name, blogUrl, added }) {
+  let seen = [];
+  try {
+    const res = await fetch(feed, { cache: "no-store" });
+    if (res.ok) seen = feedItems(await res.text()).map((i) => i.guid);
+  } catch { /* offline: the first check marks what it finds */ }
+  await tx("readwrite", (s) => s.put({ feed, name, blogUrl, seen, added: added || new Date().toISOString() }));
+  if (Notification.permission === "granted") enableBackgroundChecks();
+}
+
+/** Stops following here only (a synced unfollow). */
+export const removeLocal = (feed) => tx("readwrite", (s) => s.delete(feed));
+
+/** Follow/unfollow made here, for account sync (follow-sync.js) to pass on. */
+function changed(feed, action, blog = null) {
+  dispatchEvent(new CustomEvent("mz-follows-changed", { detail: { feed, action, blog } }));
 }
 
 export async function unsubscribe(feed) {
   await tx("readwrite", (s) => s.delete(feed));
+  changed(feed, "unfollow");
   const left = await tx("readonly", (s) => s.count());
   if (!left) {
     const reg = await navigator.serviceWorker.ready;

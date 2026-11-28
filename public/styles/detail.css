@@ -589,20 +589,4 @@
   font-weight: 650;
 }
 
-.post-follow-actions {
-  display: flex;
-  gap: 0.5rem;
-}
 
-.post-follow .blog-feed {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: auto;
-  margin: 0;
-  padding: 0.45rem 0.8rem;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  font-size: 0.9rem;
-  text-decoration: none;
-}
