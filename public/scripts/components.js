@@ -990,24 +990,9 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         (!state.tag || p.tags.includes(state.tag)) &&
         (!q || `${p.title} ${p.description} ${p.tags.join(" ")} ${p.body}`.toLowerCase().includes(q)),
     );
-    // Browsing (no search, no tag): a series shows once, as one card for all its parts
-    const items = [];
-    const seen = new Set();
-    for (const p of filtered) {
-      if (!q && !state.tag && p.series) {
-        if (seen.has(p.series)) continue;
-        const parts = filtered.filter((x) => x.series === p.series);
-        if (parts.length > 1) {
-          seen.add(p.series);
-          items.push({ series: p.series, parts: parts.sort((a, b) => (a.part || 0) - (b.part || 0)) });
-          continue;
-        }
-      }
-      items.push(p);
-    }
-    // Same day: a series card leads the single posts
-    const day = (it) => (it.parts || [it]).map((p) => String(p.date).slice(0, 10)).sort().pop();
-    items.sort((x, y) => day(y).localeCompare(day(x)) || (y.parts ? 1 : 0) - (x.parts ? 1 : 0));
+    // Every post is its own row (already newest first, series parts in order)
+    const items = filtered;
+    const day = (p) => String(p.date).slice(0, 10);
     const per = cfg.blog.perPage;
     const pages = Math.max(1, Math.ceil(items.length / per));
     state.page = Math.min(state.page, pages);
@@ -1030,25 +1015,14 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
         const d = new Date(`${lastMonth}-01T00:00:00`);
         list.appendChild(h("h3.post-month", Number.isNaN(d.getTime()) ? lastMonth : d.toLocaleDateString(ctx.locale || undefined, { month: "long", year: "numeric" })));
       }
-      if (item.parts) {
-        const first = item.parts[0];
-        const minutes = item.parts.reduce((n, p) => n + readingTime(p.body), 0);
-        const card = h("article.post-card.series-card");
-        const bodyEl = h("div.post-card-body");
-        bodyEl.appendChild(h("p.post-series", "Series"));
-        bodyEl.appendChild(h("h3.post-title", h("a", { href: href(first) }, noBreakHyphens(item.series))));
-        bodyEl.appendChild(h("p.post-meta", `${item.parts.length} parts · ${minutes} min read`));
-        bodyEl.appendChild(h("p.post-excerpt", "Starts with ", h("a.series-start", { href: href(first) }, noBreakHyphens(splitTitle(first.title)[0])), item.parts[1] ? `, then ${splitTitle(item.parts[1].title)[0]}${item.parts.length > 2 ? " and more" : ""}.` : "."));
-        card.appendChild(bodyEl);
-        card.appendChild(postThumb(first, item.series));
-        list.appendChild(card);
-        continue;
-      }
       const post = item;
       const [title, subtitle] = splitTitle(post.title);
       const card = h("article.post-card");
       const bodyEl = h("div.post-card-body");
-      if (post.series) bodyEl.appendChild(h("p.post-series", post.part ? `${post.series} · Part ${post.part}` : post.series));
+      if (post.series) {
+        const total = vm.posts.filter((p) => p.series === post.series).length;
+        bodyEl.appendChild(h("p.post-series", post.part && total > 1 ? `Part ${post.part} of ${total} · ${post.series}` : post.series));
+      }
       bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, markMatches(noBreakHyphens(title), q.replace(/-/g, "‑")))));
       if (subtitle) bodyEl.appendChild(h("p.post-subtitle", markMatches(subtitle, q)));
       bodyEl.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
