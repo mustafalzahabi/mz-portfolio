@@ -881,6 +881,15 @@ export function buildFooter(vm, cfg, ctx) {
 // BLOG
 // ============================================================================
 
+/** The blog list showing one series, keeping the page's other query parameters. */
+function seriesHref(base, series) {
+  const params = new URLSearchParams(location.search);
+  if (series) params.set("series", series);
+  else params.delete("series");
+  const qs = params.toString().replace(/=(?=&|$)/g, "");
+  return `${base}/blog${qs ? `?${qs}` : ""}`;
+}
+
 /** "Main title — subtitle" → [main, subtitle]. */
 export function splitTitle(title) {
   const m = String(title).match(/^(.+?)\s+[—–]\s+(.+)$/);
@@ -981,6 +990,16 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     controls.appendChild(chips);
   }
   if (controls.children.length) wrap.appendChild(controls);
+  // A series opened from a post (?series=…) or from a row's series label
+  const fromUrl = new URLSearchParams(location.search).get("series");
+  state.series = fromUrl && vm.posts.some((p) => p.series === fromUrl) ? fromUrl : "";
+  const showSeries = (name) => {
+    state.series = name;
+    state.page = 1;
+    history.replaceState(history.state, "", seriesHref(ctx.base, name));
+    renderResults();
+    wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   wrap.appendChild(results);
 
   function renderResults() {
@@ -988,10 +1007,12 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     const filtered = vm.posts.filter(
       (p) =>
         (!state.tag || p.tags.includes(state.tag)) &&
+        (!state.series || p.series === state.series) &&
         (!q || `${p.title} ${p.description} ${p.tags.join(" ")} ${p.body}`.toLowerCase().includes(q)),
     );
     // Every post is its own row (already newest first, series parts in order)
-    const items = filtered;
+    // One series: its parts in reading order
+    const items = state.series ? [...filtered].sort((a, b) => (a.part || 0) - (b.part || 0)) : filtered;
     const day = (p) => String(p.date).slice(0, 10);
     const per = cfg.blog.perPage;
     const pages = Math.max(1, Math.ceil(items.length / per));
@@ -999,6 +1020,15 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     const slice = items.slice((state.page - 1) * per, state.page * per);
 
     results.replaceChildren();
+    if (state.series) {
+      const all = vm.posts.filter((p) => p.series === state.series);
+      results.appendChild(h("div.series-head",
+        h("div",
+          h("p.post-series", "Series"),
+          h("h3.series-name", state.series),
+          h("p.post-meta", `${all.length} parts · ${all.reduce((n, p) => n + readingTime(p.body), 0)} min read`)),
+        h("button.btn.btn-ghost", { type: "button", onclick: () => showSeries("") }, "All posts")));
+    }
     if (!slice.length) {
       results.appendChild(h("p.empty", "No posts match."));
       return;
@@ -1021,7 +1051,10 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
       const bodyEl = h("div.post-card-body");
       if (post.series) {
         const total = vm.posts.filter((p) => p.series === post.series).length;
-        bodyEl.appendChild(h("p.post-series", post.part && total > 1 ? `Part ${post.part} of ${total} · ${post.series}` : post.series));
+        const label = post.part && total > 1 ? [h("span.series-label-name", post.series), ` · Part ${post.part} of ${total}`] : post.series;
+        bodyEl.appendChild(state.series
+          ? h("p.post-series", `Part ${post.part || "?"} of ${total}`)
+          : h("button.post-series.series-link", { type: "button", title: `All parts of ${post.series}`, onclick: () => showSeries(post.series) }, label));
       }
       bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, markMatches(noBreakHyphens(title), q.replace(/-/g, "‑")))));
       if (subtitle) bodyEl.appendChild(h("p.post-subtitle", markMatches(subtitle, q)));
@@ -1071,6 +1104,11 @@ export function buildBlogPost(post, vm, cfg, ctx) {
 
   const head = h("header.detail-head");
   const [mainTitle, subtitle] = splitTitle(post.title);
+  const seriesCount = post.series ? vm.posts.filter((p) => p.series === post.series).length : 0;
+  if (seriesCount > 1) {
+    head.appendChild(h("a.post-kicker", { href: seriesHref(ctx.base, post.series), title: `All parts of ${post.series}` },
+      h("span.series-label-name", post.series), post.part ? ` · Part ${post.part} of ${seriesCount}` : ""));
+  }
   head.appendChild(h("h1.detail-title", noBreakHyphens(mainTitle)));
   if (subtitle) head.appendChild(h("p.detail-subtitle", subtitle));
   head.appendChild(
@@ -1087,10 +1125,11 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   // Series: where this post sits, and the whole reading order one click away
   const series = post.series ? vm.posts.filter((p) => p.series === post.series).sort((a, b) => (a.part || 0) - (b.part || 0)) : [];
   if (series.length > 1) {
-    const pos = series.indexOf(post) + 1;
     const box = h("details.post-series-box");
-    box.appendChild(h("summary", h("span.muted", `Part ${post.part || pos} of ${series.length}`), " · ", h("strong", post.series)));
-    box.appendChild(h("ol", series.map((p) => h("li", p === post ? h("span", { "aria-current": "page" }, p.title) : h("a", { href: postHref(p) }, p.title)))));
+    box.appendChild(h("summary", `Browse all ${series.length} parts`));
+    box.appendChild(h("ol", series.map((p) => h("li", p === post
+      ? h("span", { "aria-current": "page" }, noBreakHyphens(splitTitle(p.title)[0]), h("span.muted", " · you are here"))
+      : h("a", { href: postHref(p) }, noBreakHyphens(splitTitle(p.title)[0]))))));
     main.appendChild(box);
   }
 

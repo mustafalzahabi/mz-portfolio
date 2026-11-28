@@ -542,3 +542,22 @@
 :root[data-scheme="dark"] .post-detail .prose img {
   background: var(--color-c);
 }
+
+/* ---------- series label above the title ---------- */
+
+.post-kicker {
+  justify-self: start;
+  color: var(--color-a);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.post-kicker:hover .series-label-name {
+  text-decoration: underline;
+}
+
+.post-series-box [aria-current] .muted {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
