@@ -62,6 +62,7 @@ const state = {
   introPlayed: false,
   profileScroll: 0,
   blogState: { query: "", tag: "", page: 1 },
+  blogScroll: 0,
   resumeOverlay: null,
 };
 
@@ -207,6 +208,7 @@ function resetPortfolio() {
   state.introPlayed = false;
   state.profileScroll = 0;
   state.blogState = { query: "", tag: "", page: 1 };
+  state.blogScroll = 0;
   setOwnerDefault("auto");
 }
 
@@ -268,6 +270,8 @@ function ctx() {
     photo: state.photo,
     bannerImage: state.banner,
     homeHref: BASE_PATH,
+    // GitHub-backed portfolios have an RSS feed (functions/_post-meta.js)
+    feedHref: /^(gh|auto):/.test(state.key || "") ? `${state.base}/feed.xml` : "",
     embedded: EMBEDDED,
     openResume: () => navigate(`${state.base}/resume${isEditing() ? "?edit" : ""}`),
   };
@@ -338,6 +342,7 @@ function renderSub(sub) {
   // Posts get the slim page bar too, so the article starts near the top
   if (sub.name === "post" && config.blog.enabled && vm.posts.length > 0) {
     const post = vm.posts.find((p) => p.slug === sub.param);
+    if (state.page === "blog") state.blogScroll = scrollY; // back to the same spot in the list
     ensureShell("post");
     teardownAnimations();
     showView(
@@ -371,7 +376,14 @@ function renderSub(sub) {
   const back = (msg) => notFoundInline(msg, state.base, config.text.tabs.profile || "Profile");
 
   if (sub.name === "blog" && blogOn) {
+    const fresh = state.page !== "blog";
     showView("blog", buildBlogList(vm, config, ctx(), state.blogState), `${config.text.tabs.blog || "Blog"} — ${vm.basics.name}`);
+    if (fresh && state.blogScroll) {
+      const top = state.blogScroll;
+      scrollTo({ top });
+      requestAnimationFrame(() => scrollTo({ top })); // again once late layout settles
+      state.blogScroll = 0;
+    }
   } else if (sub.name === "tab") {
     // Link tabs have no page, except while editing (where they're set up)
     const tab = config.tabs.find((t) => t.slug === sub.param && (t.type !== "link" || isEditing()));

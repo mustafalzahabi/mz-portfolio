@@ -220,3 +220,13 @@
     font-size: 1.3rem;
   }
 }
+
+.blog-feed {
+  margin-left: 0.5rem;
+  color: var(--ink-muted);
+  vertical-align: middle;
+}
+
+.blog-feed:hover {
+  color: var(--color-v);
+}

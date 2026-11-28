@@ -379,3 +379,37 @@
   justify-content: stretch;
   text-align: right;
 }
+
+/* ---------- enlarge pictures ---------- */
+
+.post-detail .prose img.zoomable {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  max-width: 96vw;
+  max-height: 96vh;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--color-b);
+  cursor: zoom-out;
+}
+
+.lightbox::backdrop {
+  background: color-mix(in oklab, var(--color-c) 80%, transparent);
+}
+
+.lightbox img {
+  display: block;
+  max-width: 96vw;
+  max-height: 96vh;
+  object-fit: contain;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--color-b);
+}

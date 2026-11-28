@@ -910,7 +910,8 @@ function postThumb(post, seed) {
 
 export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 1 }) {
   const wrap = h("section.blog", { "aria-labelledby": "blog-title" });
-  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog"));
+  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog",
+    ctx.feedHref ? h("a.icon-btn.blog-feed", { href: ctx.feedHref, "aria-label": "RSS feed", title: "RSS feed" }, svgIcon(ICONS.rss)) : null));
 
   // Most-used tags first, so the useful filters come before the long tail
   const tagCount = new Map();
@@ -1092,6 +1093,25 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   if (post.image) main.appendChild(h("img.post-cover", { src: post.image, alt: "", decoding: "async" }));
   const body = h("div.prose");
   body.innerHTML = markdownToHtml(post.body.replace(new RegExp(`^#\\s+${post.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n`), ""));
+
+  // Pictures open full size (diagrams are hard to read at text width)
+  for (const img of body.querySelectorAll("img")) {
+    img.classList.add("zoomable");
+    img.tabIndex = 0;
+    img.setAttribute("role", "button");
+    img.setAttribute("aria-label", `Enlarge image${img.alt ? `: ${img.alt}` : ""}`);
+    const open = () => {
+      const dlg = h("dialog.lightbox", { "aria-label": img.alt || "Image" },
+        h("img", { src: img.currentSrc || img.src, alt: img.alt }),
+        h("button.icon-btn.lightbox-close", { type: "button", "aria-label": "Close" }, svgIcon(ICONS.close)));
+      dlg.addEventListener("click", () => dlg.close());
+      dlg.addEventListener("close", () => { dlg.remove(); img.focus(); });
+      document.body.appendChild(dlg);
+      dlg.showModal();
+    };
+    img.addEventListener("click", open);
+    img.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  }
 
   // Table of contents from the ## headings, for posts long enough to need one
   const headings = [...body.querySelectorAll("h2")];
