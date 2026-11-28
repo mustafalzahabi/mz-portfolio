@@ -14,6 +14,7 @@ import { initTheme, setOwnerDefault } from "./theme.js";
 import { normalizeConfig, applyStyleConfig, resetStyleConfig } from "./config.js";
 import { collectPortfolioData, localDevPosts } from "./data.js";
 import { postPath, seriesSlug } from "./posts.js";
+import { checkOnVisit } from "./subscriptions.js";
 import { buildViewModel } from "./merge.js";
 import {
   SECTION_BUILDERS,
@@ -652,6 +653,6 @@ export function init() {
   } else onNavigate();
 
   if ("serviceWorker" in navigator && location.protocol === "https:") {
-    navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).catch(() => {});
+    navigator.serviceWorker.register(new URL("../sw.js", import.meta.url), { scope: BASE_PATH }).then(() => checkOnVisit()).catch(() => {});
   }
 }

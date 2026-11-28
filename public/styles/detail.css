@@ -568,3 +568,41 @@
   overflow-wrap: normal;
   white-space: nowrap;
 }
+
+/* ---------- follow this blog ---------- */
+
+.post-follow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--reading-width);
+  margin-inline: auto;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+}
+
+.post-follow p {
+  font-weight: 650;
+}
+
+.post-follow-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.post-follow .blog-feed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: auto;
+  margin: 0;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}

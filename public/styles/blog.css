@@ -285,3 +285,11 @@
 .series-name {
   font-size: 1.5rem;
 }
+
+.blog-bell[aria-pressed="true"] {
+  color: var(--color-v);
+}
+
+.blog-bell[aria-pressed="true"] svg {
+  fill: currentColor;
+}

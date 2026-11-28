@@ -5,7 +5,7 @@
 // revalidate. GitHub API calls are not cached here (the app uses ETags).
 // ============================================================================
 
-const CACHE_NAME = "mz-portfolio-v44";
+const CACHE_NAME = "mz-portfolio-v45";
 const SHELL = "/index.html";
 // Everything the app loads, so a first visit works offline. tools/check.mjs
 // keeps this list in sync with the files on disk.
@@ -66,6 +66,7 @@ const urlsToCache = [
   "/scripts/log.js",
   "/scripts/latex.js",
   "/scripts/highlight.js",
+  "/scripts/subscriptions.js",
   "/scripts/markdown.js",
   "/scripts/merge.js",
   "/scripts/palette.js",
@@ -153,4 +154,85 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin === self.location.origin) event.respondWith(networkFirst(request));
   else if (RUNTIME_HOSTS.includes(url.hostname)) event.respondWith(staleWhileRevalidate(request));
+});
+
+// ============================================================================
+// BLOG SUBSCRIPTIONS (see scripts/subscriptions.js). The followed blogs live in
+// this browser's IndexedDB only; this checks their RSS feeds in the background
+// (periodicsync) or when the site asks (message), and notifies of new posts.
+// ============================================================================
+
+const SUBS_DB = "mz-subscriptions";
+
+function subsStore(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SUBS_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("blogs", { keyPath: "feed" });
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const t = req.result.transaction("blogs", mode);
+      const r = fn(t.objectStore("blogs"));
+      t.oncomplete = () => resolve(r && r.result);
+      t.onerror = () => reject(t.error);
+    };
+  });
+}
+
+function feedItems(xml) {
+  const unescape = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+  const tag = (block, name) => {
+    const m = block.match(new RegExp("<" + name + "[^>]*>([\s\S]*?)</" + name + ">"));
+    return m ? unescape(m[1].trim()) : "";
+  };
+  return [...String(xml).matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, block]) => {
+    const link = tag(block, "link");
+    return { title: tag(block, "title"), link, guid: tag(block, "guid") || link };
+  });
+}
+
+async function checkSubscriptions() {
+  if (self.Notification && Notification.permission !== "granted") return;
+  const blogs = (await subsStore("readonly", (s) => s.getAll())) || [];
+  for (const blog of blogs) {
+    try {
+      const res = await fetch(blog.feed, { cache: "no-store" });
+      if (!res.ok) continue;
+      const items = feedItems(await res.text());
+      const fresh = items.filter((i) => !blog.seen.includes(i.guid));
+      if (!fresh.length) continue;
+      const one = fresh.length === 1;
+      await self.registration.showNotification(one ? `New post · ${blog.name}` : `${fresh.length} new posts · ${blog.name}`, {
+        body: one ? fresh[0].title : fresh.slice(0, 3).map((i) => i.title).join("\n"),
+        icon: "/assets/images/logo.svg",
+        tag: blog.feed,
+        data: { url: one ? fresh[0].link : blog.blogUrl },
+      });
+      blog.seen = [...new Set([...items.map((i) => i.guid), ...blog.seen])].slice(0, 500);
+      await subsStore("readwrite", (s) => s.put(blog));
+    } catch {
+      // offline or the feed moved: try again next time
+    }
+  }
+}
+
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "mz-blog-check") event.waitUntil(checkSubscriptions());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "mz-check-subscriptions") event.waitUntil(checkSubscriptions());
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const win = wins.find((w) => new URL(w.url).origin === self.location.origin);
+    if (win) {
+      await win.focus();
+      return win.navigate(url).catch(() => self.clients.openWindow(url));
+    }
+    return self.clients.openWindow(url);
+  })());
 });

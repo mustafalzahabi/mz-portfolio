@@ -12,6 +12,7 @@ import { h, svgIcon, formatDate, formatDateRange, copyText, downloadFile, toast,
 import { markdownToHtml, markdownToText } from "./markdown.js";
 import { highlightBlocks, tokenizeCode, languageOf } from "./highlight.js";
 import { postPath, seriesSlug } from "./posts.js";
+import * as subs from "./subscriptions.js";
 import { ICONS, networkIcon, logoImg } from "./icons.js";
 import { findProfile, isRepoHidden } from "./merge.js";
 import { buildThemeToggle } from "./theme.js";
@@ -897,6 +898,44 @@ function withPage(n) {
   return `${location.pathname}${qs ? `?${qs}` : ""}`;
 }
 
+/**
+ * Follow this blog without an account: a bell (notifications, remembered only
+ * in this browser, see subscriptions.js) and the RSS feed. GitHub portfolios only,
+ * since the feed comes from their gists.
+ */
+function followButtons(vm, ctx, { labels = false } = {}) {
+  if (!ctx.feedHref) return [];
+  const feed = new URL(ctx.feedHref, location.origin).href;
+  const rss = h("a.icon-btn.blog-feed", { href: ctx.feedHref, "aria-label": "RSS feed", title: "RSS feed" }, svgIcon(ICONS.rss), labels ? h("span", "RSS") : null);
+  if (!subs.supported()) return [rss];
+  const label = h("span", labels ? "Notify me" : "");
+  const bell = h("button.icon-btn.blog-feed.blog-bell", { type: "button", "aria-pressed": "false", "aria-label": "Notify me of new posts", title: "Notify me of new posts" }, svgIcon(ICONS.bell), labels ? label : null);
+  const show = (on) => {
+    bell.setAttribute("aria-pressed", String(on));
+    const text = on ? "Notifications on (click to stop)" : "Notify me of new posts";
+    bell.title = text;
+    bell.setAttribute("aria-label", text);
+    if (labels) label.textContent = on ? "Notifications on" : "Notify me";
+  };
+  subs.isSubscribed(feed).then(show);
+  bell.addEventListener("click", async () => {
+    if (bell.getAttribute("aria-pressed") === "true") {
+      await subs.unsubscribe(feed);
+      show(false);
+      toast("Notifications off for this blog");
+      return;
+    }
+    const mode = await subs.subscribe({ feed, name: vm.basics.name || "Blog", blogUrl: `${location.origin}${ctx.base}/blog` }).catch(() => "error");
+    if (mode === "denied") return toast("Notifications are blocked for this site in your browser settings");
+    if (mode === "error") return toast("Couldn't turn on notifications here. The RSS feed works in any feed reader.");
+    show(true);
+    toast(mode === "background"
+      ? "Subscribed. You'll get a notification when a new post is out."
+      : "Subscribed. You'll be notified when you next open this site. Install it as an app (Chrome or Edge) for alerts in the background, or use the RSS feed.");
+  });
+  return [bell, rss];
+}
+
 /** "Main title — subtitle" → [main, subtitle]. */
 export function splitTitle(title) {
   const m = String(title).match(/^(.+?)\s+[—–]\s+(.+)$/);
@@ -941,8 +980,7 @@ function postThumb(post, seed) {
 
 export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 1 }) {
   const wrap = h("section.blog", { "aria-labelledby": "blog-title" });
-  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog",
-    ctx.feedHref ? h("a.icon-btn.blog-feed", { href: ctx.feedHref, "aria-label": "RSS feed", title: "RSS feed" }, svgIcon(ICONS.rss)) : null));
+  wrap.appendChild(h("h2.section-title", { id: "blog-title" }, cfg.text.tabs.blog || "Blog", ...followButtons(vm, ctx)));
 
   // Most-used tags first, so the useful filters come before the long tail
   const tagCount = new Map();
@@ -1233,6 +1271,10 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   if (before) pager.appendChild(pagerCard(before, "pager-prev", inSeries ? "← Previous part" : "← Older"));
   if (after) pager.appendChild(pagerCard(after, "pager-next", inSeries ? "Next part →" : "Newer →"));
   if (pager.children.length) page.appendChild(pager);
+
+  // Readers who arrive from a shared link can follow from here
+  const follow = followButtons(vm, ctx, { labels: true });
+  if (follow.length) page.appendChild(h("section.post-follow", h("p", "Follow this blog"), h("div.post-follow-actions", ...follow)));
 
   // Outside a series: up to three posts sharing the most tags
   if (!inSeries && post.tags.length) {
