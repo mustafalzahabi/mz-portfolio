@@ -12,6 +12,15 @@
   ! Content-Security-Policy
   Content-Security-Policy: frame-ancestors 'self'
 
+# AI lab: runs a language model in the page (WebAssembly, threads), so it may
+# load the engine from jsDelivr and the model from Hugging Face, and is
+# cross-origin isolated for multi-threading.
+/lab/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://huggingface.co https://*.huggingface.co https://*.hf.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+
 # The page CSP would also bind the service worker's own fetches (connect-src)
 # and block avatar images it proxies; the worker only fetches what pages ask for.
 /sw.js
