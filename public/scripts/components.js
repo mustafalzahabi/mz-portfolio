@@ -895,6 +895,21 @@ export function postImage(post) {
   return post.image || post.body.match(/!\[[^\]]*\]\(\s*<?([^)\s>]+)/)?.[1] || null;
 }
 
+/** Text with every match of q wrapped in <mark>. */
+function markMatches(text, q) {
+  text = String(text);
+  if (!q) return text;
+  const out = [];
+  const lower = text.toLowerCase();
+  let at = 0;
+  for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, at)) {
+    out.push(text.slice(at, i), h("mark", text.slice(i, i + q.length)));
+    at = i + q.length;
+  }
+  out.push(text.slice(at));
+  return out;
+}
+
 const seedTone = (seed) => [...String(seed)].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7) % 3;
 
 /** A card's picture; posts without one get a generated cover in the palette. */
@@ -1005,8 +1020,17 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
     }
     const href = (p) => `${ctx.base}/blog/${encodeURIComponent(p.slug)}`;
     const list = h("div.post-list");
+    // Archive: month headings, once the posts span more than one month
+    const month = (it) => day(it).slice(0, 7);
+    const months = new Set(items.map(month));
+    let lastMonth = "";
     for (const item of slice) {
-      if (item.series) {
+      if (months.size > 1 && month(item) !== lastMonth) {
+        lastMonth = month(item);
+        const d = new Date(`${lastMonth}-01T00:00:00`);
+        list.appendChild(h("h3.post-month", Number.isNaN(d.getTime()) ? lastMonth : d.toLocaleDateString(ctx.locale || undefined, { month: "long", year: "numeric" })));
+      }
+      if (item.parts) {
         const first = item.parts[0];
         const minutes = item.parts.reduce((n, p) => n + readingTime(p.body), 0);
         const card = h("article.post-card.series-card");
@@ -1025,13 +1049,19 @@ export function buildBlogList(vm, cfg, ctx, state = { query: "", tag: "", page: 
       const card = h("article.post-card");
       const bodyEl = h("div.post-card-body");
       if (post.series) bodyEl.appendChild(h("p.post-series", post.part ? `${post.series} · Part ${post.part}` : post.series));
-      bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, noBreakHyphens(title))));
-      if (subtitle) bodyEl.appendChild(h("p.post-subtitle", subtitle));
+      bodyEl.appendChild(h("h3.post-title", h("a", { href: href(post) }, markMatches(noBreakHyphens(title), q.replace(/-/g, "‑")))));
+      if (subtitle) bodyEl.appendChild(h("p.post-subtitle", markMatches(subtitle, q)));
       bodyEl.appendChild(h("p.post-meta", formatDate(String(post.date).slice(0, 10), ctx.locale, { long: true }), " · ", `${readingTime(post.body)} min read`));
       // A description is shown whole; only text cut from the body gets "…"
       const text = post.description ? "" : markdownToText(post.body);
-      const excerpt = post.description || (text.length > 180 ? `${text.slice(0, 180).replace(/\s+\S*$/, "")}…` : text);
-      if (excerpt) bodyEl.appendChild(h("p.post-excerpt", excerpt));
+      let excerpt = post.description || (text.length > 180 ? `${text.slice(0, 180).replace(/\s+\S*$/, "")}…` : text);
+      // Searching: when the match is only in the text, show the passage around it
+      if (q && !`${post.title} ${excerpt}`.toLowerCase().includes(q)) {
+        const full = markdownToText(post.body);
+        const i = full.toLowerCase().indexOf(q);
+        if (i !== -1) excerpt = `…${full.slice(Math.max(0, i - 70), i + q.length + 110).replace(/^\S*\s/, "").replace(/\s\S*$/, "")}…`;
+      }
+      if (excerpt) bodyEl.appendChild(h("p.post-excerpt", markMatches(excerpt, q)));
       if (cfg.blog.showTags) {
         const tl = postTags(post.tags);
         if (tl) bodyEl.appendChild(tl);
@@ -1113,16 +1143,39 @@ export function buildBlogPost(post, vm, cfg, ctx) {
     img.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   }
 
+  // Code blocks get a copy button
+  for (const pre of body.querySelectorAll("pre")) {
+    const btn = h("button.icon-btn.code-copy", { type: "button", "aria-label": "Copy code", title: "Copy code" }, svgIcon(ICONS.copy));
+    btn.addEventListener("click", async () => {
+      const ok = await copyText(pre.querySelector("code")?.textContent ?? pre.textContent);
+      btn.replaceChildren(svgIcon(ok ? ICONS.check : ICONS.alert));
+      setTimeout(() => btn.replaceChildren(svgIcon(ICONS.copy)), 1500);
+    });
+    pre.before(h("div.code-wrap", btn));
+    btn.parentElement.prepend(pre);
+  }
+
   // Table of contents from the ## headings, for posts long enough to need one
   const headings = [...body.querySelectorAll("h2")];
+  const usedIds = new Set();
+  for (const hd of body.querySelectorAll("h2, h3")) {
+    let id = `s-${hd.textContent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section"}`;
+    while (usedIds.has(id)) id += "-";
+    usedIds.add(id);
+    hd.id = id;
+    // A # beside each heading links straight to it
+    hd.appendChild(h("a.heading-anchor", { href: `#${id}`, "aria-label": `Link to “${hd.textContent}”`, onclick: async (e) => {
+      e.preventDefault();
+      history.replaceState(history.state, "", `#${id}`);
+      hd.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (await copyText(location.href)) toast("Link to section copied");
+    } }, "#"));
+  }
   if (headings.length >= 3) {
-    const used = new Set();
     const items = headings.map((hd) => {
-      let id = `s-${hd.textContent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section"}`;
-      while (used.has(id)) id += "-";
-      used.add(id);
-      hd.id = id;
-      return h("li", h("a", { href: `#${id}`, onclick: (e) => { e.preventDefault(); hd.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(history.state, "", `#${id}`); } }, hd.textContent));
+      const id = hd.id;
+      const label = hd.textContent.replace(/#$/, "");
+      return h("li", h("a", { href: `#${id}`, onclick: (e) => { e.preventDefault(); hd.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(history.state, "", `#${id}`); } }, label));
     });
     // Open beside the article on wide screens; a one-line toggle above it on phones
     const toc = h("details.post-toc", { open: matchMedia("(min-width: 1100px)").matches });
@@ -1163,6 +1216,25 @@ export function buildBlogPost(post, vm, cfg, ctx) {
   if (after) pager.appendChild(pagerCard(after, "pager-next", inSeries ? "Next part →" : "Newer →"));
   if (pager.children.length) page.appendChild(pager);
 
+  // Outside a series: up to three posts sharing the most tags
+  if (!inSeries && post.tags.length) {
+    const related = vm.posts
+      .filter((p) => p !== post)
+      .map((p) => ({ p, n: p.tags.filter((t) => post.tags.includes(t)).length }))
+      .filter((x) => x.n)
+      .sort((a, b) => b.n - a.n || new Date(b.p.date) - new Date(a.p.date))
+      .slice(0, 3);
+    if (related.length) {
+      page.appendChild(h("section.related", { "aria-labelledby": "related-title" },
+        h("h2.related-title", { id: "related-title" }, "Related posts"),
+        h("ul", related.map(({ p }) => h("li", h("a", { href: postHref(p) }, noBreakHyphens(splitTitle(p.title)[0])), p.description ? h("span.muted", p.description) : null)))));
+    }
+  }
+
+  // Back to top, once the reader is well into a long post
+  const toTop = h("button.icon-btn.to-top", { type: "button", "aria-label": "Back to top", title: "Back to top", hidden: true, onclick: () => scrollTo({ top: 0, behavior: "smooth" }) }, svgIcon(ICONS.arrowLeft));
+  page.appendChild(toTop);
+
   // Reading progress, a thin bar under the top edge
   const bar = h("div.read-progress", { "aria-hidden": "true" });
   page.prepend(bar);
@@ -1171,6 +1243,7 @@ export function buildBlogPost(post, vm, cfg, ctx) {
     const r = main.getBoundingClientRect();
     const done = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight)));
     bar.style.transform = `scaleX(${done})`;
+    toTop.hidden = scrollY < innerHeight * 1.5;
   };
   addEventListener("scroll", onScroll, { passive: true });
   requestAnimationFrame(onScroll);

@@ -230,3 +230,24 @@
 .blog-feed:hover {
   color: var(--color-v);
 }
+
+.post-month {
+  padding: 1.5rem 0 0.25rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.post-list mark {
+  border-radius: 0.2em;
+  background: color-mix(in oklab, var(--color-a) 30%, transparent);
+  color: inherit;
+}
+
+/* Diagrams are often transparent and drawn in dark ink: keep them on light */
+:root[data-scheme="dark"] .post-thumb:not(.is-generated),
+:root[data-scheme="dark"] .post-thumb img {
+  background: var(--color-c);
+}
